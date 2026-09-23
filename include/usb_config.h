@@ -1,21 +1,18 @@
 /**
- * @file board.h
+ * @file usb_config.h
  * @author Links (lhd@wch.cn)
- * @brief Board support package
+ * @brief USB driver configuration header file
  *
  * @copyright Copyright (c) 2026
  *
  */
 
-#ifndef BOARD_H
-#define BOARD_H
+#ifndef USB_CONFIG_H
+#define USB_CONFIG_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/* @function declaration */
-void board_init(void);
 
 #ifdef __cplusplus
 }

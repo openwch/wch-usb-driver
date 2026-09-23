@@ -1,21 +1,18 @@
 /**
- * @file board.h
+ * @file usbd_core_public.h
  * @author Links (lhd@wch.cn)
- * @brief Board support package
+ * @brief USB device core public header file
  *
  * @copyright Copyright (c) 2026
  *
  */
 
-#ifndef BOARD_H
-#define BOARD_H
+#ifndef USBD_CORE_PUBLIC_H
+#define USBD_CORE_PUBLIC_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/* @function declaration */
-void board_init(void);
 
 #ifdef __cplusplus
 }

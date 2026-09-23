@@ -33,7 +33,9 @@ MAP_FILE := $(OUTPUT_DIR)/$(TARGET).map
 LST_FILE := $(OUTPUT_DIR)/$(TARGET).lst
 
 # --- Include Directories ---
-INCLUDES := $(ROOT_DIR)/include
+INCLUDES := \
+	$(ROOT_DIR)/include \
+	$(ROOT_DIR)/port/usbhs
 
 # --- Assembly Source Directories ---
 ASM_DIR :=
@@ -69,7 +71,8 @@ include $(CHIP_MK)
 # --- Add C Source Files Directories ---
 SRC_DIR += \
 	$(abspath src) \
-	$(ROOT_DIR)/src
+	$(ROOT_DIR)/src \
+	$(ROOT_DIR)/port/usbhs
 
 # --- Add Assembly Source Files ---
 ASMS += $(foreach dir,$(ASM_DIR),$(wildcard $(dir)/*.S))

@@ -284,8 +284,12 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
             }
         }
     }
-    else
+    else if (endp_ctx->cb)
     {
+        if (endp_ctx->cb(h, ctx->xfer.endp, endp_ctx->xfer_buf, endp_ctx->xfer_ofs))
+        {
+            h->endp_transfer(h, ctx->xfer.endp, endp_ctx->xfer_buf, endp_ctx->xfer_len);
+        }
     }
 }
 

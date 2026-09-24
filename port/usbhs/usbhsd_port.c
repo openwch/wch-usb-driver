@@ -88,10 +88,14 @@ void usbhsd_event_handle(usbd_handle_t *h)
             }
             else if (num == 0)
             {
+                size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
+                USBHSD->UEP0_TX_LEN = USB_MIN(len, ep_ctx->mps);
                 USBHSD->UEP0_DMA = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
             }
             else
             {
+                size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
+                ENDP_TX_LEN(num) = USBHSD->UEP_TX_BURST & (1 << num) ? USB_MIN(len, 65535) : USB_MIN(len, ep_ctx->mps);
                 ENDP_TX_DMA_ADDR(num) = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
             }
         }
@@ -113,10 +117,14 @@ void usbhsd_event_handle(usbd_handle_t *h)
             }
             else if (num == 0)
             {
+                size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
+                USBHSD->UEP0_TX_LEN = USB_MIN(len, ep_ctx->mps);
                 USBHSD->UEP0_DMA = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
             }
             else
             {
+                size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
+                ENDP_RX_LEN(num) = USBHSD->UEP_RX_BURST & (1 << num) ? USB_MIN(len, 65535) : USB_MIN(len, ep_ctx->mps);
                 ENDP_RX_DMA_ADDR(num) = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
             }
         }
@@ -378,6 +386,18 @@ static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t l
     }
     else
     {
+        if (dir)
+        {
+            ENDP_TX_DMA_ADDR(num) = (uint32_t)buf;
+            ENDP_TX_LEN(num) = USBHSD->UEP_TX_BURST & (1 << num) ? USB_MIN(len, 65535) : USB_MIN(len, ctx->mps);
+            ENDP_TX_CTRL(num) = (ENDP_TX_CTRL(num) & ~USBHS_UEP_T_RES_MASK) | USBHS_UEP_T_RES_ACK;
+        }
+        else
+        {
+            ENDP_RX_DMA_ADDR(num) = (uint32_t)buf;
+            ENDP_RX_LEN(num) = USBHSD->UEP_RX_BURST & (1 << num) ? USB_MIN(len, 65535) : USB_MIN(len, ctx->mps);
+            ENDP_RX_CTRL(num) = (ENDP_RX_CTRL(num) & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK;
+        }
     }
 
     return true;

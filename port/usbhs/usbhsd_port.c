@@ -65,20 +65,29 @@ void usbhsd_event_handle(usbd_handle_t *h)
         /* Setup packet transfer complete */
         if (num == 0 && !dir && (ENDP_RX_CTRL(0) & USBHS_UEP_R_SETUP_IS))
         {
+            /* Clear the transfer complete flag */
             ENDP_RX_CTRL(0) &= ~USBHS_UEP_R_DONE;
+
+            /* Reset Control Endpoint Toggle */
             ENDP_TX_CTRL(0) = (ENDP_TX_CTRL(0) & ~USBHS_UEP_T_TOG_MASK) | USBHS_UEP_T_TOG_DATA1 | USBHS_UEP_T_RES_NAK;
             ENDP_RX_CTRL(0) = (ENDP_RX_CTRL(0) & ~USBHS_UEP_R_TOG_MASK) | USBHS_UEP_R_TOG_DATA1 | USBHS_UEP_R_RES_NAK;
+
             ctx.e = USBD_PORT_EVENT_SETUP;
             usbd_event_handle(h, &ctx);
         }
         // In packet transfer complete
         else if (dir)
         {
+            /* Clear the transfer complete flag */
             ENDP_TX_CTRL(num) &= ~USBHS_UEP_T_DONE;
+
+            /* Endpoint 0 Manual Toggle */
+            if (num == 0) USBHSD->UEP0_TX_CTRL ^= USBHS_UEP_T_TOG_DATA1;
+
             usbd_endp_ctx_t *ep_ctx = &h->endp_ctxs[USB_DIR_IN][num];
             ep_ctx->xfer_ofs += ENDP_TX_LEN(num);
 
-            if (ep_ctx->xfer_ofs >= ep_ctx->xfer_len)
+            if (ep_ctx->xfer_ofs >= ep_ctx->xfer_len || USBHSD->UEP_TX_BURST & (1 << num))
             {
                 ctx.e = USBD_PORT_EVENT_XFER;
                 ctx.xfer.buf = ep_ctx->xfer_buf;
@@ -91,41 +100,50 @@ void usbhsd_event_handle(usbd_handle_t *h)
                 size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
                 USBHSD->UEP0_TX_LEN = USB_MIN(len, ep_ctx->mps);
                 USBHSD->UEP0_DMA = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
+                USBHSD->UEP0_TX_CTRL = (USBHSD->UEP0_TX_CTRL & ~USBHS_UEP_T_RES_MASK) | USBHS_UEP_T_RES_ACK;
             }
             else
             {
                 size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
-                ENDP_TX_LEN(num) = USBHSD->UEP_TX_BURST & (1 << num) ? USB_MIN(len, 65535) : USB_MIN(len, ep_ctx->mps);
+                ENDP_TX_LEN(num) = USB_MIN(len, ep_ctx->mps);
                 ENDP_TX_DMA_ADDR(num) = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
+                ENDP_TX_CTRL(num) = (ENDP_TX_CTRL(num) & ~USBHS_UEP_T_RES_MASK) | USBHS_UEP_T_RES_ACK;
             }
         }
         // Out packet transfer complete
         else if (ENDP_RX_CTRL(num) & USBHS_UEP_R_TOG_MATCH)
         {
+            /* Clear the transfer complete flag */
             ENDP_RX_CTRL(num) &= ~USBHS_UEP_R_DONE;
-            usbd_endp_ctx_t *ep_ctx = &h->endp_ctxs[USB_DIR_OUT][num];
-            ep_ctx->xfer_ofs += ENDP_RX_LEN(num);
-            ENDP_RX_LEN(num) = 0;
 
-            if (ep_ctx->xfer_ofs >= ep_ctx->xfer_len)
+            /* Endpoint 0 Manual Toggle */
+            if (num == 0) USBHSD->UEP0_RX_CTRL ^= USBHS_UEP_R_TOG_DATA1;
+
+            usbd_endp_ctx_t *ep_ctx = &h->endp_ctxs[USB_DIR_OUT][num];
+            size_t rx_len = ENDP_RX_LEN(num);
+            ep_ctx->xfer_ofs += rx_len;
+
+            if (ep_ctx->xfer_ofs >= ep_ctx->xfer_len || USBHSD->UEP_RX_BURST & (1 << num) || rx_len < ep_ctx->mps)
             {
                 ctx.e = USBD_PORT_EVENT_XFER;
                 ctx.xfer.buf = ep_ctx->xfer_buf;
                 ctx.xfer.len = ep_ctx->xfer_ofs;
-                ctx.xfer.endp = num;
+                ctx.xfer.endp = 0x00 | num;
                 usbd_event_handle(h, &ctx);
             }
             else if (num == 0)
             {
                 size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
-                USBHSD->UEP0_TX_LEN = USB_MIN(len, ep_ctx->mps);
+                USBHSD->UEP0_RX_LEN = USB_MIN(len, ep_ctx->mps);
                 USBHSD->UEP0_DMA = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
+                USBHSD->UEP0_RX_CTRL = (USBHSD->UEP0_RX_CTRL & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK;
             }
             else
             {
                 size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
-                ENDP_RX_LEN(num) = USBHSD->UEP_RX_BURST & (1 << num) ? USB_MIN(len, 65535) : USB_MIN(len, ep_ctx->mps);
+                ENDP_RX_LEN(num) = USB_MIN(len, ep_ctx->mps);
                 ENDP_RX_DMA_ADDR(num) = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
+                ENDP_RX_CTRL(num) = (ENDP_RX_CTRL(num) & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK;
             }
         }
         // Out toggle mismatch
@@ -361,6 +379,8 @@ static bool endp_is_stalled(usbd_handle_t *h, usb_endp_t endp)
 
 static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len)
 {
+    if (!h || (uint32_t)buf & 0x03 || len > 65535) return false;
+
     uint8_t dir = USB_ENDP_DIR(endp);
     uint8_t num = USB_ENDP_NUM(endp);
 
@@ -380,7 +400,7 @@ static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t l
         else
         {
             USBHSD->UEP0_DMA = (uint32_t)buf;
-            USBHSD->UEP0_RX_LEN = USB_MIN(len, ctx->mps);
+            USBHSD->UEP0_MAX_LEN = USB_MIN(len, ctx->mps);
             USBHSD->UEP0_RX_CTRL = (USBHSD->UEP0_RX_CTRL & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK;
         }
     }
@@ -389,13 +409,14 @@ static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t l
         if (dir)
         {
             ENDP_TX_DMA_ADDR(num) = (uint32_t)buf;
-            ENDP_TX_LEN(num) = USBHSD->UEP_TX_BURST & (1 << num) ? USB_MIN(len, 65535) : USB_MIN(len, ctx->mps);
+            ENDP_TX_LEN(num) = USBHSD->UEP_TX_BURST & (1 << num) ? len : USB_MIN(len, ctx->mps);
             ENDP_TX_CTRL(num) = (ENDP_TX_CTRL(num) & ~USBHS_UEP_T_RES_MASK) | USBHS_UEP_T_RES_ACK;
         }
         else
         {
             ENDP_RX_DMA_ADDR(num) = (uint32_t)buf;
-            ENDP_RX_LEN(num) = USBHSD->UEP_RX_BURST & (1 << num) ? USB_MIN(len, 65535) : USB_MIN(len, ctx->mps);
+            ENDP_RX_LEN(num) = 0;
+            ENDP_RX_SIZE(num) = USBHSD->UEP_RX_BURST & (1 << num) ? len : USB_MIN(len, ctx->mps);
             ENDP_RX_CTRL(num) = (ENDP_RX_CTRL(num) & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK;
         }
     }

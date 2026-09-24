@@ -98,6 +98,7 @@ KeepEmptyLinesAtTheStartOfBlocks: false             # 块开头不留空行
 SeparateDefinitionBlocks: Always                    # 函数定义之间强制插入空行
 
 # ---------- 其他 ----------
+PenaltyBreakAssignment: 6                           # 对赋值表达式折行的惩罚值，值越大越不希望折行
 IndentWrappedFunctionNames: false                   # 函数名折行后顶格，不额外缩进
 InsertNewlineAtEOF: true                            # 文件末尾保证有且只有一个换行符
 Standard: Latest                                    # 按最新的 C++ 标准解析语法

@@ -142,7 +142,7 @@ typedef enum
     USB_FEATURE_EDPT_HALT = 0,
     USB_FEATURE_REMOTE_WAKEUP = 1,
     USB_FEATURE_TEST_MODE = 2
-} tusb_feature_selector_t;
+} usb_feature_selector_t;
 
 /* @typedef */
 typedef uint8_t usb_endp_t;
@@ -181,7 +181,7 @@ typedef struct __attribute__((packed))
     uint8_t bDescriptorType;
     uint16_t wTotalLength;
     uint8_t bNumInterfaces;
-    uint8_t bConfigurationValu;
+    uint8_t bConfigurationValue;
     uint8_t iConfiguration;
     uint8_t bmAttributes;
     uint8_t bMaxPower;

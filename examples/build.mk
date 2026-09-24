@@ -65,8 +65,8 @@ LDFLAGS :=
 FAMILY_DIR := $(abspath $(CHIP_MK)/../)
 
 # --- Include Chip and Family Makefiles ---
-include $(FAMILY_DIR)/family.mk
 include $(CHIP_MK)
+include $(FAMILY_DIR)/family.mk
 
 # --- Add C Source Files Directories ---
 SRC_DIR += \

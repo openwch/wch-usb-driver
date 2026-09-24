@@ -18,4 +18,4 @@ extern "C" {
 }
 #endif
 
-#endif
+#endif // USB_CONFIG_H

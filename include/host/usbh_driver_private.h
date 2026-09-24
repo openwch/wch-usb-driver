@@ -1,5 +1,5 @@
 /**
- * @file usbh_core_private.h
+ * @file usbh_driver_private.h
  * @author Links (lhd@wch.cn)
  * @brief USB host core private header file
  *
@@ -7,8 +7,8 @@
  *
  */
 
-#ifndef USBH_CORE_PRIVATE_H
-#define USBH_CORE_PRIVATE_H
+#ifndef USBH_DRIVER_CORE_PRIVATE_H
+#define USBH_DRIVER_CORE_PRIVATE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,4 +18,4 @@ extern "C" {
 }
 #endif
 
-#endif
+#endif // USBH_DRIVER_CORE_PRIVATE_H

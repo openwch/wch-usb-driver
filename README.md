@@ -1,1 +1,1 @@
-# wch-usb_driver
+# wch-usb-driver

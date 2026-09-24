@@ -13,6 +13,8 @@
 /* @include */
 #include <stdint.h>
 
+#include "device/usbd_driver_private.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -515,7 +517,7 @@ typedef struct
     __IO uint32_t UEP5_TX_FIFO;
     __IO uint32_t UEP6_TX_FIFO;
     __IO uint32_t UEP7_TX_FIFO;
-} usbhsd_port_t;
+} usbhsd_ip_t;
 
 typedef struct
 {
@@ -548,10 +550,16 @@ typedef struct
     __IO uint8_t  PORT_STATUS_CHG;
     uint8_t  RESERVED3[5];
     __IO uint32_t ROOT_BC_CTRL;
-} usbhsh_port_t;
+} usbhsh_ip_t;
+
+/* @function declaration */
+void usbhsd_handle_init(usbd_handle_t *h, uint32_t base_addr);
+void usbhsh_handle_init(usbd_handle_t *h, uint32_t base_addr);
+void usbhsd_event_handle(usbd_handle_t *h);
+void usbhsh_event_handle(usbd_handle_t *h);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif // USBHS_PORT_H

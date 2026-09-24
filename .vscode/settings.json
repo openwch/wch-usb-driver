@@ -1,0 +1,18 @@
+{
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/include/*",
+        "${workspaceFolder}/port/usbhs/*",
+
+        "${workspaceFolder}/chips/ch32v205/board/*",
+        "${workspaceFolder}/chips/ch32v205/sdk/Core/*",
+        "${workspaceFolder}/chips/ch32v205/sdk/Debug/*",
+        "${workspaceFolder}/chips/ch32v205/sdk/Peripheral/inc/*",
+    ],
+    "C_Cpp.default.defines": [
+        "USB_NUM",
+        "USBHSD_BASE_ADDR",
+        "USBHSH_BASE_ADDR",
+        "USBFSD_BASE_ADDR",
+        "USBFSH_BASE_ADDR",
+    ],
+}

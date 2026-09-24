@@ -53,13 +53,13 @@ typedef enum
 
 typedef enum
 {
-    USB_TEST_MODE_RESERVED = 0,
-    USB_TEST_MODE_J = 1,
-    USB_TEST_MODE_K = 2,
-    USB_TEST_MODE_SE0_NAK = 3,
-    USB_TEST_MODE_PACKET = 4,
-    USB_TEST_MODE_FORCE_ENABLE = 5,
-} usb_test_mode_t;
+    USB_TEST_SELECT_RESERVED = 0,
+    USB_TEST_SELECT_J = 1,
+    USB_TEST_SELECT_K = 2,
+    USB_TEST_SELECT_SE0_NAK = 3,
+    USB_TEST_SELECT_PACKET = 4,
+    USB_TEST_SELECT_FORCE_ENABLE = 5,
+} usb_test_select_t;
 
 typedef enum
 {
@@ -137,6 +137,13 @@ typedef enum
     USB_DESC_SUPERSPEED_ISO_ENDPOINT_COMPANION = 0x31,
 } usb_desc_type_t;
 
+typedef enum
+{
+    USB_FEATURE_EDPT_HALT = 0,
+    USB_FEATURE_REMOTE_WAKEUP = 1,
+    USB_FEATURE_TEST_MODE = 2
+} tusb_feature_selector_t;
+
 /* @typedef */
 typedef uint8_t usb_endp_t;
 
@@ -202,6 +209,19 @@ typedef struct __attribute__((packed))
     uint16_t wMaxPacketSize;
     uint8_t bInterval;
 } usb_desc_endpoint_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t bcdUSB;
+    uint8_t bDeviceClass;
+    uint8_t bDeviceSubClass;
+    uint8_t bDeviceProtocol;
+    uint8_t bMaxPacketSize0;
+    uint8_t bNumConfigurations;
+    uint8_t bReserved;
+} usb_desc_qualifier_t;
 
 #ifdef __cplusplus
 }

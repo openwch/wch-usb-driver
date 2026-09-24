@@ -17,26 +17,44 @@
 static void setup_event_handle(usbd_handle_t *h);
 static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
 
-static bool get_desc_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
+static bool get_config_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
+static bool get_status_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
 static bool set_address_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
+static bool set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
+static bool set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
+static bool clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
 
 bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en)
 {
     if (!h) return false;
     h->ep0_mps = speed == USB_SPEED_LOW ? 8 : 64;
 
+    /* Register standard USB request callbacks */
     usbd_ctrl_xfer_cb cbs[3];
 
-    /* Register the SET_ADDRESS request callback */
-    cbs[USB_CTRL_STAGE_SETUP] = NULL;
-    cbs[USB_CTRL_STAGE_DATA] = NULL;
+    memset(cbs, 0, sizeof(cbs));
+    cbs[USB_CTRL_STAGE_SETUP] = get_config_setup;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_GET_CONFIGURATION, cbs)) return false;
+
+    memset(cbs, 0, sizeof(cbs));
+    cbs[USB_CTRL_STAGE_SETUP] = get_status_setup;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_GET_STATUS, cbs)) return false;
+
+    memset(cbs, 0, sizeof(cbs));
     cbs[USB_CTRL_STAGE_STATUS] = set_address_status;
     if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_ADDRESS, cbs)) return false;
 
-    cbs[USB_CTRL_STAGE_SETUP] = get_desc_setup;
-    cbs[USB_CTRL_STAGE_DATA] = NULL;
-    cbs[USB_CTRL_STAGE_STATUS] = NULL;
-    if (!usbd_register_request_cb(h, 0x80, USB_REQ_GET_DESCRIPTOR, cbs)) return false;
+    memset(cbs, 0, sizeof(cbs));
+    cbs[USB_CTRL_STAGE_STATUS] = set_config_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_CONFIGURATION, cbs)) return false;
+
+    memset(cbs, 0, sizeof(cbs));
+    cbs[USB_CTRL_STAGE_STATUS] = set_feature_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_FEATURE, cbs)) return false;
+
+    memset(cbs, 0, sizeof(cbs));
+    cbs[USB_CTRL_STAGE_STATUS] = clear_feature_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_CLEAR_FEATURE, cbs)) return false;
 
     return h->open(h, speed, sof_en);
 }
@@ -271,40 +289,108 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
     }
 }
 
-static bool get_desc_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+static bool get_config_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
 {
-    static usb_desc_device_t device_desc = {
-        .bLength = sizeof(usb_desc_device_t),
-        .bDescriptorType = USB_DESC_DEVICE,
-        .bcdUSB = 0x0200,
-        .bDeviceClass = 0x00,
-        .bDeviceSubClass = 0x00,
-        .bDeviceProtocol = 0x00,
-        .bMaxPacketSize0 = 64,
-        .idVendor = 0x1A86,
-        .idProduct = 0xFE64,
-        .bcdDevice = 0x0100,
-        .iManufacturer = 1,
-        .iProduct = 2,
-        .iSerialNumber = 3,
-        .bNumConfigurations = 1,
-    };
+    memset(&h->stand_req_buf, 0, sizeof(h->stand_req_buf));
+    memcpy(&h->stand_req_buf, &h->config_num, sizeof(h->config_num));
+    *buf = &h->stand_req_buf;
+    *len = sizeof(h->config_num);
+    return true;
+}
 
-    switch (setup->wValue >> 8)
+static bool get_status_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+{
+    switch (USB_GET_REQ_RCPT(setup->bmRequestType))
     {
-    case USB_DESC_DEVICE:
-        *buf = &device_desc;
-        *len = sizeof(device_desc);
+    case USB_RCPT_DEVICE:
+        memset(&h->stand_req_buf, 0, sizeof(h->stand_req_buf));
+        h->stand_req_buf = (h->self_powered ? 0x0001 : 0x0000) | (h->remote_wakeup ? 0x0002 : 0x0000);
+        *buf = &h->stand_req_buf;
+        *len = sizeof(uint16_t);
         return true;
 
-    default:
-        return false;
+    case USB_RCPT_ENDPOINT:
+        usb_endp_t endp = setup->wIndex & 0xFF;
+        memset(&h->stand_req_buf, 0, sizeof(h->stand_req_buf));
+        h->stand_req_buf = h->endp_is_stalled(h, endp) ? 0x0001 : 0x0000;
+        *buf = &h->stand_req_buf;
+        *len = sizeof(uint16_t);
+        return true;
     }
+    return false;
 }
 
 static bool set_address_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
 {
-    USB_LOGI("Setting USB address to 0x%02x", setup->wValue & 0x7F);
+    USB_LOGI("Setting USB address to %d", setup->wValue & 0x7F);
     h->set_address(h, setup->wValue & 0x7F);
+    return true;
+}
+
+static bool set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+{
+    USB_LOGI("Setting USB configuration to %d", setup->wValue & 0xFF);
+    h->config_num = setup->wValue & 0xFF;
+    if (h->event_cbs[USBD_EVENT_ENUM_COMPLETED])
+    {
+        usbd_event_ctx_t event_ctx;
+        event_ctx.e = USBD_EVENT_ENUM_COMPLETED;
+        event_ctx.enum_completed.config_num = h->config_num;
+        h->event_cbs[USBD_EVENT_ENUM_COMPLETED](h, &event_ctx);
+    }
+    return true;
+}
+
+static bool set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+{
+    switch (USB_GET_REQ_RCPT(setup->bmRequestType))
+    {
+    case USB_RCPT_DEVICE:
+        if (setup->wValue == USB_FEATURE_REMOTE_WAKEUP)
+        {
+            h->remote_wakeup = true;
+            USB_LOGI("Enabled remote wakeup");
+        }
+        else if (setup->wValue == USB_FEATURE_TEST_MODE)
+        {
+            usb_test_select_t test_selector = (setup->wIndex >> 8) & 0xFF;
+            h->test_mode_ctrl(h, test_selector);
+            USB_LOGI("Entered test mode: %d", test_selector);
+        }
+        break;
+
+    case USB_RCPT_ENDPOINT:
+        if (setup->wValue == USB_FEATURE_EDPT_HALT)
+        {
+            usb_endp_t endp = setup->wIndex & 0xFF;
+            h->endp_stall(h, endp, true);
+            USB_LOGI("Stalled endpoint 0x%02X", endp);
+        }
+        break;
+    }
+    return true;
+}
+
+static bool clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+{
+    switch (USB_GET_REQ_RCPT(setup->bmRequestType))
+    {
+    case USB_RCPT_DEVICE:
+        if (setup->wValue == USB_FEATURE_REMOTE_WAKEUP)
+        {
+            h->remote_wakeup = false;
+            USB_LOGI("Disabled remote wakeup");
+        }
+        break;
+
+    case USB_RCPT_ENDPOINT:
+        if (setup->wValue == USB_FEATURE_EDPT_HALT)
+        {
+            usb_endp_t endp = setup->wIndex & 0xFF;
+            h->endp_stall(h, endp, false);
+            USB_LOGI("Cleared stall on endpoint 0x%02X", endp);
+        }
+        break;
+    }
     return true;
 }

@@ -80,11 +80,15 @@ typedef struct usbd_handle
     /* Base address of the USB device controller */
     uint32_t base_addr;
 
+    /* USB device information */
     bool self_powered;
     bool remote_wakeup;
     uint8_t ep0_mps;
     uint8_t link_speed;
     uint8_t config_num;
+
+    /* USB Standard Request Temporary Buffer */
+    uint32_t stand_req_buf;
 
     /* Endpoint transfer contexts */
     usbd_endp_ctx_t endp_ctxs[2][USB_MAX_ENDP_NUM];
@@ -110,7 +114,7 @@ typedef struct usbd_handle
     bool (*resume)(usbd_handle_t *h);
 
     bool (*set_address)(usbd_handle_t *h, uint8_t address);
-    bool (*test_mode_ctrl)(usbd_handle_t *h, usb_test_mode_t test_mode);
+    bool (*test_mode_ctrl)(usbd_handle_t *h, usb_test_select_t test_mode);
 
     bool (*endp_open)(usbd_handle_t *h, usb_endp_t endp, usb_endp_type_t type, uint16_t mps);
     bool (*endp_close)(usbd_handle_t *h, usb_endp_t endp);
@@ -125,6 +129,7 @@ bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t b
 bool usbd_register_interface_cb(usbd_handle_t *h, uint8_t interface_num, usbd_ctrl_xfer_cb cb[3]);
 bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
 bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t interface_num);
+
 #ifdef __cplusplus
 }
 #endif

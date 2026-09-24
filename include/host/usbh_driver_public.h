@@ -7,8 +7,8 @@
  *
  */
 
-#ifndef USBH_DRIVER_CORE_PUBLIC_H
-#define USBH_DRIVER_CORE_PUBLIC_H
+#ifndef USBH_DRIVER_PUBLIC_H
+#define USBH_DRIVER_PUBLIC_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,4 +18,4 @@ extern "C" {
 }
 #endif
 
-#endif // USBH_DRIVER_CORE_PUBLIC_H
+#endif // USBH_DRIVER_PUBLIC_H

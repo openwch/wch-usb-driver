@@ -7,11 +7,12 @@
  *
  */
 
-#ifndef USBD_DRIVER_CORE_PRIVATE_H
-#define USBD_DRIVER_CORE_PRIVATE_H
+#ifndef USBD_DRIVER_PRIVATE_H
+#define USBD_DRIVER_PRIVATE_H
 
 /* @include */
 #include "usb_define.h"
+#include "usbd_driver_public.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,17 +21,21 @@ extern "C" {
 /* @enum */
 typedef enum
 {
-    USBD_EVENT_XFER,
-    USBD_EVENT_SOF,
-    USBD_EVENT_SETUP,
-    USBD_EVENT_RESET,
-    USBD_EVENT_SUSPEND,
-} usbd_event_t;
+    USBD_PORT_EVENT_XFER,
+    USBD_PORT_EVENT_SOF,
+    USBD_PORT_EVENT_SETUP,
+    USBD_PORT_EVENT_RESET,
+    USBD_PORT_EVENT_SUSPEND,
+} usbd_port_event_t;
+
+/* @function pointer */
+typedef bool (*usbd_ctrl_xfer_cb)(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
+typedef bool (*usbd_data_xfer_cb)(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
 
 /* @struct */
 typedef struct
 {
-    usbd_event_t e;
+    usbd_port_event_t e;
 
     union
     {
@@ -42,39 +47,61 @@ typedef struct
 
         struct
         {
-            usb_setup_t *setup;
-        } setup;
-
-        struct
-        {
             void *buf;
             size_t len;
             usb_endp_t endp;
         } xfer;
     };
-} usbd_event_ctx_t;
+} usbd_port_event_ctx_t;
 
 typedef struct
 {
     uint16_t mps;
+    void *xfer_buf;
     size_t xfer_len;
     size_t xfer_ofs;
+    usbd_data_xfer_cb cb;
 } usbd_endp_ctx_t;
+
+typedef struct
+{
+    uint8_t bmRequestType;
+    uint8_t bRequest;
+    usbd_ctrl_xfer_cb cb[3];
+} usbd_request_cb_t;
+
+typedef struct
+{
+    usbd_ctrl_xfer_cb cb[3];
+} usbd_interface_cb_t;
 
 typedef struct usbd_handle
 {
+    /* Base address of the USB device controller */
     uint32_t base_addr;
 
     bool self_powered;
     bool remote_wakeup;
     uint8_t ep0_mps;
-    uint8_t dev_addr;
     uint8_t link_speed;
     uint8_t config_num;
 
+    /* Endpoint transfer contexts */
     usbd_endp_ctx_t endp_ctxs[2][USB_MAX_ENDP_NUM];
 
+    /* Setup packet buffer aligned to 4 bytes */
     __attribute__((aligned(4))) usb_setup_t setup;
+
+    /* Current control transfer stage callbacks */
+    usbd_ctrl_xfer_cb data_stage_cb;
+    usbd_ctrl_xfer_cb status_stage_cb;
+
+    /* Event callback functions */
+    usbd_event_cb event_cbs[USBD_EVENT_COUNT];
+
+    /* Control transfer callback functions */
+    usbd_request_cb_t request_cbs[USBD_REQUEST_CB_COUNT];
+    usbd_interface_cb_t interface_cbs[USBD_INTERFACE_CB_COUNT];
 
     /* USB device operations */
     bool (*open)(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
@@ -89,16 +116,17 @@ typedef struct usbd_handle
     bool (*endp_close)(usbd_handle_t *h, usb_endp_t endp);
     bool (*endp_stall)(usbd_handle_t *h, usb_endp_t endp, bool stall);
     bool (*endp_is_stalled)(usbd_handle_t *h, usb_endp_t endp);
-
-    bool (*write)(usbd_handle_t *h, usb_endp_t endp, const void *data, size_t len);
-    bool (*read)(usbd_handle_t *h, usb_endp_t endp, void *data, size_t len);
+    bool (*endp_transfer)(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
 } usbd_handle_t;
 
 /* @function declaration */
-void usbd_event_handle(usbd_handle_t *h, usbd_event_ctx_t *ctx);
-
+void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
+bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cb cb[3]);
+bool usbd_register_interface_cb(usbd_handle_t *h, uint8_t interface_num, usbd_ctrl_xfer_cb cb[3]);
+bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
+bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t interface_num);
 #ifdef __cplusplus
 }
 #endif
 
-#endif // USBD_DRIVER_CORE_PRIVATE_H
+#endif // USBD_DRIVER_PRIVATE_H

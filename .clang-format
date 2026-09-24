@@ -1,0 +1,104 @@
+# clang-format configuration file. Intended for clang-format >= 23.1.0
+#
+# For more information, see:
+#
+#   https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+#
+
+Language:        Cpp    # 使用 C++ 语法解析
+BasedOnStyle:    LLVM   # 基础风格
+
+# ---------- 缩进与行宽 ----------
+IndentWidth:                4                       # 缩进宽度：4 个空格
+TabWidth:                   4                       # 一个 Tab 计为 4 列
+UseTab:                     Never                   # 只输出空格，不输出 Tab 字符
+ColumnLimit:                120                     # 单行上限 120 列，超出自动折行
+ContinuationIndentWidth:    4                       # 折行后的续行额外再缩进 4 个空格
+LineEnding:                 DeriveLF                # 沿用文件原有换行符；文件无换行符时用 LF
+
+# ---------- 花括号 ----------
+BreakBeforeBraces:          Custom                  # 换行策略自定义，具体由下面的 BraceWrapping 决定
+BraceWrapping:
+  AfterCaseLabel:           true                    # case 标签后的 { 另起一行
+  AfterClass:               true                    # class 的 { 另起一行
+  AfterControlStatement:    Always                  # if/for/while/switch 的 { 另起一行
+  AfterEnum:                true                    # enum 的 { 另起一行
+  AfterFunction:            true                    # 函数定义的 { 另起一行
+  AfterNamespace:           false                   # namespace 的 { 留在同一行
+  AfterStruct:              true                    # struct 的 { 另起一行
+  AfterUnion:               true                    # union 的 { 另起一行
+  AfterExternBlock:         false                   # extern "C" { 的 { 留在同一行
+  BeforeCatch:              true                    # catch 的 { 另起一行（} 换行后再接 catch）
+  BeforeElse:               true                    # else 的 { 另起一行
+  BeforeLambdaBody:         false                   # lambda 体的 { 不强制换行
+  BeforeWhile:              false                   # do-while 的 while 不单独换行
+  IndentBraces:             false                   # 换行后的花括号本身不再额外缩进
+  SplitEmptyFunction:       true                    # 空函数体写成 { 与 } 分两行
+  SplitEmptyRecord:         true                    # 空 struct/class 的 { } 分两行
+  SplitEmptyNamespace:      true                    # 空 namespace 的 { } 分两行
+
+IndentExternBlock:          NoIndent                # extern "C" 块内的代码不额外缩进
+
+# ---------- 短语句 ----------
+AllowShortIfStatementsOnASingleLine: WithoutElse    # 无 else 的短 if 可留一行，有 else 必须展开
+AllowShortBlocksOnASingleLine:       Never          # {} 块永不压缩到一行
+AllowShortLoopsOnASingleLine:        true           # 短 for/while 循环可留在一行
+AllowShortCaseLabelsOnASingleLine:   false          # case 语句体不写在 case 同一行
+AllowShortFunctionsOnASingleLine:    None           # 函数定义体永不写成一行
+AllowShortEnumsOnASingleLine:        false          # 短 enum 不写成一行
+InsertBraces:                        false          # 不自动给无花括号的 if/for 补上 {}
+
+# ---------- switch / case ----------
+IndentCaseLabels:    false                          # case 标签与 switch 同级，不再缩进一层
+IndentCaseBlocks:    false                          # case 下的块保持与 case 标签同级
+IndentGotoLabels:    true                           # goto 标签缩进一层（避免顶格）
+
+# ---------- 指针 / 引用 ----------
+DerivePointerAlignment: false                       # 不从代码中推断，强制采用下面的设置
+PointerAlignment:       Right                       # 指针靠右：int *p（而非 int* p）
+ReferenceAlignment:     Right                       # 引用靠右：int &r（而非 int& r）
+
+# ---------- 对齐 ----------
+AlignConsecutiveMacros:       AcrossEmptyLinesAndComments   # 连续宏定义对齐（可跨空行与注释）
+AlignConsecutiveAssignments:  None                          # 连续赋值不对齐
+AlignConsecutiveBitFields:    AcrossEmptyLinesAndComments   # 连续位域对齐
+AlignConsecutiveDeclarations: None                          # 连续声明不对齐
+AlignArrayOfStructures:       Right                         # 结构体数组初始化列表不做列对齐
+AlignTrailingComments:        false                         # 行尾注释不做跨行对齐
+AlignEscapedNewlines:         Right                         # 宏定义续行符 \ 右对齐到行宽
+AlignOperands:                Align                         # 折行后的操作数尽量对齐
+AlignAfterOpenBracket:        Align                         # 左括号后的参数尽量对齐（而非固定缩进）
+
+# ---------- 函数调用 / 声明换行 ----------
+BinPackArguments:                            false  # 参数逐个换行，不挤在一行
+BinPackParameters:                           false  # 形参逐个换行，不挤在一行
+AllowAllArgumentsOnNextLine:                 false  # 不允许所有实参整体挪到下一行
+AllowAllParametersOfDeclarationOnNextLine:   false  # 不允许所有形参整体挪到下一行
+
+# ---------- include ----------
+SortIncludes:    Never                              # 不重排 #include 顺序（由人工按依赖层级维护）
+IncludeBlocks:   Preserve                           # 保留各 include 分组之间的空行
+
+# ---------- 预处理指令 ----------
+IndentPPDirectives: None                            # #define/#if 等一律顶格，不随代码缩进
+
+# ---------- 注释 ----------
+ReflowComments:  false                              # 不重排注释内容，保持作者原始换行
+SpacesBeforeTrailingComments: 1                     # 行尾注释与代码之间固定 1 个空格
+
+# ---------- 空白 ----------
+SpaceBeforeParens:        ControlStatements         # 仅控制语句的括号前留空格：if (...) / while (...)
+SpaceInEmptyParentheses:  false                     # 空括号内不加空格：foo()
+SpaceAfterCStyleCast:     false                     # 强制类型转换后不加空格：(uint8_t)buf
+Cpp11BracedListStyle:     true                      # 列表初始化贴近 C++11 风格：{1, 2, 3}
+
+# ---------- 空行 ----------
+MaxEmptyLinesToKeep: 1                              # 连续空行最多保留 1 行
+KeepEmptyLinesAtTheStartOfBlocks: false             # 块开头不留空行
+SeparateDefinitionBlocks: Always                    # 函数定义之间强制插入空行
+
+# ---------- 其他 ----------
+IndentWrappedFunctionNames: false                   # 函数名折行后顶格，不额外缩进
+InsertNewlineAtEOF: true                            # 文件末尾保证有且只有一个换行符
+Standard: Latest                                    # 按最新的 C++ 标准解析语法
+...

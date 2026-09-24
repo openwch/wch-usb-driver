@@ -20,9 +20,9 @@ extern "C" {
 #endif
 
 /* @define */
-#define USB_ENDP_DIR(ep)    ((ep) & 0x80)
-#define USB_ENDP_NUM(ep)    ((ep) & 0x0F)
-#define USB_MAX_ENDP_NUM    (16)
+#define USB_ENDP_DIR(ep) ((ep) & 0x80)
+#define USB_ENDP_NUM(ep) ((ep) & 0x0F)
+#define USB_MAX_ENDP_NUM (16)
 
 /* @enum */
 typedef enum

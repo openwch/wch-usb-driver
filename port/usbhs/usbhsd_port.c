@@ -12,15 +12,15 @@
 #include "usbhs_port.h"
 
 /* @define */
-#define USBHSD                  ((usbhsd_ip_t *)h->base_addr)
-#define ENDP_MAX_LEN(ep)        *((volatile uint32_t *)&(USBHSD->UEP0_MAX_LEN) + (ep))
-#define ENDP_TX_LEN(ep)         *((volatile uint16_t *)&(USBHSD->UEP0_TX_LEN) + (ep) * 2)
-#define ENDP_RX_LEN(ep)         *((volatile uint16_t *)&(USBHSD->UEP0_RX_LEN) + (ep) * 2)
-#define ENDP_RX_SIZE(ep)        *((volatile uint16_t *)&(USBHSD->UEP1_RX_SIZE) + (ep - 1) * 2)
-#define ENDP_TX_CTRL(ep)        *((volatile uint8_t *)&(USBHSD->UEP0_TX_CTRL) + (ep) * 4)
-#define ENDP_RX_CTRL(ep)        *((volatile uint8_t *)&(USBHSD->UEP0_RX_CTRL) + (ep) * 4)
-#define ENDP_TX_DMA_ADDR(ep)    *((volatile uint32_t *)&(USBHSD->UEP1_TX_DMA) + (ep - 1))
-#define ENDP_RX_DMA_ADDR(ep)    *((volatile uint32_t *)&(USBHSD->UEP1_RX_DMA) + (ep - 1))
+#define USBHSD               ((usbhsd_ip_t *)h->base_addr)
+#define ENDP_MAX_LEN(ep)     *((volatile uint32_t *)&(USBHSD->UEP0_MAX_LEN) + (ep))
+#define ENDP_TX_LEN(ep)      *((volatile uint16_t *)&(USBHSD->UEP0_TX_LEN) + (ep) * 2)
+#define ENDP_RX_LEN(ep)      *((volatile uint16_t *)&(USBHSD->UEP0_RX_LEN) + (ep) * 2)
+#define ENDP_RX_SIZE(ep)     *((volatile uint16_t *)&(USBHSD->UEP1_RX_SIZE) + (ep - 1) * 2)
+#define ENDP_TX_CTRL(ep)     *((volatile uint8_t *)&(USBHSD->UEP0_TX_CTRL) + (ep) * 4)
+#define ENDP_RX_CTRL(ep)     *((volatile uint8_t *)&(USBHSD->UEP0_RX_CTRL) + (ep) * 4)
+#define ENDP_TX_DMA_ADDR(ep) *((volatile uint32_t *)&(USBHSD->UEP1_TX_DMA) + (ep - 1))
+#define ENDP_RX_DMA_ADDR(ep) *((volatile uint32_t *)&(USBHSD->UEP1_RX_DMA) + (ep - 1))
 
 /* @function declaration */
 static bool open(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
@@ -77,17 +77,14 @@ void usbhsd_event_handle(usbd_handle_t *h)
         // In packet transfer complete
         else if (endp_dir)
         {
-
         }
         // Out packet transfer complete
         else if (ENDP_RX_CTRL(endp_num) & USBHS_UEP_R_TOG_MATCH)
         {
-
         }
         // Out toggle mismatch
         else
         {
-
         }
     }
     else if (flag & USBHS_UDIF_RX_SOF)
@@ -332,10 +329,8 @@ static bool endp_is_stalled(usbd_handle_t *h, usb_endp_t endp)
 
 static bool write(usbd_handle_t *h, usb_endp_t endp, const void *data, size_t len)
 {
-
 }
 
 static bool read(usbd_handle_t *h, usb_endp_t endp, void *data, size_t len)
 {
-
 }

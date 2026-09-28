@@ -42,6 +42,12 @@ typedef enum
     HID_REPORT_TYPE_FEATURE = 0x03,
 } hid_report_type_t;
 
+typedef enum
+{
+    HID_PROTOCOL_BOOT = 0,
+    HID_PROTOCOL_REPORT = 1,
+} hid_protocol_t;
+
 /* @struct */
 typedef struct __attribute__((packed))
 {

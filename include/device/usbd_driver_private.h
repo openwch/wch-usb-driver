@@ -110,6 +110,7 @@ typedef struct usbd_handle
 
     /* Control transfer context */
     void *ctrl_handle;
+    void *ctrl_xfer_buf;
     size_t ctrl_xfer_len;
     usbd_ctrl_xfer_cbs_t *ctrl_cbs;
     usbd_request_cbs_t request_cbs[USBD_REQUEST_CB_COUNT];

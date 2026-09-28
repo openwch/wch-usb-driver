@@ -27,6 +27,7 @@ static bool open(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
 static bool close(usbd_handle_t *h);
 static bool resume(usbd_handle_t *h);
 static bool set_address(usbd_handle_t *h, uint8_t address);
+static usb_speed_t get_link_speed(usbd_handle_t *h);
 static bool test_mode_ctrl(usbd_handle_t *h, usb_test_select_t test_mode);
 static bool endp_open(usbd_handle_t *h, usb_endp_t endp, usb_endp_type_t type, uint16_t mps);
 static bool endp_close(usbd_handle_t *h, usb_endp_t endp);
@@ -43,6 +44,7 @@ void usbhsd_handle_init(usbd_handle_t *h, uint32_t base_addr)
     h->close = close;
     h->resume = resume;
     h->set_address = set_address;
+    h->get_link_speed = get_link_speed;
     h->test_mode_ctrl = test_mode_ctrl;
     h->endp_open = endp_open;
     h->endp_close = endp_close;
@@ -164,6 +166,8 @@ void usbhsd_event_handle(usbd_handle_t *h)
     else if (flag & USBHS_UDIF_BUS_RST)
     {
         USBHSD->INT_FG = USBHS_UDIF_BUS_RST;
+        USBHSD->UEP_TX_EN = 0;
+        USBHSD->UEP_RX_EN = 0;
         ctx.e = USBD_PORT_EVENT_RESET;
         usbd_event_handle(h, &ctx);
     }
@@ -214,6 +218,24 @@ static bool set_address(usbd_handle_t *h, uint8_t address)
 {
     USBHSD->DEV_AD = address;
     return true;
+}
+
+static usb_speed_t get_link_speed(usbd_handle_t *h)
+{
+    usb_speed_t link_speed;
+    if (USBHSD->MIS_ST & USBHS_UDMS_HS_MOD)
+    {
+        link_speed = USB_SPEED_HIGH;
+    }
+    else if ((USBHSD->BASE_MODE & USBHS_UD_SPEED_TYPE) == USBHS_UD_SPEED_LOW)
+    {
+        link_speed = USB_SPEED_LOW;
+    }
+    else
+    {
+        link_speed = USB_SPEED_FULL;
+    }
+    return link_speed;
 }
 
 static bool test_mode_ctrl(usbd_handle_t *h, usb_test_select_t test_mode)

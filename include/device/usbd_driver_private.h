@@ -113,6 +113,7 @@ typedef struct usbd_handle
 
     bool (*set_address)(usbd_handle_t *h, uint8_t address);
     bool (*test_mode_ctrl)(usbd_handle_t *h, usb_test_select_t test_mode);
+    usb_speed_t (*get_link_speed)(usbd_handle_t *h);
 
     bool (*endp_open)(usbd_handle_t *h, usb_endp_t endp, usb_endp_type_t type, uint16_t mps);
     bool (*endp_close)(usbd_handle_t *h, usb_endp_t endp);

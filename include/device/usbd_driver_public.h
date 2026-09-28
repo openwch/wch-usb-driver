@@ -43,6 +43,7 @@ typedef struct
         struct
         {
             uint8_t config_num;
+            uint8_t link_speed;
         } enum_completed;
     };
 } usbd_event_ctx_t;
@@ -54,7 +55,7 @@ typedef struct usbd_handle usbd_handle_t;
 typedef void (*usbd_event_cb)(usbd_handle_t *h, usbd_event_ctx_t *ctx);
 
 /* @function declaration */
-bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
+bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, bool self_powered, uint8_t ep0_mps);
 bool usbd_register_event_callback(usbd_handle_t *h, usbd_event_t event, usbd_event_cb cb);
 bool usbd_unregister_event_callback(usbd_handle_t *h, usbd_event_t event);
 

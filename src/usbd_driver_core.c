@@ -25,10 +25,12 @@ static void set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void *
 static void set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
 static void clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
 
-bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en)
+bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, bool self_powered, uint8_t ep0_mps)
 {
-    if (!h) return false;
-    h->ep0_mps = speed == USB_SPEED_LOW ? 8 : 64;
+    if (!h || ep0_mps == 0 || ep0_mps > 64) return false;
+
+    h->self_powered = self_powered;
+    h->ep0_mps = ep0_mps;
 
     /* Register standard USB request callbacks */
     usbd_ctrl_xfer_cbs_t cbs;
@@ -104,6 +106,7 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
 
     case USBD_PORT_EVENT_RESET:
         h->remote_wakeup = false;
+        h->link_speed = USB_SPEED_UNKNOWN;
         h->config_num = 0;
         h->set_address(h, 0);
         h->endp_open(h, 0x80, USB_ENDP_TYPE_CTRL, h->ep0_mps);
@@ -220,6 +223,12 @@ static void setup_event_handle(usbd_handle_t *h)
         }
     }
 
+    /* Get link speed */
+    if (h->link_speed == USB_SPEED_UNKNOWN)
+    {
+        h->link_speed = h->get_link_speed(h);
+    }
+
     if (rst)
     {
         USB_LOGI("Processed setup packet: %02x %02x %04x %04x %04x",
@@ -261,9 +270,10 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
     uint8_t num = USB_ENDP_NUM(ctx->xfer.endp);
     usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[dir ? USB_DIR_IN : USB_DIR_OUT][num];
 
+    /* Control transfer event handling */
     if (num == 0)
     {
-        // Control transfer data stage
+        /* Control transfer data stage */
         if ((setup->bmRequestType & 0x80) == (ctx->xfer.endp & 0x80))
         {
             bool rst = true;
@@ -272,10 +282,10 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
                 rst = h->ctrl_cbs->data(h, setup, &endp_ctx->xfer_buf, endp_ctx->xfer_ofs);
             }
 
-            // Send zero-length packet to acknowledge the data stage
+            /* Send zero-length packet to acknowledge the data stage */
             h->endp_transfer(h, USB_GET_REQ_DIR(setup->bmRequestType) ? 0x80 : 0x00, NULL, 0);
 
-            // Handle the status stage based on the result of the data stage
+            /* Handle the status stage based on the result of the data stage */
             if (rst)
             {
                 h->endp_transfer(h, USB_GET_REQ_DIR(setup->bmRequestType) ? 0x00 : 0x80, NULL, 0);
@@ -286,7 +296,7 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
                 h->endp_stall(h, USB_GET_REQ_DIR(setup->bmRequestType) ? 0x00 : 0x80, true);
             }
         }
-        // Control transfer status stage
+        /* Control transfer status stage */
         else
         {
             h->endp_transfer(h, 0x00, &h->setup, sizeof(usb_setup_t));
@@ -296,6 +306,7 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
             }
         }
     }
+    /* Isochronous/interrupt/bulk transfer event handling */
     else if (endp_ctx->cb)
     {
         if (endp_ctx->cb(h, ctx->xfer.endp, endp_ctx->xfer_buf, endp_ctx->xfer_ofs))
@@ -372,6 +383,7 @@ static void set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void *
         usbd_event_ctx_t event_ctx;
         event_ctx.e = USBD_EVENT_ENUM_COMPLETED;
         event_ctx.enum_completed.config_num = h->config_num;
+        event_ctx.enum_completed.link_speed = h->link_speed;
         h->event_cbs[USBD_EVENT_ENUM_COMPLETED](h, &event_ctx);
     }
 }

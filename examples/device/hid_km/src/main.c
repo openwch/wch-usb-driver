@@ -20,26 +20,6 @@
 static hidd_handle_t hidd_handles[2];
 static __attribute__((aligned(4))) uint8_t keyboard_report_buf[8];
 
-/* @function declaration */
-static const void *get_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len);
-static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx);
-static void keyboard_set_report(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len);
-
-int main(void)
-{
-    board_init();
-
-    usbd_handle_t *h = board_usbd_init(0);
-    assert(h != NULL);
-
-    assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_desc_cb));
-    assert(usbd_register_event_callback(h, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
-
-    while (1);
-
-    return 0;
-}
-
 static const void *get_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len)
 {
     switch (desc_type)
@@ -70,6 +50,11 @@ static const void *get_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len
     }
 
     return NULL;
+}
+
+static void keyboard_set_report(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len)
+{
+    printf("Keyboard LED status is %02x\r\n", *(uint8_t *)buf);
 }
 
 static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
@@ -104,7 +89,17 @@ static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
     assert(hidd_drv_open(hidd));
 }
 
-static void keyboard_set_report(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len)
+int main(void)
 {
-    printf("Keyboard LED status is %02x\r\n", *(uint8_t *)buf);
+    board_init();
+
+    usbd_handle_t *h = board_usbd_init(0);
+    assert(h != NULL);
+
+    assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_desc_cb));
+    assert(usbd_register_event_callback(h, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
+
+    while (1);
+
+    return 0;
 }

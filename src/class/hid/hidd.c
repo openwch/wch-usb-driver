@@ -11,42 +11,6 @@
 #include "usb_driver.h"
 #include "device/usbd_driver_private.h"
 
-/* @function declaration */
-static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len);
-static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, size_t len);
-
-bool hidd_drv_open(hidd_handle_t *hidd)
-{
-    if (!hidd || !hidd->usbd_handle || !hidd->hid_desc) return false;
-
-    usbd_ctrl_xfer_cbs_t cbs = {
-        .setup = ctrl_xfer_setup,
-        .data = NULL,
-        .status = ctrl_xfer_status,
-    };
-
-    if (!usbd_register_interface_cb(hidd->usbd_handle, hidd, hidd->itf_num, &cbs)) goto unregister_interface;
-    if (hidd->in_ep)
-    {
-        if (!usbd_endp_open(hidd->usbd_handle, hidd->in_ep)) goto close_in_ep;
-    }
-    if (hidd->out_ep)
-    {
-        if (!usbd_endp_open(hidd->usbd_handle, hidd->out_ep)) goto close_out_ep;
-    }
-    return true;
-
-close_out_ep:
-    usbd_endp_close(hidd->usbd_handle, hidd->out_ep->bEndpointAddress);
-
-close_in_ep:
-    usbd_endp_close(hidd->usbd_handle, hidd->in_ep->bEndpointAddress);
-
-unregister_interface:
-    usbd_unregister_interface_cb(hidd->usbd_handle, hidd->itf_num);
-    return false;
-}
-
 static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len)
 {
     hidd_handle_t *h = (hidd_handle_t *)handle;
@@ -178,4 +142,36 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         }
         }
     }
+}
+
+bool hidd_drv_open(hidd_handle_t *hidd)
+{
+    if (!hidd || !hidd->usbd_handle || !hidd->hid_desc) return false;
+
+    usbd_ctrl_xfer_cbs_t cbs = {
+        .setup = ctrl_xfer_setup,
+        .data = NULL,
+        .status = ctrl_xfer_status,
+    };
+
+    if (!usbd_register_interface_cb(hidd->usbd_handle, hidd, hidd->itf_num, &cbs)) goto unregister_interface;
+    if (hidd->in_ep)
+    {
+        if (!usbd_endp_open(hidd->usbd_handle, hidd->in_ep)) goto close_in_ep;
+    }
+    if (hidd->out_ep)
+    {
+        if (!usbd_endp_open(hidd->usbd_handle, hidd->out_ep)) goto close_out_ep;
+    }
+    return true;
+
+close_out_ep:
+    usbd_endp_close(hidd->usbd_handle, hidd->out_ep->bEndpointAddress);
+
+close_in_ep:
+    usbd_endp_close(hidd->usbd_handle, hidd->in_ep->bEndpointAddress);
+
+unregister_interface:
+    usbd_unregister_interface_cb(hidd->usbd_handle, hidd->itf_num);
+    return false;
 }

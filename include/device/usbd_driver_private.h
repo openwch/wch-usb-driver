@@ -29,7 +29,6 @@ typedef enum
 } usbd_port_event_t;
 
 /* @function pointer */
-typedef bool (*usbd_ctrl_xfer_cb)(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
 typedef bool (*usbd_data_xfer_cb)(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
 
 /* @struct */
@@ -65,15 +64,17 @@ typedef struct
 
 typedef struct
 {
-    uint8_t bmRequestType;
-    uint8_t bRequest;
-    usbd_ctrl_xfer_cb cb[3];
-} usbd_request_cb_t;
+    bool (*setup)(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
+    bool (*data)(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
+    void (*status)(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
+} usbd_ctrl_xfer_cbs_t;
 
 typedef struct
 {
-    usbd_ctrl_xfer_cb cb[3];
-} usbd_interface_cb_t;
+    uint8_t bmRequestType;
+    uint8_t bRequest;
+    usbd_ctrl_xfer_cbs_t cbs;
+} usbd_request_cbs_t;
 
 typedef struct usbd_handle
 {
@@ -96,16 +97,13 @@ typedef struct usbd_handle
     /* Setup packet buffer aligned to 4 bytes */
     __attribute__((aligned(4))) usb_setup_t setup;
 
-    /* Current control transfer stage callbacks */
-    usbd_ctrl_xfer_cb data_stage_cb;
-    usbd_ctrl_xfer_cb status_stage_cb;
-
     /* Event callback functions */
     usbd_event_cb event_cbs[USBD_EVENT_COUNT];
 
     /* Control transfer callback functions */
-    usbd_request_cb_t request_cbs[USBD_REQUEST_CB_COUNT];
-    usbd_interface_cb_t interface_cbs[USBD_INTERFACE_CB_COUNT];
+    usbd_ctrl_xfer_cbs_t *ctrl_cbs;
+    usbd_request_cbs_t request_cbs[USBD_REQUEST_CB_COUNT];
+    usbd_ctrl_xfer_cbs_t interface_cbs[USBD_INTERFACE_CB_COUNT];
 
     /* USB device operations */
     bool (*open)(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
@@ -125,8 +123,8 @@ typedef struct usbd_handle
 
 /* @function declaration */
 void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
-bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cb cb[3]);
-bool usbd_register_interface_cb(usbd_handle_t *h, uint8_t interface_num, usbd_ctrl_xfer_cb cb[3]);
+bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cbs_t *cbs);
+bool usbd_register_interface_cb(usbd_handle_t *h, uint8_t interface_num, usbd_ctrl_xfer_cbs_t *cbs);
 bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
 bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t interface_num);
 

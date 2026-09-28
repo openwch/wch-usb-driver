@@ -20,10 +20,10 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
 static bool get_config_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
 static bool get_status_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
 static bool set_clear_feature_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
-static bool set_address_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
-static bool set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
-static bool set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
-static bool clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
+static void set_address_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
+static void set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
+static void set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
+static void clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
 
 bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en)
 {
@@ -31,36 +31,36 @@ bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en)
     h->ep0_mps = speed == USB_SPEED_LOW ? 8 : 64;
 
     /* Register standard USB request callbacks */
-    usbd_ctrl_xfer_cb cbs[3];
+    usbd_ctrl_xfer_cbs_t cbs;
 
-    memset(cbs, 0, sizeof(cbs));
-    cbs[USB_CTRL_STAGE_SETUP] = get_config_setup;
-    if (!usbd_register_request_cb(h, 0x80, USB_REQ_GET_CONFIGURATION, cbs)) return false;
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.setup = get_config_setup;
+    if (!usbd_register_request_cb(h, 0x80, USB_REQ_GET_CONFIGURATION, &cbs)) return false;
 
-    memset(cbs, 0, sizeof(cbs));
-    cbs[USB_CTRL_STAGE_SETUP] = get_status_setup;
-    if (!usbd_register_request_cb(h, 0x80, USB_REQ_GET_STATUS, cbs)) return false;
-    if (!usbd_register_request_cb(h, 0x82, USB_REQ_GET_STATUS, cbs)) return false;
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.setup = get_status_setup;
+    if (!usbd_register_request_cb(h, 0x80, USB_REQ_GET_STATUS, &cbs)) return false;
+    if (!usbd_register_request_cb(h, 0x82, USB_REQ_GET_STATUS, &cbs)) return false;
 
-    memset(cbs, 0, sizeof(cbs));
-    cbs[USB_CTRL_STAGE_STATUS] = set_address_status;
-    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_ADDRESS, cbs)) return false;
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.status = set_address_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_ADDRESS, &cbs)) return false;
 
-    memset(cbs, 0, sizeof(cbs));
-    cbs[USB_CTRL_STAGE_STATUS] = set_config_status;
-    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_CONFIGURATION, cbs)) return false;
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.status = set_config_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_CONFIGURATION, &cbs)) return false;
 
-    memset(cbs, 0, sizeof(cbs));
-    cbs[USB_CTRL_STAGE_SETUP] = set_clear_feature_setup;
-    cbs[USB_CTRL_STAGE_STATUS] = set_feature_status;
-    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_FEATURE, cbs)) return false;
-    if (!usbd_register_request_cb(h, 0x02, USB_REQ_SET_FEATURE, cbs)) return false;
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.setup = set_clear_feature_setup;
+    cbs.status = set_feature_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_FEATURE, &cbs)) return false;
+    if (!usbd_register_request_cb(h, 0x02, USB_REQ_SET_FEATURE, &cbs)) return false;
 
-    memset(cbs, 0, sizeof(cbs));
-    cbs[USB_CTRL_STAGE_SETUP] = set_clear_feature_setup;
-    cbs[USB_CTRL_STAGE_STATUS] = clear_feature_status;
-    if (!usbd_register_request_cb(h, 0x00, USB_REQ_CLEAR_FEATURE, cbs)) return false;
-    if (!usbd_register_request_cb(h, 0x02, USB_REQ_CLEAR_FEATURE, cbs)) return false;
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.setup = set_clear_feature_setup;
+    cbs.status = clear_feature_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_CLEAR_FEATURE, &cbs)) return false;
+    if (!usbd_register_request_cb(h, 0x02, USB_REQ_CLEAR_FEATURE, &cbs)) return false;
 
     return h->open(h, speed, sof_en);
 }
@@ -128,33 +128,33 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
     }
 }
 
-bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cb cb[3])
+bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cbs_t *cbs)
 {
     if (!h) return false;
     for (size_t i = 0; i < USB_ARRAY_SIZE(h->request_cbs); i++)
     {
-        usbd_request_cb_t *req_cb = &h->request_cbs[i];
-        if ((req_cb->bmRequestType == 0 && req_cb->bRequest == 0) ||
-            (req_cb->bmRequestType == bmRequestType && req_cb->bRequest == bRequest))
+        usbd_request_cbs_t *req_cbs = &h->request_cbs[i];
+        if ((req_cbs->bmRequestType == 0 && req_cbs->bRequest == 0) ||
+            (req_cbs->bmRequestType == bmRequestType && req_cbs->bRequest == bRequest))
         {
-            req_cb->bmRequestType = bmRequestType;
-            req_cb->bRequest = bRequest;
-            req_cb->cb[USB_CTRL_STAGE_SETUP] = cb[USB_CTRL_STAGE_SETUP];
-            req_cb->cb[USB_CTRL_STAGE_DATA] = cb[USB_CTRL_STAGE_DATA];
-            req_cb->cb[USB_CTRL_STAGE_STATUS] = cb[USB_CTRL_STAGE_STATUS];
+            req_cbs->bmRequestType = bmRequestType;
+            req_cbs->bRequest = bRequest;
+            req_cbs->cbs.setup = cbs->setup;
+            req_cbs->cbs.data = cbs->data;
+            req_cbs->cbs.status = cbs->status;
             return true;
         }
     }
     return false;
 }
 
-bool usbd_register_interface_cb(usbd_handle_t *h, uint8_t interface_num, usbd_ctrl_xfer_cb cb[3])
+bool usbd_register_interface_cb(usbd_handle_t *h, uint8_t interface_num, usbd_ctrl_xfer_cbs_t *cbs)
 {
     if (!h || interface_num >= USB_ARRAY_SIZE(h->interface_cbs)) return false;
-    usbd_interface_cb_t *itf_cb = &h->interface_cbs[interface_num];
-    itf_cb->cb[USB_CTRL_STAGE_SETUP] = cb[USB_CTRL_STAGE_SETUP];
-    itf_cb->cb[USB_CTRL_STAGE_DATA] = cb[USB_CTRL_STAGE_DATA];
-    itf_cb->cb[USB_CTRL_STAGE_STATUS] = cb[USB_CTRL_STAGE_STATUS];
+    usbd_ctrl_xfer_cbs_t *itf_cbs = &h->interface_cbs[interface_num];
+    itf_cbs->setup = cbs->setup;
+    itf_cbs->data = cbs->data;
+    itf_cbs->status = cbs->status;
     return true;
 }
 
@@ -163,14 +163,14 @@ bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t
     if (!h) return false;
     for (size_t i = 0; i < USB_ARRAY_SIZE(h->request_cbs); i++)
     {
-        usbd_request_cb_t *req_cb = &h->request_cbs[i];
-        if (req_cb->bmRequestType == bmRequestType && req_cb->bRequest == bRequest)
+        usbd_request_cbs_t *req_cbs = &h->request_cbs[i];
+        if (req_cbs->bmRequestType == bmRequestType && req_cbs->bRequest == bRequest)
         {
-            req_cb->bmRequestType = 0;
-            req_cb->bRequest = 0;
-            req_cb->cb[USB_CTRL_STAGE_SETUP] = NULL;
-            req_cb->cb[USB_CTRL_STAGE_DATA] = NULL;
-            req_cb->cb[USB_CTRL_STAGE_STATUS] = NULL;
+            req_cbs->bmRequestType = 0;
+            req_cbs->bRequest = 0;
+            req_cbs->cbs.setup = NULL;
+            req_cbs->cbs.data = NULL;
+            req_cbs->cbs.status = NULL;
             return true;
         }
     }
@@ -180,10 +180,10 @@ bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t
 bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t interface_num)
 {
     if (!h || interface_num >= USB_ARRAY_SIZE(h->interface_cbs)) return false;
-    usbd_interface_cb_t *itf_cb = &h->interface_cbs[interface_num];
-    itf_cb->cb[USB_CTRL_STAGE_SETUP] = NULL;
-    itf_cb->cb[USB_CTRL_STAGE_DATA] = NULL;
-    itf_cb->cb[USB_CTRL_STAGE_STATUS] = NULL;
+    usbd_ctrl_xfer_cbs_t *itf_cbs = &h->interface_cbs[interface_num];
+    itf_cbs->setup = NULL;
+    itf_cbs->data = NULL;
+    itf_cbs->status = NULL;
     return true;
 }
 
@@ -197,22 +197,24 @@ static void setup_event_handle(usbd_handle_t *h)
     {
         if (setup->wIndex < USB_ARRAY_SIZE(h->interface_cbs))
         {
-            usbd_interface_cb_t *itf_cb = &h->interface_cbs[setup->wIndex];
-            rst = itf_cb->cb[USB_CTRL_STAGE_SETUP] ? itf_cb->cb[USB_CTRL_STAGE_SETUP](h, setup, &buf, &len) : true;
-            h->data_stage_cb = itf_cb->cb[USB_CTRL_STAGE_DATA];
-            h->status_stage_cb = itf_cb->cb[USB_CTRL_STAGE_STATUS];
+            usbd_ctrl_xfer_cbs_t *itf_cbs = &h->interface_cbs[setup->wIndex];
+
+            if (itf_cbs->setup || itf_cbs->data || itf_cbs->status)
+            {
+                h->ctrl_cbs = itf_cbs;
+                rst = itf_cbs->setup ? itf_cbs->setup(h, setup, &buf, &len) : true;
+            }
         }
     }
     else
     {
         for (size_t i = 0; i < USB_ARRAY_SIZE(h->request_cbs); i++)
         {
-            usbd_request_cb_t *req_cb = &h->request_cbs[i];
-            if (req_cb->bmRequestType == setup->bmRequestType && req_cb->bRequest == setup->bRequest)
+            usbd_request_cbs_t *req_cbs = &h->request_cbs[i];
+            if (req_cbs->bmRequestType == setup->bmRequestType && req_cbs->bRequest == setup->bRequest)
             {
-                rst = req_cb->cb[USB_CTRL_STAGE_SETUP] ? req_cb->cb[USB_CTRL_STAGE_SETUP](h, setup, &buf, &len) : true;
-                h->data_stage_cb = req_cb->cb[USB_CTRL_STAGE_DATA];
-                h->status_stage_cb = req_cb->cb[USB_CTRL_STAGE_STATUS];
+                h->ctrl_cbs = &req_cbs->cbs;
+                rst = req_cbs->cbs.setup ? req_cbs->cbs.setup(h, setup, &buf, &len) : true;
                 break;
             }
         }
@@ -265,9 +267,9 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         if ((setup->bmRequestType & 0x80) == (ctx->xfer.endp & 0x80))
         {
             bool rst = true;
-            if (h->data_stage_cb)
+            if (h->ctrl_cbs && h->ctrl_cbs->data)
             {
-                rst = h->data_stage_cb(h, setup, &endp_ctx->xfer_buf, &endp_ctx->xfer_ofs);
+                rst = h->ctrl_cbs->data(h, setup, &endp_ctx->xfer_buf, endp_ctx->xfer_ofs);
             }
 
             // Send zero-length packet to acknowledge the data stage
@@ -288,9 +290,9 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         else
         {
             h->endp_transfer(h, 0x00, &h->setup, sizeof(usb_setup_t));
-            if (h->status_stage_cb)
+            if (h->ctrl_cbs && h->ctrl_cbs->status)
             {
-                h->status_stage_cb(h, setup, &endp_ctx->xfer_buf, &endp_ctx->xfer_ofs);
+                h->ctrl_cbs->status(h, setup, &endp_ctx->xfer_buf, endp_ctx->xfer_ofs);
             }
         }
     }
@@ -334,13 +336,6 @@ static bool get_status_setup(usbd_handle_t *h, const usb_setup_t *setup, void **
     return false;
 }
 
-static bool set_address_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
-{
-    USB_LOGI("Setting USB address to %d", setup->wValue & 0x7F);
-    h->set_address(h, setup->wValue & 0x7F);
-    return true;
-}
-
 static bool set_clear_feature_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
 {
     switch (USB_GET_REQ_RCPT(setup->bmRequestType))
@@ -362,7 +357,13 @@ static bool set_clear_feature_setup(usbd_handle_t *h, const usb_setup_t *setup, 
     return false;
 }
 
-static bool set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+static void set_address_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len)
+{
+    USB_LOGI("Setting USB address to %d", setup->wValue & 0x7F);
+    h->set_address(h, setup->wValue & 0x7F);
+}
+
+static void set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len)
 {
     USB_LOGI("Setting USB configuration to %d", setup->wValue & 0xFF);
     h->config_num = setup->wValue & 0xFF;
@@ -373,10 +374,9 @@ static bool set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void *
         event_ctx.enum_completed.config_num = h->config_num;
         h->event_cbs[USBD_EVENT_ENUM_COMPLETED](h, &event_ctx);
     }
-    return true;
 }
 
-static bool set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+static void set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len)
 {
     switch (USB_GET_REQ_RCPT(setup->bmRequestType))
     {
@@ -403,10 +403,9 @@ static bool set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void 
         }
         break;
     }
-    return true;
 }
 
-static bool clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+static void clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len)
 {
     switch (USB_GET_REQ_RCPT(setup->bmRequestType))
     {
@@ -427,5 +426,4 @@ static bool clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, voi
         }
         break;
     }
-    return true;
 }

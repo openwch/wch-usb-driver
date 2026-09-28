@@ -19,6 +19,13 @@ static void setup_event_handle(usbd_handle_t *h)
     void *buf = NULL;
     size_t len = 0;
     usb_setup_t *setup = &h->setup;
+
+    /* Get link speed */
+    if (h->link_speed == USB_SPEED_UNKNOWN)
+    {
+        h->link_speed = h->get_link_speed(h);
+    }
+
     if (USB_GET_REQ_RCPT(setup->bmRequestType) == USB_REQ_RCPT_INTERFACE)
     {
         if (setup->wIndex < USB_ARRAY_SIZE(h->interface_cbs))
@@ -46,12 +53,6 @@ static void setup_event_handle(usbd_handle_t *h)
                 break;
             }
         }
-    }
-
-    /* Get link speed */
-    if (h->link_speed == USB_SPEED_UNKNOWN)
-    {
-        h->link_speed = h->get_link_speed(h);
     }
 
     if (rst)

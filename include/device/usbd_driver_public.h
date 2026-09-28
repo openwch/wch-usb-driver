@@ -53,9 +53,11 @@ typedef struct usbd_handle usbd_handle_t;
 
 /* @function pointer */
 typedef void (*usbd_event_cb)(usbd_handle_t *h, usbd_event_ctx_t *ctx);
+typedef const void *(*usbd_get_desc_cb)(uint8_t desc_type, uint8_t desc_info, size_t *len);
 
 /* @function declaration */
-bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, bool self_powered, uint8_t ep0_mps);
+bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, usbd_get_desc_cb get_desc_cb);
+bool usbd_drv_close(usbd_handle_t *h);
 bool usbd_register_event_callback(usbd_handle_t *h, usbd_event_t event, usbd_event_cb cb);
 bool usbd_unregister_event_callback(usbd_handle_t *h, usbd_event_t event);
 

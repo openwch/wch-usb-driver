@@ -64,14 +64,16 @@ AlignConsecutiveAssignments:  None                          # 连续赋值不对
 AlignConsecutiveBitFields:    AcrossEmptyLinesAndComments   # 连续位域对齐
 AlignConsecutiveDeclarations: None                          # 连续声明不对齐
 AlignArrayOfStructures:       Right                         # 结构体数组初始化列表不做列对齐
-AlignTrailingComments:        false                         # 行尾注释不做跨行对齐
 AlignEscapedNewlines:         Right                         # 宏定义续行符 \ 右对齐到行宽
 AlignOperands:                Align                         # 折行后的操作数尽量对齐
 AlignAfterOpenBracket:        Align                         # 左括号后的参数尽量对齐（而非固定缩进）
+AlignTrailingComments:                                      # 行尾注释隔 2 行对齐
+  Kind: Always
+  OverEmptyLines: 2
 
 # ---------- 函数调用 / 声明换行 ----------
-BinPackArguments:                            false  # 参数逐个换行，不挤在一行
-BinPackParameters:                           false  # 形参逐个换行，不挤在一行
+BinPackArguments:                            true   # 参数逐个换行，不挤在一行
+BinPackParameters:                           true   # 形参逐个换行，不挤在一行
 AllowAllArgumentsOnNextLine:                 false  # 不允许所有实参整体挪到下一行
 AllowAllParametersOfDeclarationOnNextLine:   false  # 不允许所有形参整体挪到下一行
 

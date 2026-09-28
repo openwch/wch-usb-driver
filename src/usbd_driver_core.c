@@ -17,20 +17,27 @@
 static void setup_event_handle(usbd_handle_t *h);
 static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
 
-static bool get_config_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
-static bool get_status_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
-static bool set_clear_feature_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
-static void set_address_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
-static void set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
-static void set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
-static void clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
+static bool get_config_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len);
+static bool get_status_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len);
+static bool set_clear_feature_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len);
+static bool get_descriptor_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len);
+static void set_address_status(void *handle, const usb_setup_t *setup, void *buf, size_t len);
+static void set_config_status(void *handle, const usb_setup_t *setup, void *buf, size_t len);
+static void set_feature_status(void *handle, const usb_setup_t *setup, void *buf, size_t len);
+static void clear_feature_status(void *handle, const usb_setup_t *setup, void *buf, size_t len);
 
-bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, bool self_powered, uint8_t ep0_mps)
+bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, usbd_get_desc_cb get_desc_cb)
 {
-    if (!h || ep0_mps == 0 || ep0_mps > 64) return false;
+    if (!h || !get_desc_cb) return false;
 
-    h->self_powered = self_powered;
-    h->ep0_mps = ep0_mps;
+    h->get_desc_cb = get_desc_cb;
+
+    size_t size = 0;
+    usb_desc_device_t *desc = (usb_desc_device_t *)h->get_desc_cb(USB_DESC_DEVICE, 0, &size);
+
+    /* Validate the endpoint 0 size */
+    if (!desc || desc->bMaxPacketSize0 == 0 || desc->bMaxPacketSize0 > 64) return false;
+    h->ep0_mps = desc->bMaxPacketSize0;
 
     /* Register standard USB request callbacks */
     usbd_ctrl_xfer_cbs_t cbs;
@@ -45,14 +52,6 @@ bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, bool self_p
     if (!usbd_register_request_cb(h, 0x82, USB_REQ_GET_STATUS, &cbs)) return false;
 
     memset(&cbs, 0, sizeof(cbs));
-    cbs.status = set_address_status;
-    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_ADDRESS, &cbs)) return false;
-
-    memset(&cbs, 0, sizeof(cbs));
-    cbs.status = set_config_status;
-    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_CONFIGURATION, &cbs)) return false;
-
-    memset(&cbs, 0, sizeof(cbs));
     cbs.setup = set_clear_feature_setup;
     cbs.status = set_feature_status;
     if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_FEATURE, &cbs)) return false;
@@ -64,7 +63,26 @@ bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, bool self_p
     if (!usbd_register_request_cb(h, 0x00, USB_REQ_CLEAR_FEATURE, &cbs)) return false;
     if (!usbd_register_request_cb(h, 0x02, USB_REQ_CLEAR_FEATURE, &cbs)) return false;
 
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.setup = get_descriptor_setup;
+    if (!usbd_register_request_cb(h, 0x80, USB_REQ_GET_DESCRIPTOR, &cbs)) return false;
+    if (!usbd_register_request_cb(h, 0x82, USB_REQ_GET_DESCRIPTOR, &cbs)) return false;
+
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.status = set_address_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_ADDRESS, &cbs)) return false;
+
+    memset(&cbs, 0, sizeof(cbs));
+    cbs.status = set_config_status;
+    if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_CONFIGURATION, &cbs)) return false;
+
     return h->open(h, speed, sof_en);
+}
+
+bool usbd_drv_close(usbd_handle_t *h)
+{
+    if (!h) return false;
+    return h->close(h);
 }
 
 bool usbd_register_event_callback(usbd_handle_t *h, usbd_event_t event, usbd_event_cb cb)
@@ -151,13 +169,15 @@ bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t b
     return false;
 }
 
-bool usbd_register_interface_cb(usbd_handle_t *h, uint8_t interface_num, usbd_ctrl_xfer_cbs_t *cbs)
+bool usbd_register_interface_cb(usbd_handle_t *h, void *itf_handle, uint8_t itf_num, usbd_ctrl_xfer_cbs_t *cbs)
 {
-    if (!h || interface_num >= USB_ARRAY_SIZE(h->interface_cbs)) return false;
-    usbd_ctrl_xfer_cbs_t *itf_cbs = &h->interface_cbs[interface_num];
-    itf_cbs->setup = cbs->setup;
-    itf_cbs->data = cbs->data;
-    itf_cbs->status = cbs->status;
+    if (!h || itf_num >= USB_ARRAY_SIZE(h->interface_cbs)) return false;
+
+    usbd_interface_cbs_t *itf = &h->interface_cbs[itf_num];
+    itf->itf_handle = itf_handle;
+    itf->cbs.setup = cbs->setup;
+    itf->cbs.data = cbs->data;
+    itf->cbs.status = cbs->status;
     return true;
 }
 
@@ -183,11 +203,27 @@ bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t
 bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t interface_num)
 {
     if (!h || interface_num >= USB_ARRAY_SIZE(h->interface_cbs)) return false;
-    usbd_ctrl_xfer_cbs_t *itf_cbs = &h->interface_cbs[interface_num];
-    itf_cbs->setup = NULL;
-    itf_cbs->data = NULL;
-    itf_cbs->status = NULL;
+    usbd_interface_cbs_t *itf = &h->interface_cbs[interface_num];
+    itf->itf_handle = NULL;
+    itf->cbs.setup = NULL;
+    itf->cbs.data = NULL;
+    itf->cbs.status = NULL;
     return true;
+}
+
+bool usbd_endp_open(usbd_handle_t *h, const usb_desc_endpoint_t *ep_desc)
+{
+    if (!h || !ep_desc) return false;
+    usb_endp_t endp = ep_desc->bEndpointAddress;
+    usb_endp_type_t endp_type = USB_ENDP_GET_TYPE(ep_desc->bmAttributes);
+    uint16_t endp_mps = USB_ENDP_GET_MPS(ep_desc->wMaxPacketSize);
+    return h->endp_open(h, endp, endp_type, endp_mps);
+}
+
+bool usbd_endp_close(usbd_handle_t *h, uint8_t ep_addr)
+{
+    if (!h) return false;
+    return h->endp_close(h, ep_addr);
 }
 
 static void setup_event_handle(usbd_handle_t *h)
@@ -196,16 +232,17 @@ static void setup_event_handle(usbd_handle_t *h)
     void *buf = NULL;
     size_t len = 0;
     usb_setup_t *setup = &h->setup;
-    if (USB_GET_REQ_RCPT(setup->bmRequestType) == USB_RCPT_INTERFACE)
+    if (USB_GET_REQ_RCPT(setup->bmRequestType) == USB_REQ_RCPT_INTERFACE)
     {
         if (setup->wIndex < USB_ARRAY_SIZE(h->interface_cbs))
         {
-            usbd_ctrl_xfer_cbs_t *itf_cbs = &h->interface_cbs[setup->wIndex];
+            usbd_interface_cbs_t *itf_cbs = &h->interface_cbs[setup->wIndex];
 
-            if (itf_cbs->setup || itf_cbs->data || itf_cbs->status)
+            if (itf_cbs->cbs.setup || itf_cbs->cbs.data || itf_cbs->cbs.status)
             {
-                h->ctrl_cbs = itf_cbs;
-                rst = itf_cbs->setup ? itf_cbs->setup(h, setup, &buf, &len) : true;
+                h->ctrl_handle = itf_cbs->itf_handle;
+                h->ctrl_cbs = &itf_cbs->cbs;
+                rst = itf_cbs->cbs.setup ? itf_cbs->cbs.setup(itf_cbs->itf_handle, setup, &buf, &len) : true;
             }
         }
     }
@@ -216,6 +253,7 @@ static void setup_event_handle(usbd_handle_t *h)
             usbd_request_cbs_t *req_cbs = &h->request_cbs[i];
             if (req_cbs->bmRequestType == setup->bmRequestType && req_cbs->bRequest == setup->bRequest)
             {
+                h->ctrl_handle = h;
                 h->ctrl_cbs = &req_cbs->cbs;
                 rst = req_cbs->cbs.setup ? req_cbs->cbs.setup(h, setup, &buf, &len) : true;
                 break;
@@ -231,13 +269,10 @@ static void setup_event_handle(usbd_handle_t *h)
 
     if (rst)
     {
-        USB_LOGI("Processed setup packet: %02x %02x %04x %04x %04x",
-                 setup->bmRequestType,
-                 setup->bRequest,
-                 setup->wValue,
-                 setup->wIndex,
-                 setup->wLength);
+        USB_LOGI("Processed setup packet: %02x %02x %04x %04x %04x", setup->bmRequestType, setup->bRequest,
+                 setup->wValue, setup->wIndex, setup->wLength);
 
+        h->ctrl_xfer_len = 0;
         if (setup->wLength)
         {
             len = USB_MIN(setup->wLength, len);
@@ -250,12 +285,8 @@ static void setup_event_handle(usbd_handle_t *h)
     }
     else
     {
-        USB_LOGE("Failed to handle setup packet: %02x %02x %04x %04x %04x",
-                 setup->bmRequestType,
-                 setup->bRequest,
-                 setup->wValue,
-                 setup->wIndex,
-                 setup->wLength);
+        USB_LOGE("Failed to handle setup packet: %02x %02x %04x %04x %04x", setup->bmRequestType, setup->bRequest,
+                 setup->wValue, setup->wIndex, setup->wLength);
 
         h->endp_transfer(h, 0x00, &h->setup, sizeof(usb_setup_t));
         h->endp_stall(h, 0x80, true);
@@ -277,9 +308,10 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         if ((setup->bmRequestType & 0x80) == (ctx->xfer.endp & 0x80))
         {
             bool rst = true;
+            h->ctrl_xfer_len = endp_ctx->xfer_ofs;
             if (h->ctrl_cbs && h->ctrl_cbs->data)
             {
-                rst = h->ctrl_cbs->data(h, setup, &endp_ctx->xfer_buf, endp_ctx->xfer_ofs);
+                rst = h->ctrl_cbs->data(h->ctrl_handle, setup, &endp_ctx->xfer_buf, h->ctrl_xfer_len);
             }
 
             /* Send zero-length packet to acknowledge the data stage */
@@ -302,7 +334,7 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
             h->endp_transfer(h, 0x00, &h->setup, sizeof(usb_setup_t));
             if (h->ctrl_cbs && h->ctrl_cbs->status)
             {
-                h->ctrl_cbs->status(h, setup, &endp_ctx->xfer_buf, endp_ctx->xfer_ofs);
+                h->ctrl_cbs->status(h->ctrl_handle, setup, &endp_ctx->xfer_buf, h->ctrl_xfer_len);
             }
         }
     }
@@ -316,8 +348,9 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
     }
 }
 
-static bool get_config_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+static bool get_config_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len)
 {
+    usbd_handle_t *h = (usbd_handle_t *)handle;
     memset(&h->stand_req_buf, 0, sizeof(h->stand_req_buf));
     memcpy(&h->stand_req_buf, &h->config_num, sizeof(h->config_num));
     *buf = &h->stand_req_buf;
@@ -325,19 +358,27 @@ static bool get_config_setup(usbd_handle_t *h, const usb_setup_t *setup, void **
     return true;
 }
 
-static bool get_status_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+static bool get_status_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len)
 {
+    usbd_handle_t *h = (usbd_handle_t *)handle;
     switch (USB_GET_REQ_RCPT(setup->bmRequestType))
     {
-    case USB_RCPT_DEVICE:
+    case USB_REQ_RCPT_DEVICE:
         memset(&h->stand_req_buf, 0, sizeof(h->stand_req_buf));
-        h->stand_req_buf = (h->self_powered ? 0x0001 : 0x0000) | (h->remote_wakeup ? 0x0002 : 0x0000);
-        *buf = &h->stand_req_buf;
-        *len = sizeof(uint16_t);
-        return true;
+        size_t size = 0;
+        usb_desc_config_t *desc = (usb_desc_config_t *)h->get_desc_cb(USB_DESC_CONFIGURATION, h->link_speed, &size);
+        if (desc)
+        {
+            h->stand_req_buf = (desc->bmAttributes & USB_SELF_POWERED_MASK ? 0x0001 : 0x0000) |
+                               (h->remote_wakeup ? 0x0002 : 0x0000);
+            *buf = &h->stand_req_buf;
+            *len = sizeof(uint16_t);
+            return true;
+        }
+        break;
 
-    case USB_RCPT_ENDPOINT:
-        usb_endp_t endp = setup->wIndex & 0xFF;
+    case USB_REQ_RCPT_ENDPOINT:
+        usb_endp_t endp = USB_U16_LOW(setup->wIndex);
         memset(&h->stand_req_buf, 0, sizeof(h->stand_req_buf));
         h->stand_req_buf = h->endp_is_stalled(h, endp) ? 0x0001 : 0x0000;
         *buf = &h->stand_req_buf;
@@ -347,18 +388,18 @@ static bool get_status_setup(usbd_handle_t *h, const usb_setup_t *setup, void **
     return false;
 }
 
-static bool set_clear_feature_setup(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len)
+static bool set_clear_feature_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len)
 {
     switch (USB_GET_REQ_RCPT(setup->bmRequestType))
     {
-    case USB_RCPT_DEVICE:
+    case USB_REQ_RCPT_DEVICE:
         if (setup->wValue == USB_FEATURE_REMOTE_WAKEUP || setup->wValue == USB_FEATURE_TEST_MODE)
         {
             return true;
         }
         break;
 
-    case USB_RCPT_ENDPOINT:
+    case USB_REQ_RCPT_ENDPOINT:
         if (setup->wValue == USB_FEATURE_EDPT_HALT)
         {
             return true;
@@ -368,16 +409,64 @@ static bool set_clear_feature_setup(usbd_handle_t *h, const usb_setup_t *setup, 
     return false;
 }
 
-static void set_address_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len)
+static bool get_descriptor_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len)
 {
-    USB_LOGI("Setting USB address to %d", setup->wValue & 0x7F);
-    h->set_address(h, setup->wValue & 0x7F);
+    usbd_handle_t *h = (usbd_handle_t *)handle;
+    uint8_t desc_type = USB_U16_HIGH(setup->wValue);
+    const void *desc = NULL;
+    size_t desc_len = 0;
+
+    switch (desc_type)
+    {
+    case USB_DESC_DEVICE:
+        desc = h->get_desc_cb(desc_type, 0, &desc_len);
+        break;
+
+    case USB_DESC_CONFIGURATION:
+        desc = h->get_desc_cb(desc_type, h->link_speed, &desc_len);
+        break;
+
+    case USB_DESC_STRING:
+        desc = h->get_desc_cb(desc_type, USB_U16_LOW(setup->wValue), &desc_len);
+        break;
+
+    case USB_DESC_DEVICE_QUALIFIER:
+        desc = h->get_desc_cb(desc_type, 0, &desc_len);
+        break;
+
+    case USB_DESC_OTHER_SPEED_CONFIG:
+        desc = h->get_desc_cb(desc_type, h->link_speed, &desc_len);
+        break;
+
+    case USB_DESC_BOS:
+        desc = h->get_desc_cb(desc_type, 0, &desc_len);
+        break;
+    }
+
+    if (desc)
+    {
+        *buf = (void *)desc;
+        *len = desc_len;
+        return true;
+    }
+
+    return false;
 }
 
-static void set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len)
+static void set_address_status(void *handle, const usb_setup_t *setup, void *buf, size_t len)
 {
-    USB_LOGI("Setting USB configuration to %d", setup->wValue & 0xFF);
-    h->config_num = setup->wValue & 0xFF;
+    usbd_handle_t *h = (usbd_handle_t *)handle;
+    uint8_t addr = USB_U16_LOW(setup->wValue) & 0x7F;
+    USB_LOGI("Setting USB address to %d", addr);
+    h->set_address(h, addr);
+}
+
+static void set_config_status(void *handle, const usb_setup_t *setup, void *buf, size_t len)
+{
+    usbd_handle_t *h = (usbd_handle_t *)handle;
+    uint8_t config_num = USB_U16_LOW(setup->wValue);
+    USB_LOGI("Setting USB configuration to %d", config_num);
+    h->config_num = config_num;
     if (h->event_cbs[USBD_EVENT_ENUM_COMPLETED])
     {
         usbd_event_ctx_t event_ctx;
@@ -388,11 +477,12 @@ static void set_config_status(usbd_handle_t *h, const usb_setup_t *setup, void *
     }
 }
 
-static void set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len)
+static void set_feature_status(void *handle, const usb_setup_t *setup, void *buf, size_t len)
 {
+    usbd_handle_t *h = (usbd_handle_t *)handle;
     switch (USB_GET_REQ_RCPT(setup->bmRequestType))
     {
-    case USB_RCPT_DEVICE:
+    case USB_REQ_RCPT_DEVICE:
         if (setup->wValue == USB_FEATURE_REMOTE_WAKEUP)
         {
             h->remote_wakeup = true;
@@ -400,16 +490,16 @@ static void set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void 
         }
         else if (setup->wValue == USB_FEATURE_TEST_MODE)
         {
-            usb_test_select_t test_selector = (setup->wIndex >> 8) & 0xFF;
+            usb_test_select_t test_selector = USB_U16_HIGH(setup->wIndex);
             h->test_mode_ctrl(h, test_selector);
             USB_LOGI("Entered test mode: %d", test_selector);
         }
         break;
 
-    case USB_RCPT_ENDPOINT:
+    case USB_REQ_RCPT_ENDPOINT:
         if (setup->wValue == USB_FEATURE_EDPT_HALT)
         {
-            usb_endp_t endp = setup->wIndex & 0xFF;
+            usb_endp_t endp = USB_U16_LOW(setup->wIndex);
             h->endp_stall(h, endp, true);
             USB_LOGI("Stalled endpoint 0x%02X", endp);
         }
@@ -417,11 +507,12 @@ static void set_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void 
     }
 }
 
-static void clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len)
+static void clear_feature_status(void *handle, const usb_setup_t *setup, void *buf, size_t len)
 {
+    usbd_handle_t *h = (usbd_handle_t *)handle;
     switch (USB_GET_REQ_RCPT(setup->bmRequestType))
     {
-    case USB_RCPT_DEVICE:
+    case USB_REQ_RCPT_DEVICE:
         if (setup->wValue == USB_FEATURE_REMOTE_WAKEUP)
         {
             h->remote_wakeup = false;
@@ -429,10 +520,10 @@ static void clear_feature_status(usbd_handle_t *h, const usb_setup_t *setup, voi
         }
         break;
 
-    case USB_RCPT_ENDPOINT:
+    case USB_REQ_RCPT_ENDPOINT:
         if (setup->wValue == USB_FEATURE_EDPT_HALT)
         {
-            usb_endp_t endp = setup->wIndex & 0xFF;
+            usb_endp_t endp = USB_U16_LOW(setup->wIndex);
             h->endp_stall(h, endp, false);
             USB_LOGI("Cleared stall on endpoint 0x%02X", endp);
         }

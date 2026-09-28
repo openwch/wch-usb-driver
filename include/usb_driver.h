@@ -20,8 +20,13 @@
 #include "usb_define.h"
 #include "usb_config.h"
 
+/* USB core driver includes */
 #include "device/usbd_driver_public.h"
 #include "host/usbh_driver_public.h"
+
+/* USB class driver includes */
+#include "class/hid/hid.h"
+#include "class/hid/hidd.h"
 
 #ifdef __cplusplus
 extern "C" {

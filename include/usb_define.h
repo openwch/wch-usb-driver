@@ -25,6 +25,8 @@ extern "C" {
 
 #define USB_ENDP_DIR(ep)                ((ep) & 0x80)
 #define USB_ENDP_NUM(ep)                ((ep) & 0x0F)
+#define USB_ENDP_GET_TYPE(ep)           ((ep) & 0x03)
+#define USB_ENDP_GET_MPS(ep)            ((ep) & 0x07FF)
 #define USB_MAX_ENDP_NUM                (16)
 
 #define USB_ARRAY_SIZE(arr)             (sizeof(arr) / sizeof((arr)[0]))
@@ -32,6 +34,19 @@ extern "C" {
 #define USB_GET_REQ_DIR(bmRequestType)  (((bmRequestType) & 0x80) >> 7)
 #define USB_GET_REQ_TYPE(bmRequestType) (((bmRequestType) & 0x60) >> 5)
 #define USB_GET_REQ_RCPT(bmRequestType) (((bmRequestType) & 0x1F) >> 0)
+
+#define USB_SELF_POWERED_MASK           (0x40)
+#define USB_REMOTE_WAKEUP_MASK          (0x20)
+
+#define USB_U16_HIGH(data)              ((uint8_t)(((data) >> 8) & 0x00FF))
+#define USB_U16_LOW(data)               ((uint8_t)(((data) >> 0) & 0x00FF))
+#define USB_U16_TO_U8_LSB(data)         USB_U16_LOW(data), USB_U16_HIGH(data)
+#define USB_U16_TO_U8_MSB(data)         USB_U16_HIGH(data), USB_U16_LOW(data)
+
+#define USB_U32_BYTE0(data)             ((uint8_t)(((data) >> 0) & 0x000000FF))
+#define USB_U32_BYTE1(data)             ((uint8_t)(((data) >> 8) & 0x000000FF))
+#define USB_U32_BYTE2(data)             ((uint8_t)(((data) >> 16) & 0x000000FF))
+#define USB_U32_BYTE3(data)             ((uint8_t)(((data) >> 24) & 0x000000FF))
 
 /* @enum */
 typedef enum
@@ -76,19 +91,19 @@ typedef enum
 
 typedef enum
 {
-    USB_TYPE_STANDARD = 0,
-    USB_TYPE_CLASS = 1,
-    USB_TYPE_VENDOR = 2,
-    USB_TYPE_RESERVED = 3,
-} usb_type_t;
+    USB_REQ_TYPE_STANDARD = 0,
+    USB_REQ_TYPE_CLASS = 1,
+    USB_REQ_TYPE_VENDOR = 2,
+    USB_REQ_TYPE_RESERVED = 3,
+} usb_req_type_t;
 
 typedef enum
 {
-    USB_RCPT_DEVICE = 0,
-    USB_RCPT_INTERFACE = 1,
-    USB_RCPT_ENDPOINT = 2,
-    USB_RCPT_OTHER = 3,
-} usb_rcpt_t;
+    USB_REQ_RCPT_DEVICE = 0,
+    USB_REQ_RCPT_INTERFACE = 1,
+    USB_REQ_RCPT_ENDPOINT = 2,
+    USB_REQ_RCPT_OTHER = 3,
+} usb_req_rcpt_t;
 
 typedef enum
 {
@@ -141,7 +156,7 @@ typedef enum
 {
     USB_FEATURE_EDPT_HALT = 0,
     USB_FEATURE_REMOTE_WAKEUP = 1,
-    USB_FEATURE_TEST_MODE = 2
+    USB_FEATURE_TEST_MODE = 2,
 } usb_feature_selector_t;
 
 /* @typedef */

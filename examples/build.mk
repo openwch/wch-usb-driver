@@ -72,7 +72,8 @@ include $(FAMILY_DIR)/family.mk
 SRC_DIR += \
 	$(abspath src) \
 	$(ROOT_DIR)/src \
-	$(ROOT_DIR)/port/usbhs
+	$(ROOT_DIR)/port/usbhs \
+	$(wildcard $(ROOT_DIR)/src/class/*)
 
 # --- Add Assembly Source Files ---
 ASMS += $(foreach dir,$(ASM_DIR),$(wildcard $(dir)/*.S))

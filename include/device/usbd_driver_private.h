@@ -64,9 +64,9 @@ typedef struct
 
 typedef struct
 {
-    bool (*setup)(usbd_handle_t *h, const usb_setup_t *setup, void **buf, size_t *len);
-    bool (*data)(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
-    void (*status)(usbd_handle_t *h, const usb_setup_t *setup, void *buf, size_t len);
+    bool (*setup)(void *handle, const usb_setup_t *setup, void **buf, size_t *len);
+    bool (*data)(void *handle, const usb_setup_t *setup, void *buf, size_t len);
+    void (*status)(void *handle, const usb_setup_t *setup, void *buf, size_t len);
 } usbd_ctrl_xfer_cbs_t;
 
 typedef struct
@@ -76,17 +76,25 @@ typedef struct
     usbd_ctrl_xfer_cbs_t cbs;
 } usbd_request_cbs_t;
 
+typedef struct
+{
+    void *itf_handle;
+    usbd_ctrl_xfer_cbs_t cbs;
+} usbd_interface_cbs_t;
+
 typedef struct usbd_handle
 {
     /* Base address of the USB device controller */
     uint32_t base_addr;
 
     /* USB device information */
-    bool self_powered;
     bool remote_wakeup;
     uint8_t ep0_mps;
     uint8_t link_speed;
     uint8_t config_num;
+
+    /* USB device get descriptor callback */
+    usbd_get_desc_cb get_desc_cb;
 
     /* USB Standard Request Temporary Buffer */
     uint32_t stand_req_buf;
@@ -100,10 +108,12 @@ typedef struct usbd_handle
     /* Event callback functions */
     usbd_event_cb event_cbs[USBD_EVENT_COUNT];
 
-    /* Control transfer callback functions */
+    /* Control transfer context */
+    void *ctrl_handle;
+    size_t ctrl_xfer_len;
     usbd_ctrl_xfer_cbs_t *ctrl_cbs;
     usbd_request_cbs_t request_cbs[USBD_REQUEST_CB_COUNT];
-    usbd_ctrl_xfer_cbs_t interface_cbs[USBD_INTERFACE_CB_COUNT];
+    usbd_interface_cbs_t interface_cbs[USBD_INTERFACE_CB_COUNT];
 
     /* USB device operations */
     bool (*open)(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
@@ -125,9 +135,11 @@ typedef struct usbd_handle
 /* @function declaration */
 void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
 bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cbs_t *cbs);
-bool usbd_register_interface_cb(usbd_handle_t *h, uint8_t interface_num, usbd_ctrl_xfer_cbs_t *cbs);
+bool usbd_register_interface_cb(usbd_handle_t *h, void *itf_handle, uint8_t itf_num, usbd_ctrl_xfer_cbs_t *cbs);
 bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
-bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t interface_num);
+bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t itf_num);
+bool usbd_endp_open(usbd_handle_t *h, const usb_desc_endpoint_t *ep_desc);
+bool usbd_endp_close(usbd_handle_t *h, uint8_t ep_addr);
 
 #ifdef __cplusplus
 }

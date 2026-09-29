@@ -12,13 +12,36 @@
 #include <string.h>
 
 #include "board.h"
+#include "button.h"
+#include "led.h"
 
 #include "usb_driver.h"
 #include "descriptor.h"
 
+/* @struct */
+typedef struct
+{
+    uint8_t modifier;
+    uint8_t reserved;
+    uint8_t key_code[6];
+} hid_kb_report_t;
+
+typedef struct
+{
+    uint8_t buttons;
+    int8_t x;
+    int8_t y;
+    int8_t wheel;
+} hid_mouse_report_t;
+
 /* @global */
-static hidd_handle_t hidd_handles[2];
-static uint8_t keyboard_report_buf[8];
+static volatile bool enum_completed;
+static volatile bool is_suspended;
+static hidd_handle_t kb_handle;
+static hidd_handle_t mouse_handle;
+static hid_kb_report_t hid_kb_report;
+static hid_mouse_report_t hid_mouse_report;
+static __attribute__((aligned(4))) uint8_t hid_kb_led_status;
 
 static const void *get_string_desc_cb(uint8_t string_index, size_t *len)
 {
@@ -107,52 +130,191 @@ static bool get_hid_desc_cb(hidd_handle_t *hidd, uint8_t desc_type, uint8_t desc
             return true;
         }
     }
-
     return false;
 }
 
 static void keyboard_set_report(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len)
 {
-    printf("Keyboard LED status is %02x\r\n", *(uint8_t *)buf);
+    uint8_t led_status = *(uint8_t *)buf & 0x07;
+    led_write(led_status);
+    printf("Keyboard LED status is %02x\r\n", led_status);
+}
+
+static void reset_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
+{
+    enum_completed = false;
+    is_suspended = false;
+    memset(&kb_handle, 0, sizeof(hidd_handle_t));
+    memset(&mouse_handle, 0, sizeof(hidd_handle_t));
+    memset(&hid_kb_report, 0, sizeof(hid_kb_report));
+    memset(&hid_mouse_report, 0, sizeof(hid_mouse_report));
+    memset(&hid_kb_led_status, 0, sizeof(hid_kb_led_status));
+}
+
+static void suspend_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
+{
+    is_suspended = true;
 }
 
 static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
 {
-    hidd_handle_t *hidd = NULL;
+    enum_completed = true;
 
     /* Initialize HID device handle for the keyboard interface */
-    hidd = &hidd_handles[0];
-    memset(hidd, 0, sizeof(hidd_handle_t));
-    hidd->usbd_handle = h;
-    hidd->itf_num = 0;
-    hidd->in_ep = (usb_desc_endpoint_t *)&config_desc[27];
-    hidd->report_buf = keyboard_report_buf;
-    hidd->report_buf_size = sizeof(keyboard_report_buf);
-    hidd->get_desc_cb = get_hid_desc_cb;
-    hidd->set_report_comp_cb = keyboard_set_report;
-    assert(hidd_drv_open(hidd));
+    memset(&kb_handle, 0, sizeof(hidd_handle_t));
+    kb_handle.usbd_handle = h;
+    kb_handle.itf_num = 0;
+    kb_handle.in_ep = (usb_desc_endpoint_t *)&config_desc[27];
+    kb_handle.report_buf = &hid_kb_led_status;
+    kb_handle.report_buf_size = sizeof(hid_kb_led_status);
+    kb_handle.get_desc_cb = get_hid_desc_cb;
+    kb_handle.set_report_comp_cb = keyboard_set_report;
+    assert(hidd_drv_open(&kb_handle));
 
     /* Initialize HID device handle for the mouse interface */
-    hidd = &hidd_handles[1];
-    memset(hidd, 0, sizeof(hidd_handle_t));
-    hidd->usbd_handle = h;
-    hidd->itf_num = 1;
-    hidd->in_ep = (usb_desc_endpoint_t *)&config_desc[52];
-    hidd->get_desc_cb = get_hid_desc_cb;
-    assert(hidd_drv_open(hidd));
+    memset(&mouse_handle, 0, sizeof(hidd_handle_t));
+    mouse_handle.usbd_handle = h;
+    mouse_handle.itf_num = 1;
+    mouse_handle.in_ep = (usb_desc_endpoint_t *)&config_desc[52];
+    mouse_handle.get_desc_cb = get_hid_desc_cb;
+    assert(hidd_drv_open(&mouse_handle));
+}
+
+static void hid_kb_button_handle(hid_kb_report_t *report, uint8_t key_code, bool pressed)
+{
+    /* Modifier keys */
+    if (key_code >= HID_KEY_CODE_CONTROL_LEFT && key_code <= HID_KEY_CODE_GUI_RIGHT)
+    {
+        uint8_t bit_mask = 1 << (key_code & 0x07);
+        report->modifier = pressed ? (report->modifier | bit_mask) : (report->modifier & ~bit_mask);
+    }
+    /* Normal keys press */
+    else if (pressed)
+    {
+        for (size_t i = 0; i < sizeof(report->key_code); i++)
+        {
+            if (report->key_code[i] == key_code)
+            {
+                break;
+            }
+
+            if (report->key_code[i] == HID_KEY_CODE_NONE)
+            {
+                report->key_code[i] = key_code;
+                break;
+            }
+        }
+    }
+    /* Normal keys leave */
+    else
+    {
+        for (size_t i = 0; i < sizeof(report->key_code); i++)
+        {
+            if (report->key_code[i] == key_code)
+            {
+                report->key_code[i] = HID_KEY_CODE_NONE;
+                memmove(&report->key_code[i], &report->key_code[i + 1], sizeof(report->key_code) - i - 1);
+                report->key_code[sizeof(report->key_code) - 1] = HID_KEY_CODE_NONE;
+                break;
+            }
+        }
+    }
+}
+
+static void hid_application_handle(void)
+{
+    static const uint8_t keycode_map[4] = {
+        HID_KEY_CODE_A,
+        HID_KEY_CODE_B,
+        HID_KEY_CODE_CONTROL_LEFT,
+        HID_KEY_CODE_SHIFT_LEFT,
+    };
+
+    uint8_t button_status = button_read();
+
+    /* HID keyboard handling */
+    hid_kb_report_t temp_kb_report;
+    memcpy(&temp_kb_report, &hid_kb_report, sizeof(hid_kb_report_t));
+
+    for (size_t i = 0; i < USB_ARRAY_SIZE(keycode_map); i++)
+    {
+        hid_kb_button_handle(&temp_kb_report, keycode_map[i], (button_status & (1 << i)) ? true : false);
+    }
+
+    if (memcmp(&hid_kb_report, &temp_kb_report, sizeof(hid_kb_report_t)) != 0)
+    {
+        /* Resume the USB device if it was suspended */
+        if (is_suspended)
+        {
+            usbd_drv_resume(kb_handle.usbd_handle);
+            is_suspended = false;
+        }
+
+        memcpy(&hid_kb_report, &temp_kb_report, sizeof(hid_kb_report_t));
+        hidd_drv_write(&kb_handle, &hid_kb_report, sizeof(hid_kb_report_t));
+    }
+
+    /* HID mouse handling */
+    int8_t dx = 0;
+    int8_t dy = 0;
+
+    if (button_status & BUTTON_4)
+    {
+        dx += 1;
+    }
+
+    if (button_status & BUTTON_5)
+    {
+        dx -= 1;
+    }
+
+    if (button_status & BUTTON_6)
+    {
+        dy += 1;
+    }
+
+    if (button_status & BUTTON_7)
+    {
+        dy -= 1;
+    }
+
+    if (dx || dy)
+    {
+        /* Resume the USB device if it was suspended */
+        if (is_suspended)
+        {
+            usbd_drv_resume(mouse_handle.usbd_handle);
+            is_suspended = false;
+        }
+
+        hid_mouse_report.x = dx;
+        hid_mouse_report.y = dy;
+        hidd_drv_write(&mouse_handle, &hid_mouse_report, sizeof(hid_mouse_report_t));
+    }
 }
 
 int main(void)
 {
     board_init();
+    button_init();
+    led_init();
 
     usbd_handle_t *h = board_usbd_init(0);
     assert(h != NULL);
 
     assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_stand_desc_cb));
+    assert(usbd_register_event_callback(h, USBD_EVENT_RESET, reset_event_cb));
+    assert(usbd_register_event_callback(h, USBD_EVENT_SUSPEND, suspend_event_cb));
     assert(usbd_register_event_callback(h, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
+    enum_completed = false;
 
-    while (1);
+    while (1)
+    {
+        if (enum_completed)
+        {
+            hid_application_handle();
+        }
+    }
 
     return 0;
 }

@@ -386,6 +386,12 @@ bool usbd_drv_close(usbd_handle_t *h)
     return h->close(h);
 }
 
+bool usbd_drv_resume(usbd_handle_t *h)
+{
+    if (!h || !h->remote_wakeup) return false;
+    return h->resume(h);
+}
+
 bool usbd_register_event_callback(usbd_handle_t *h, usbd_event_t event, usbd_event_cb cb)
 {
     if (!h || event >= USBD_EVENT_COUNT || !cb) return false;

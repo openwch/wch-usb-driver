@@ -18,6 +18,11 @@
 #include "usb_driver.h"
 #include "descriptor.h"
 
+/* @define */
+#ifndef USBD
+#define USBD 0
+#endif
+
 /* @struct */
 typedef struct
 {
@@ -299,7 +304,7 @@ int main(void)
     button_init();
     led_init();
 
-    usbd_handle_t *h = board_usbd_init(0);
+    usbd_handle_t *h = board_usbd_init(USBD);
     assert(h != NULL);
 
     assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_stand_desc_cb));

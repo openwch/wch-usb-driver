@@ -19,8 +19,8 @@ extern "C" {
 
 /* @function declaration */
 void board_init(void);
-usbd_handle_t *board_usbd_init(uint8_t dev_id);
-usbd_handle_t *board_usbd_deinit(uint8_t dev_id);
+usbd_handle_t *board_usbd_init(uint8_t index);
+usbd_handle_t *board_usbd_deinit(uint8_t index);
 
 #ifdef __cplusplus
 }

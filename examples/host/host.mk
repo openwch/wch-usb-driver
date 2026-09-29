@@ -2,5 +2,10 @@
 # Makefile for Host Examples
 ########################################
 
+# --- Compiler Flags ---
+ifneq ($(USBH),)
+CFLAGS += -DUSBH=$(USBH)
+endif
+
 # --- Include Build Makefile ---
-include $(ROOT_DIR)/examples/build.mk
+include ../../build.mk

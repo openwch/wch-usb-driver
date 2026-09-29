@@ -14,7 +14,9 @@ INCLUDES += \
 	$(FAMILY_DIR)/sdk/Core \
 	$(FAMILY_DIR)/sdk/Debug \
 	$(FAMILY_DIR)/sdk/Peripheral/inc \
-	$(FAMILY_DIR)/board
+	$(FAMILY_DIR)/board \
+	$(ROOT_DIR)/port/usbhs \
+	$(ROOT_DIR)/port/usbfs
 
 # --- Assembly Source Directories ---
 ASM_DIR += $(FAMILY_DIR)/sdk/Startup
@@ -24,7 +26,9 @@ SRC_DIR += \
 	$(FAMILY_DIR)/sdk/Core \
 	$(FAMILY_DIR)/sdk/Debug \
 	$(FAMILY_DIR)/sdk/Peripheral/src \
-	$(FAMILY_DIR)/board
+	$(FAMILY_DIR)/board \
+	$(ROOT_DIR)/port/usbhs \
+	$(ROOT_DIR)/port/usbfs
 
 # --- Compiler Flags ---
 CFLAGS += \

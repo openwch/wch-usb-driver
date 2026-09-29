@@ -1,5 +1,5 @@
 ########################################
-# Makefile for CH32V205RCT6 Chip
+# Makefile for CH32V205CCT6 Chip
 ########################################
 
 # --- Compiler Flags ---

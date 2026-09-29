@@ -8,12 +8,8 @@ ifneq ($(filter all, $(MAKECMDGOALS)),)
     $(error No 'CHIP' parameter provided, Usage: make all -j8 CHIP=ch32v205rct6)
   endif
 
-# --- Locate Chip Makefile ---
-CHIP_MK := $(wildcard $(ROOT_DIR)/chips/*/$(CHIP).mk)
-FAMILY := $(notdir $(abspath $(CHIP_MK)/../))
-
-  ifeq ($(filter $(FAMILY), $(SUPPORTED_FAMILIES)),)
-    $(error This example does not support the family '$(FAMILY)', supported families are '$(SUPPORTED_FAMILIES)')
+  ifeq ($(filter $(CHIP), $(SUPPORTED_CHIPS)),)
+    $(error This example does not support the chip '$(CHIP)')
   endif
 
 # --- Output Directories ---
@@ -32,34 +28,14 @@ HEX_FILE := $(OUTPUT_DIR)/$(TARGET).hex
 MAP_FILE := $(OUTPUT_DIR)/$(TARGET).map
 LST_FILE := $(OUTPUT_DIR)/$(TARGET).lst
 
+# --- Root Directory ---
+ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../)
+
 # --- Include Directories ---
-INCLUDES := \
-	$(ROOT_DIR)/include \
-	$(ROOT_DIR)/port/usbhs
+INCLUDES := $(ROOT_DIR)/include
 
-# --- Assembly Source Directories ---
-ASM_DIR :=
-
-# --- C Source Directories ---
-SRC_DIR :=
-
-# --- Library Directories ---
-LIB_DIR :=
-
-# --- Assembly Source Files ---
-ASMS :=
-
-# --- C Source Files ---
-SRCS :=
-
-# --- Libraries ---
-LIBS :=
-
-# --- Compiler Flags ---
-CFLAGS :=
-
-# --- Linker Flags ---
-LDFLAGS :=
+# --- Chip Makefile ---
+CHIP_MK := $(wildcard $(ROOT_DIR)/chips/*/$(CHIP).mk)
 
 # --- Family Directories ---
 FAMILY_DIR := $(abspath $(CHIP_MK)/../)
@@ -72,7 +48,6 @@ include $(FAMILY_DIR)/family.mk
 SRC_DIR += \
 	$(abspath src) \
 	$(ROOT_DIR)/src \
-	$(ROOT_DIR)/port/usbhs \
 	$(wildcard $(ROOT_DIR)/src/class/*)
 
 # --- Add Assembly Source Files ---

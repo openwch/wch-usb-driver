@@ -4,9 +4,12 @@
 
 ## 支持的芯片
 
-| 系列 | 芯片 | IP |
+| 系列 | 芯片 | IP（索引） |
 | --- | --- | --- |
-| CH32V205 | ch32v203cct6 / ch32v205cct6 / ch32v205rct6 / ch32v205vct6 | usbfs / usbhs |
+| CH32V205 | ch32v203cct6 | usbfs (0) |
+| CH32V205 | ch32v205cct6 | usbfs (0) / usbhs (1) |
+| CH32V205 | ch32v205rct6 | usbfs (0) / usbhs (1) |
+| CH32V205 | ch32v205vct6 | usbfs (0) / usbhs (1) |
 
 ## 目录结构
 
@@ -16,8 +19,8 @@ wch-usb-driver/
 │   └── <family>/
 │       ├── board/              # 板级支持包（BSP）：时钟、中断、USB 实例初始化
 │       ├── sdk/                # 厂商 SDK：Core / Debug / Peripheral / Startup / Ld
-│       ├── <chip>.mk           # 芯片级构建配置：USB 控制器基地址、支持的 IP
-│       └── family.mk           # 系列级构建配置：工具链、头文件路径、编译与链接选项
+│       ├── <chip>.mk           # 芯片级构建配置
+│       └── family.mk           # 系列级构建配置
 ├── docs/                       # 项目文档
 ├── examples/                   # 应用层：示例工程
 │   ├── build.mk                # 示例通用构建规则（含输出目录、编译与链接规则）
@@ -77,19 +80,13 @@ wch-usb-driver/
     make all -j8 CHIP=ch32v205rct6
     ```
 
-3. 芯片同时支持多个 USB 控制器时，可指定 `IP` ：
-
-    ```bash
-    make all -j8 CHIP=ch32v205rct6 IP=usbfs
-    ```
-
-4. 下载程序
+3. 下载程序
 
     - 输出文件位于 `examples/device/hid_km/build/<chip>/output/`，包含 `.elf`、`.bin`、`.hex`、`.lst` 及 `.map`。
     - 可通过 `WCH-LinkUtility` 或 `WCHISPStudio` 工具烧录到单片机。
 
 
-5. 清理:
+4. 清理:
 
     ```bash
     make clear

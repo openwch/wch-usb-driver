@@ -18,7 +18,7 @@
 
 /* @global */
 static hidd_handle_t hidd_handles[2];
-static __attribute__((aligned(4))) uint8_t keyboard_report_buf[8];
+static uint8_t keyboard_report_buf[8];
 
 static const void *get_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len)
 {

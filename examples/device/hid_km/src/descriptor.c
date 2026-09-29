@@ -11,7 +11,7 @@
 #include "usb_driver.h"
 
 /* @global */
-__attribute__((aligned(4))) usb_desc_device_t device_desc = {
+const usb_desc_device_t device_desc = {
     .bLength = 0x12,
     .bDescriptorType = 0x01,
     .bcdUSB = 0x0110,
@@ -28,7 +28,7 @@ __attribute__((aligned(4))) usb_desc_device_t device_desc = {
     .bNumConfigurations = 0x01,
 };
 
-__attribute__((aligned(4))) usb_desc_qualifier_t qualifier_desc = {
+const usb_desc_qualifier_t qualifier_desc = {
     .bLength = 0x0A,
     .bDescriptorType = 0x06,
     .bcdUSB = 0x0200,
@@ -40,7 +40,7 @@ __attribute__((aligned(4))) usb_desc_qualifier_t qualifier_desc = {
     .bReserved = 0x00,
 };
 
-__attribute__((aligned(4))) uint8_t config_desc[] = {
+const uint8_t config_desc[] = {
     0x09,                  // bLength
     0x02,                  // bDescriptorType (Configuration)
     USB_U16_TO_U8_LSB(59), // wTotalLength 59
@@ -103,7 +103,7 @@ __attribute__((aligned(4))) uint8_t config_desc[] = {
     0x01,                  // bInterval 1 (unit depends on device speed)
 };
 
-__attribute__((aligned(4))) uint8_t keyboard_report_desc[] = {
+const uint8_t keyboard_report_desc[] = {
     0x05, 0x01,       // Usage Page (Generic Desktop Ctrls)
     0x09, 0x06,       // Usage (Keyboard)
     0xA1, 0x01,       // Collection (Application)
@@ -137,7 +137,7 @@ __attribute__((aligned(4))) uint8_t keyboard_report_desc[] = {
     0xC0,             // End Collection
 };
 
-__attribute__((aligned(4))) uint8_t mouse_report_desc[] = {
+const uint8_t mouse_report_desc[] = {
     0x05, 0x01, // Usage Page (Generic Desktop Ctrls)
     0x09, 0x02, // Usage (Mouse)
     0xA1, 0x01, // Collection (Application)

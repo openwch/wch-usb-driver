@@ -59,7 +59,7 @@ static void setup_event_handle(usbd_handle_t *h)
     {
         USB_LOGI("Processed setup packet: %02x %02x %04x %04x %04x", setup->bmRequestType, setup->bRequest,
                  setup->wValue, setup->wIndex, setup->wLength);
-
+        h->ctrl_xfer_zlp = false;
         h->ctrl_xfer_buf = buf;
         h->ctrl_xfer_len = 0;
         if (setup->wLength)
@@ -76,8 +76,6 @@ static void setup_event_handle(usbd_handle_t *h)
     {
         USB_LOGE("Failed to handle setup packet: %02x %02x %04x %04x %04x", setup->bmRequestType, setup->bRequest,
                  setup->wValue, setup->wIndex, setup->wLength);
-
-        h->endp_transfer(h, 0x00, &h->setup, sizeof(usb_setup_t));
         h->endp_stall(h, 0x80, true);
         h->endp_stall(h, 0x00, true);
     }
@@ -96,16 +94,26 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         /* Control transfer data stage */
         if ((setup->bmRequestType & 0x80) == (ctx->xfer.endp & 0x80))
         {
+            /* Send zero-length packet to acknowledge the data stage */
+            if (endp_ctx->xfer_ofs && endp_ctx->xfer_ofs < setup->wLength && endp_ctx->xfer_ofs % endp_ctx->mps == 0 &&
+                setup->bmRequestType & 0x80 && !h->ctrl_xfer_zlp)
+            {
+                h->ctrl_xfer_zlp = true;
+                h->ctrl_xfer_len = endp_ctx->xfer_ofs;
+                h->endp_transfer(h, 0x80, NULL, 0);
+                return;
+            }
+
+            if (!h->ctrl_xfer_zlp)
+            {
+                h->ctrl_xfer_len = endp_ctx->xfer_ofs;
+            }
+
             bool rst = true;
-            h->ctrl_xfer_buf = endp_ctx->xfer_buf;
-            h->ctrl_xfer_len = endp_ctx->xfer_ofs;
             if (h->ctrl_cbs && h->ctrl_cbs->data)
             {
                 rst = h->ctrl_cbs->data(h->ctrl_handle, setup, h->ctrl_xfer_buf, h->ctrl_xfer_len);
             }
-
-            /* Send zero-length packet to acknowledge the data stage */
-            h->endp_transfer(h, USB_GET_REQ_DIR(setup->bmRequestType) ? 0x80 : 0x00, NULL, 0);
 
             /* Handle the status stage based on the result of the data stage */
             if (rst)
@@ -114,14 +122,12 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
             }
             else
             {
-                h->endp_transfer(h, 0x00, &h->setup, sizeof(usb_setup_t));
                 h->endp_stall(h, USB_GET_REQ_DIR(setup->bmRequestType) ? 0x00 : 0x80, true);
             }
         }
         /* Control transfer status stage */
         else
         {
-            h->endp_transfer(h, 0x00, &h->setup, sizeof(usb_setup_t));
             if (h->ctrl_cbs && h->ctrl_cbs->status)
             {
                 h->ctrl_cbs->status(h->ctrl_handle, setup, h->ctrl_xfer_buf, h->ctrl_xfer_len);
@@ -424,7 +430,6 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         h->set_address(h, 0);
         h->endp_open(h, 0x80, USB_ENDP_TYPE_CTRL, h->ep0_mps);
         h->endp_open(h, 0x00, USB_ENDP_TYPE_CTRL, h->ep0_mps);
-        h->endp_transfer(h, 0x00, &h->setup, sizeof(usb_setup_t));
         if (h->event_cbs[USBD_EVENT_RESET])
         {
             usbd_event_ctx_t event_ctx;

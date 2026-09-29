@@ -74,6 +74,9 @@ void usbhsd_event_handle(usbd_handle_t *h)
             ENDP_TX_CTRL(0) = (ENDP_TX_CTRL(0) & ~USBHS_UEP_T_TOG_MASK) | USBHS_UEP_T_TOG_DATA1 | USBHS_UEP_T_RES_NAK;
             ENDP_RX_CTRL(0) = (ENDP_RX_CTRL(0) & ~USBHS_UEP_R_TOG_MASK) | USBHS_UEP_R_TOG_DATA1 | USBHS_UEP_R_RES_NAK;
 
+            /* Copy the setup packet from the endpoint 0 buffer to the setup structure */
+            memcpy(&h->setup, h->ep0_buf, sizeof(usb_setup_t));
+
             ctx.e = USBD_PORT_EVENT_SETUP;
             usbd_event_handle(h, &ctx);
         }
@@ -83,12 +86,16 @@ void usbhsd_event_handle(usbd_handle_t *h)
             /* Clear the transfer complete flag */
             ENDP_TX_CTRL(num) &= ~USBHS_UEP_T_DONE;
 
-            /* Endpoint 0 Manual Toggle */
-            if (num == 0) USBHSD->UEP0_TX_CTRL ^= USBHS_UEP_T_TOG_DATA1;
-
+            size_t tx_len = ENDP_TX_LEN(num);
             usbd_endp_ctx_t *ep_ctx = &h->endp_ctxs[USB_DIR_IN][num];
-            ep_ctx->xfer_ofs += ENDP_TX_LEN(num);
 
+            if (num == 0)
+            {
+                /* Endpoint 0 Manual Toggle */
+                USBHSD->UEP0_TX_CTRL ^= USBHS_UEP_T_TOG_DATA1;
+            }
+
+            ep_ctx->xfer_ofs += tx_len;
             if (ep_ctx->xfer_ofs >= ep_ctx->xfer_len || USBHSD->UEP_TX_BURST & (1 << num))
             {
                 ctx.e = USBD_PORT_EVENT_XFER;
@@ -99,9 +106,9 @@ void usbhsd_event_handle(usbd_handle_t *h)
             }
             else if (num == 0)
             {
-                size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
-                USBHSD->UEP0_TX_LEN = USB_MIN(len, ep_ctx->mps);
-                USBHSD->UEP0_DMA = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
+                size_t xfer_len = USB_MIN(ep_ctx->xfer_len - ep_ctx->xfer_ofs, ep_ctx->mps);
+                memcpy(h->ep0_buf, (uint8_t *)ep_ctx->xfer_buf + ep_ctx->xfer_ofs, xfer_len);
+                USBHSD->UEP0_TX_LEN = xfer_len;
                 USBHSD->UEP0_TX_CTRL = (USBHSD->UEP0_TX_CTRL & ~USBHS_UEP_T_RES_MASK) | USBHS_UEP_T_RES_ACK;
             }
             else
@@ -118,13 +125,18 @@ void usbhsd_event_handle(usbd_handle_t *h)
             /* Clear the transfer complete flag */
             ENDP_RX_CTRL(num) &= ~USBHS_UEP_R_DONE;
 
-            /* Endpoint 0 Manual Toggle */
-            if (num == 0) USBHSD->UEP0_RX_CTRL ^= USBHS_UEP_R_TOG_DATA1;
-
-            usbd_endp_ctx_t *ep_ctx = &h->endp_ctxs[USB_DIR_OUT][num];
             size_t rx_len = ENDP_RX_LEN(num);
-            ep_ctx->xfer_ofs += rx_len;
+            usbd_endp_ctx_t *ep_ctx = &h->endp_ctxs[USB_DIR_OUT][num];
 
+            if (num == 0)
+            {
+                /* Endpoint 0 Manual Toggle */
+                USBHSD->UEP0_RX_CTRL ^= USBHS_UEP_R_TOG_DATA1;
+                memcpy((uint8_t *)ep_ctx->xfer_buf + ep_ctx->xfer_ofs, h->ep0_buf,
+                       USB_MIN(rx_len, ep_ctx->xfer_len - ep_ctx->xfer_ofs));
+            }
+
+            ep_ctx->xfer_ofs = USB_MIN(ep_ctx->xfer_ofs + rx_len, ep_ctx->xfer_len);
             if (ep_ctx->xfer_ofs >= ep_ctx->xfer_len || USBHSD->UEP_RX_BURST & (1 << num) || rx_len < ep_ctx->mps)
             {
                 ctx.e = USBD_PORT_EVENT_XFER;
@@ -135,9 +147,6 @@ void usbhsd_event_handle(usbd_handle_t *h)
             }
             else if (num == 0)
             {
-                size_t len = ep_ctx->xfer_len - ep_ctx->xfer_ofs;
-                USBHSD->UEP0_RX_LEN = USB_MIN(len, ep_ctx->mps);
-                USBHSD->UEP0_DMA = (uint32_t)ep_ctx->xfer_buf + ep_ctx->xfer_ofs;
                 USBHSD->UEP0_RX_CTRL = (USBHSD->UEP0_RX_CTRL & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK;
             }
             else
@@ -168,6 +177,7 @@ void usbhsd_event_handle(usbd_handle_t *h)
         USBHSD->INT_FG = USBHS_UDIF_BUS_RST;
         USBHSD->UEP_TX_EN = 0;
         USBHSD->UEP_RX_EN = 0;
+        USBHSD->UEP0_DMA = (uint32_t)h->ep0_buf;
         ctx.e = USBD_PORT_EVENT_RESET;
         usbd_event_handle(h, &ctx);
     }
@@ -261,6 +271,14 @@ static bool endp_open(usbd_handle_t *h, usb_endp_t endp, usb_endp_type_t type, u
         switch (type)
         {
         case USB_ENDP_TYPE_CTRL:
+            ENDP_MAX_LEN(num) = sizeof(h->ep0_buf);
+            USBHSD->UEP_TX_EN |= bit;
+            USBHSD->UEP_TX_ISO &= ~bit;
+            USBHSD->UEP_TX_TOG_AUTO |= bit;
+            USBHSD->UEP_TX_BURST &= ~bit;
+            USBHSD->UEP_TX_BURST_MODE &= ~bit;
+            break;
+
         case USB_ENDP_TYPE_INTR:
             ENDP_MAX_LEN(num) = 1024;
             USBHSD->UEP_TX_EN |= bit;
@@ -294,6 +312,14 @@ static bool endp_open(usbd_handle_t *h, usb_endp_t endp, usb_endp_type_t type, u
         switch (type)
         {
         case USB_ENDP_TYPE_CTRL:
+            ENDP_MAX_LEN(num) = sizeof(h->ep0_buf);
+            USBHSD->UEP_RX_EN |= bit;
+            USBHSD->UEP_RX_ISO &= ~bit;
+            USBHSD->UEP_RX_TOG_AUTO |= bit;
+            USBHSD->UEP_RX_BURST &= ~bit;
+            USBHSD->UEP_RX_RES_MODE &= ~bit;
+            break;
+
         case USB_ENDP_TYPE_INTR:
             ENDP_MAX_LEN(num) = 1024;
             USBHSD->UEP_RX_EN |= bit;
@@ -401,7 +427,7 @@ static bool endp_is_stalled(usbd_handle_t *h, usb_endp_t endp)
 
 static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len)
 {
-    if (!h || (uint32_t)buf & 0x03 || len > 65535) return false;
+    if (!h || len > 65535) return false;
 
     uint8_t dir = USB_ENDP_DIR(endp);
     uint8_t num = USB_ENDP_NUM(endp);
@@ -415,14 +441,13 @@ static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t l
     {
         if (dir)
         {
-            USBHSD->UEP0_DMA = (uint32_t)buf;
-            USBHSD->UEP0_TX_LEN = USB_MIN(len, ctx->mps);
+            size_t xfer_len = USB_MIN(len, ctx->mps);
+            memcpy(h->ep0_buf, buf, xfer_len);
+            USBHSD->UEP0_TX_LEN = xfer_len;
             USBHSD->UEP0_TX_CTRL = (USBHSD->UEP0_TX_CTRL & ~USBHS_UEP_T_RES_MASK) | USBHS_UEP_T_RES_ACK;
         }
         else
         {
-            USBHSD->UEP0_DMA = (uint32_t)buf;
-            USBHSD->UEP0_MAX_LEN = USB_MIN(len, ctx->mps);
             USBHSD->UEP0_RX_CTRL = (USBHSD->UEP0_RX_CTRL & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK;
         }
     }

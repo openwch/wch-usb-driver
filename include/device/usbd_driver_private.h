@@ -28,9 +28,6 @@ typedef enum
     USBD_PORT_EVENT_SUSPEND,
 } usbd_port_event_t;
 
-/* @function pointer */
-typedef bool (*usbd_data_xfer_cb)(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
-
 /* @struct */
 typedef struct
 {
@@ -59,7 +56,7 @@ typedef struct
     void *xfer_buf;
     size_t xfer_len;
     size_t xfer_ofs;
-    usbd_data_xfer_cb cb;
+    bool (*cb)(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
 } usbd_endp_ctx_t;
 
 typedef struct
@@ -102,17 +99,21 @@ typedef struct usbd_handle
     /* Endpoint transfer contexts */
     usbd_endp_ctx_t endp_ctxs[2][USB_MAX_ENDP_NUM];
 
-    /* Setup packet buffer aligned to 4 bytes */
-    __attribute__((aligned(4))) usb_setup_t setup;
+    /* Endpoint 0 buffer aligned to 4 bytes */
+    __attribute__((aligned(4))) uint8_t ep0_buf[USB_ENDP0_MAX_LEN];
 
     /* Event callback functions */
     usbd_event_cb event_cbs[USBD_EVENT_COUNT];
 
     /* Control transfer context */
+    usb_setup_t setup;
     void *ctrl_handle;
+    bool ctrl_xfer_zlp;
     void *ctrl_xfer_buf;
     size_t ctrl_xfer_len;
     usbd_ctrl_xfer_cbs_t *ctrl_cbs;
+
+    /* Request and interface callbacks */
     usbd_request_cbs_t request_cbs[USBD_REQUEST_CB_COUNT];
     usbd_interface_cbs_t interface_cbs[USBD_INTERFACE_CB_COUNT];
 

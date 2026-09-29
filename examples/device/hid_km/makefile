@@ -8,5 +8,5 @@ ROOT_DIR := $(abspath ../../../)
 # --- Supported Families ---
 SUPPORTED_FAMILIES := ch32v205
 
-# --- Include Build Makefile ---
-include $(ROOT_DIR)/examples/build.mk
+# --- Include Device Examples Makefile ---
+include $(ROOT_DIR)/examples/device/device.mk

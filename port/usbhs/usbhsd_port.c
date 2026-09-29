@@ -261,11 +261,6 @@ static bool endp_open(usbd_handle_t *h, usb_endp_t endp, usb_endp_type_t type, u
     uint8_t num = USB_ENDP_NUM(endp);
     uint32_t bit = 1 << num;
 
-    usbd_endp_ctx_t *ctx = &h->endp_ctxs[dir ? 1 : 0][num];
-    ctx->mps = mps;
-    ctx->xfer_len = 0;
-    ctx->xfer_ofs = 0;
-
     if (dir)
     {
         switch (type)
@@ -360,7 +355,7 @@ static bool endp_close(usbd_handle_t *h, usb_endp_t endp)
     uint8_t num = USB_ENDP_NUM(endp);
     uint32_t bit = 1 << num;
 
-    usbd_endp_ctx_t *ctx = &h->endp_ctxs[dir ? 1 : 0][num];
+    usbd_endp_ctx_t *ctx = &h->endp_ctxs[dir ? USB_DIR_IN : USB_DIR_OUT][num];
     ctx->mps = 0;
     ctx->xfer_len = 0;
     ctx->xfer_ofs = 0;
@@ -427,10 +422,10 @@ static bool endp_is_stalled(usbd_handle_t *h, usb_endp_t endp)
 
 static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len)
 {
-    if (!h || len > 65535) return false;
-
     uint8_t dir = USB_ENDP_DIR(endp);
     uint8_t num = USB_ENDP_NUM(endp);
+
+    if (num != 0 && dir && (ENDP_TX_CTRL(num) & USBHS_UEP_T_RES_MASK) != USBHS_UEP_T_RES_NAK) return false;
 
     usbd_endp_ctx_t *ctx = &h->endp_ctxs[dir ? USB_DIR_IN : USB_DIR_OUT][num];
     ctx->xfer_buf = buf;
@@ -467,6 +462,5 @@ static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t l
             ENDP_RX_CTRL(num) = (ENDP_RX_CTRL(num) & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_ACK;
         }
     }
-
     return true;
 }

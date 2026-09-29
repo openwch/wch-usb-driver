@@ -44,10 +44,14 @@ typedef struct hidd_handle
     void (*set_report_comp_cb)(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len);
     void (*set_idle_cb)(hidd_handle_t *hidd, uint8_t report_id, uint8_t idle_rate);
     void (*set_protocol_cb)(hidd_handle_t *hidd, uint8_t protocol);
+    void (*read_comp_cb)(hidd_handle_t *hidd, void *buf, size_t len);
+    void (*write_comp_cb)(hidd_handle_t *hidd, const void *buf, size_t len);
 } hidd_handle_t;
 
 /* @function declaration */
 bool hidd_drv_open(hidd_handle_t *hidd);
+bool hidd_drv_read(hidd_handle_t *hidd, void *buf, size_t len);
+bool hidd_drv_write(hidd_handle_t *hidd, const void *buf, size_t len);
 
 #ifdef __cplusplus
 }

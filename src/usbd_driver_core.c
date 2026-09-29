@@ -137,7 +137,7 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
     /* Isochronous/interrupt/bulk transfer event handling */
     else if (endp_ctx->cb)
     {
-        if (endp_ctx->cb(h, ctx->xfer.endp, endp_ctx->xfer_buf, endp_ctx->xfer_ofs))
+        if (endp_ctx->cb((void *)endp_ctx->class_handle, ctx->xfer.endp, endp_ctx->xfer_buf, endp_ctx->xfer_ofs))
         {
             h->endp_transfer(h, ctx->xfer.endp, endp_ctx->xfer_buf, endp_ctx->xfer_len);
         }
@@ -428,6 +428,8 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         h->link_speed = USB_SPEED_UNKNOWN;
         h->config_num = 0;
         h->set_address(h, 0);
+        h->endp_ctxs[USB_DIR_IN][0].mps = h->ep0_mps;
+        h->endp_ctxs[USB_DIR_OUT][0].mps = h->ep0_mps;
         h->endp_open(h, 0x80, USB_ENDP_TYPE_CTRL, h->ep0_mps);
         h->endp_open(h, 0x00, USB_ENDP_TYPE_CTRL, h->ep0_mps);
         if (h->event_cbs[USBD_EVENT_RESET])
@@ -511,17 +513,33 @@ bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t interface_num)
     return true;
 }
 
-bool usbd_endp_open(usbd_handle_t *h, const usb_desc_endpoint_t *ep_desc)
+bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint_t *ep_desc, usbd_data_xfer_cb cb)
 {
     if (!h || !ep_desc) return false;
     usb_endp_t endp = ep_desc->bEndpointAddress;
     usb_endp_type_t endp_type = USB_ENDP_GET_TYPE(ep_desc->bmAttributes);
     uint16_t endp_mps = USB_ENDP_GET_MPS(ep_desc->wMaxPacketSize);
+
+    usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][USB_ENDP_NUM(endp)];
+    memset(endp_ctx, 0, sizeof(usbd_endp_ctx_t));
+    endp_ctx->mps = endp_mps;
+    endp_ctx->cb = cb;
+    endp_ctx->class_handle = class;
     return h->endp_open(h, endp, endp_type, endp_mps);
 }
 
-bool usbd_endp_close(usbd_handle_t *h, uint8_t ep_addr)
+bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp)
 {
     if (!h) return false;
-    return h->endp_close(h, ep_addr);
+    return h->endp_close(h, endp);
+}
+
+bool usbd_endp_read(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len)
+{
+    return h->endp_transfer(h, USB_ENDP_NUM(endp), buf, len);
+}
+
+bool usbd_endp_write(usbd_handle_t *h, usb_endp_t endp, const void *buf, size_t len)
+{
+    return h->endp_transfer(h, 0x80 | endp, (void *)buf, len);
 }

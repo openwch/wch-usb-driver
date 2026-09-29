@@ -131,6 +131,26 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
     }
 }
 
+static bool read_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
+{
+    hidd_handle_t *h = (hidd_handle_t *)handle;
+    if (h->read_comp_cb)
+    {
+        h->read_comp_cb(h, buf, len);
+    }
+    return false;
+}
+
+static bool write_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
+{
+    hidd_handle_t *h = (hidd_handle_t *)handle;
+    if (h->write_comp_cb)
+    {
+        h->write_comp_cb(h, buf, len);
+    }
+    return false;
+}
+
 bool hidd_drv_open(hidd_handle_t *hidd)
 {
     if (!hidd || !hidd->usbd_handle || !hidd->get_desc_cb) return false;
@@ -144,21 +164,37 @@ bool hidd_drv_open(hidd_handle_t *hidd)
     if (!usbd_register_interface_cb(hidd->usbd_handle, hidd, hidd->itf_num, &cbs)) goto unregister_interface;
     if (hidd->in_ep)
     {
-        if (!usbd_endp_open(hidd->usbd_handle, hidd->in_ep)) goto close_in_ep;
+        if (!usbd_endp_open(hidd->usbd_handle, hidd, hidd->in_ep, write_callback)) goto close_in_ep;
     }
     if (hidd->out_ep)
     {
-        if (!usbd_endp_open(hidd->usbd_handle, hidd->out_ep)) goto close_out_ep;
+        if (!usbd_endp_open(hidd->usbd_handle, hidd, hidd->out_ep, read_callback)) goto close_out_ep;
     }
     return true;
 
 close_out_ep:
-    usbd_endp_close(hidd->usbd_handle, hidd->out_ep->bEndpointAddress);
+    if (hidd->out_ep)
+    {
+        usbd_endp_close(hidd->usbd_handle, hidd->out_ep->bEndpointAddress);
+    }
 
 close_in_ep:
-    usbd_endp_close(hidd->usbd_handle, hidd->in_ep->bEndpointAddress);
+    if (hidd->in_ep)
+    {
+        usbd_endp_close(hidd->usbd_handle, hidd->in_ep->bEndpointAddress);
+    }
 
 unregister_interface:
     usbd_unregister_interface_cb(hidd->usbd_handle, hidd->itf_num);
     return false;
+}
+
+bool hidd_drv_read(hidd_handle_t *hidd, void *buf, size_t len)
+{
+    return usbd_endp_read(hidd->usbd_handle, hidd->out_ep->bEndpointAddress, buf, len);
+}
+
+bool hidd_drv_write(hidd_handle_t *hidd, const void *buf, size_t len)
+{
+    return usbd_endp_write(hidd->usbd_handle, hidd->in_ep->bEndpointAddress, buf, len);
 }

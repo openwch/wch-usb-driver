@@ -28,6 +28,9 @@ typedef enum
     USBD_PORT_EVENT_SUSPEND,
 } usbd_port_event_t;
 
+/* @function pointer */
+typedef bool (*usbd_data_xfer_cb)(void *handle, usb_endp_t endp, void *buf, size_t len);
+
 /* @struct */
 typedef struct
 {
@@ -56,7 +59,8 @@ typedef struct
     void *xfer_buf;
     size_t xfer_len;
     size_t xfer_ofs;
-    bool (*cb)(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
+    usbd_data_xfer_cb cb;
+    const void *class_handle;
 } usbd_endp_ctx_t;
 
 typedef struct
@@ -140,8 +144,10 @@ bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t b
 bool usbd_register_interface_cb(usbd_handle_t *h, void *itf_handle, uint8_t itf_num, usbd_ctrl_xfer_cbs_t *cbs);
 bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
 bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t itf_num);
-bool usbd_endp_open(usbd_handle_t *h, const usb_desc_endpoint_t *ep_desc);
-bool usbd_endp_close(usbd_handle_t *h, uint8_t ep_addr);
+bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint_t *ep_desc, usbd_data_xfer_cb cb);
+bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp);
+bool usbd_endp_read(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
+bool usbd_endp_write(usbd_handle_t *h, usb_endp_t endp, const void *buf, size_t len);
 
 #ifdef __cplusplus
 }

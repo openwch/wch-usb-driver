@@ -16,34 +16,21 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
     hidd_handle_t *h = (hidd_handle_t *)handle;
     uint8_t req_type = USB_GET_REQ_TYPE(setup->bmRequestType);
 
-    if (req_type == USB_REQ_TYPE_STANDARD && setup->bRequest == USB_REQ_GET_DESCRIPTOR)
+    if (req_type == USB_REQ_TYPE_STANDARD)
     {
-        switch (setup->wValue >> 8)
+        switch (setup->bRequest)
         {
-        case HID_DESC_HID:
-            if (h->hid_desc)
+        case USB_REQ_GET_DESCRIPTOR:
+            if (h->get_desc_cb)
             {
-                *buf = (void *)h->hid_desc;
-                *len = sizeof(hid_desc_t);
-                return true;
+                return h->get_desc_cb(h, USB_U16_HIGH(setup->wValue), USB_U16_LOW(setup->wValue), buf, len);
             }
             break;
 
-        case HID_DESC_REPORT:
-            if (h->report_desc && h->report_desc_size)
+        case USB_REQ_SET_DESCRIPTOR:
+            if (h->set_desc_cb)
             {
-                *buf = (void *)h->report_desc;
-                *len = h->report_desc_size;
-                return true;
-            }
-            break;
-
-        case HID_DESC_PHYSICAL:
-            if (h->phy_desc && h->phy_desc_size)
-            {
-                *buf = (void *)h->phy_desc;
-                *len = h->phy_desc_size;
-                return true;
+                return h->set_desc_cb(h, USB_U16_HIGH(setup->wValue), USB_U16_LOW(setup->wValue), buf, len);
             }
             break;
         }
@@ -146,7 +133,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
 
 bool hidd_drv_open(hidd_handle_t *hidd)
 {
-    if (!hidd || !hidd->usbd_handle || !hidd->hid_desc) return false;
+    if (!hidd || !hidd->usbd_handle || !hidd->get_desc_cb) return false;
 
     usbd_ctrl_xfer_cbs_t cbs = {
         .setup = ctrl_xfer_setup,

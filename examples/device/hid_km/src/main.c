@@ -20,7 +20,7 @@
 static hidd_handle_t hidd_handles[2];
 static uint8_t keyboard_report_buf[8];
 
-static const void *get_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len)
+static const void *get_device_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len)
 {
     switch (desc_type)
     {
@@ -52,6 +52,48 @@ static const void *get_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len
     return NULL;
 }
 
+static bool get_hid_desc_cb(hidd_handle_t *hidd, uint8_t desc_type, uint8_t desc_index, void **desc, size_t *len)
+{
+    if (hidd->itf_num == 0)
+    {
+        switch (desc_type)
+        {
+        case HID_DESC_HID:
+            *desc = (void *)&config_desc[18];
+            *len = config_desc[18];
+            return true;
+
+        case HID_DESC_REPORT:
+            *desc = (void *)keyboard_report_desc;
+            *len = sizeof(keyboard_report_desc);
+            return true;
+
+        case HID_DESC_PHYSICAL:
+            return false;
+        }
+    }
+    else if (hidd->itf_num == 1)
+    {
+        switch (desc_type)
+        {
+        case HID_DESC_HID:
+            *desc = (void *)&config_desc[43];
+            *len = config_desc[43];
+            return true;
+
+        case HID_DESC_REPORT:
+            *desc = (void *)mouse_report_desc;
+            *len = sizeof(mouse_report_desc);
+            return true;
+
+        case HID_DESC_PHYSICAL:
+            return false;
+        }
+    }
+
+    return false;
+}
+
 static void keyboard_set_report(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len)
 {
     printf("Keyboard LED status is %02x\r\n", *(uint8_t *)buf);
@@ -66,13 +108,10 @@ static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
     memset(hidd, 0, sizeof(hidd_handle_t));
     hidd->usbd_handle = h;
     hidd->itf_num = 0;
-    hidd->hid_desc = &config_desc[18];
-    hidd->report_desc = keyboard_report_desc;
-    hidd->hid_desc_size = config_desc[18];
-    hidd->report_desc_size = sizeof(keyboard_report_desc);
     hidd->in_ep = (usb_desc_endpoint_t *)&config_desc[27];
     hidd->report_buf = keyboard_report_buf;
     hidd->report_buf_size = sizeof(keyboard_report_buf);
+    hidd->get_desc_cb = get_hid_desc_cb;
     hidd->set_report_comp_cb = keyboard_set_report;
     assert(hidd_drv_open(hidd));
 
@@ -81,11 +120,8 @@ static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
     memset(hidd, 0, sizeof(hidd_handle_t));
     hidd->usbd_handle = h;
     hidd->itf_num = 1;
-    hidd->hid_desc = &config_desc[43];
-    hidd->report_desc = mouse_report_desc;
-    hidd->hid_desc_size = config_desc[43];
-    hidd->report_desc_size = sizeof(mouse_report_desc);
     hidd->in_ep = (usb_desc_endpoint_t *)&config_desc[52];
+    hidd->get_desc_cb = get_hid_desc_cb;
     assert(hidd_drv_open(hidd));
 }
 
@@ -96,7 +132,7 @@ int main(void)
     usbd_handle_t *h = board_usbd_init(0);
     assert(h != NULL);
 
-    assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_desc_cb));
+    assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_device_desc_cb));
     assert(usbd_register_event_callback(h, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
 
     while (1);

@@ -26,14 +26,6 @@ typedef struct hidd_handle
 
     uint8_t itf_num;
 
-    const void *hid_desc;
-    const void *report_desc;
-    const void *phy_desc;
-
-    size_t hid_desc_size;
-    size_t report_desc_size;
-    size_t phy_desc_size;
-
     const usb_desc_endpoint_t *in_ep;
     const usb_desc_endpoint_t *out_ep;
 
@@ -44,6 +36,8 @@ typedef struct hidd_handle
     void *report_buf;
     size_t report_buf_size;
 
+    bool (*get_desc_cb)(hidd_handle_t *hidd, uint8_t desc_type, uint8_t desc_index, void **desc, size_t *len);
+    bool (*set_desc_cb)(hidd_handle_t *hidd, uint8_t desc_type, uint8_t desc_index, void **desc, size_t *len);
     bool (*get_report_prev_cb)(hidd_handle_t *hidd, uint8_t type, uint8_t id, size_t xfer_len, size_t *len);
     bool (*set_report_prev_cb)(hidd_handle_t *hidd, uint8_t type, uint8_t id, size_t xfer_len, size_t *len);
     void (*get_report_comp_cb)(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len);

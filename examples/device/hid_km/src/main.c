@@ -20,7 +20,39 @@
 static hidd_handle_t hidd_handles[2];
 static uint8_t keyboard_report_buf[8];
 
-static const void *get_device_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len)
+static const void *get_string_desc_cb(uint8_t string_index, size_t *len)
+{
+    static uint8_t string_desc_buf[256];
+    static const char *string_desc[] = {
+        "wch.cn",
+        "HID Keyboard and Mouse Example",
+        "0123456789",
+    };
+
+    if (string_index == 0)
+    {
+        static const uint8_t lang_id_desc[] = {0x04, 0x03, 0x09, 0x04};
+        *len = sizeof(lang_id_desc);
+        return lang_id_desc;
+    }
+    else if (string_index <= USB_ARRAY_SIZE(string_desc))
+    {
+        const char *str = string_desc[string_index - 1];
+        *len = strlen(str) * 2 + 2;
+        string_desc_buf[0] = *len;
+        string_desc_buf[1] = USB_DESC_STRING;
+        for (size_t i = 0; i < strlen(str); i++)
+        {
+            string_desc_buf[2 + i * 2] = str[i];
+            string_desc_buf[3 + i * 2] = 0;
+        }
+        return (const void *)string_desc_buf;
+    }
+
+    return NULL;
+}
+
+static const void *get_stand_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len)
 {
     switch (desc_type)
     {
@@ -33,16 +65,7 @@ static const void *get_device_desc_cb(uint8_t desc_type, uint8_t desc_info, size
         return (const void *)&config_desc;
 
     case USB_DESC_STRING:
-        switch (desc_info)
-        {
-        case 0:
-        {
-            static const __attribute__((aligned(4))) uint8_t lang_id_desc[] = {0x04, 0x03, 0x09, 0x04};
-            *len = sizeof(lang_id_desc);
-            return (const void *)&lang_id_desc;
-        }
-        }
-        break;
+        return get_string_desc_cb(desc_info, len);
 
     case USB_DESC_DEVICE_QUALIFIER:
         *len = sizeof(qualifier_desc);
@@ -67,9 +90,6 @@ static bool get_hid_desc_cb(hidd_handle_t *hidd, uint8_t desc_type, uint8_t desc
             *desc = (void *)keyboard_report_desc;
             *len = sizeof(keyboard_report_desc);
             return true;
-
-        case HID_DESC_PHYSICAL:
-            return false;
         }
     }
     else if (hidd->itf_num == 1)
@@ -85,9 +105,6 @@ static bool get_hid_desc_cb(hidd_handle_t *hidd, uint8_t desc_type, uint8_t desc
             *desc = (void *)mouse_report_desc;
             *len = sizeof(mouse_report_desc);
             return true;
-
-        case HID_DESC_PHYSICAL:
-            return false;
         }
     }
 
@@ -132,7 +149,7 @@ int main(void)
     usbd_handle_t *h = board_usbd_init(0);
     assert(h != NULL);
 
-    assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_device_desc_cb));
+    assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_stand_desc_cb));
     assert(usbd_register_event_callback(h, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
 
     while (1);

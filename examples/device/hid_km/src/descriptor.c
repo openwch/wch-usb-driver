@@ -21,11 +21,11 @@ const usb_desc_device_t device_desc = {
     .bMaxPacketSize0 = 0x40,
     .idVendor = 0x1A86,
     .idProduct = 0xFE30,
-    .bcdDevice = 0,
-    .iManufacturer = 0,
-    .iProduct = 0,
-    .iSerialNumber = 0,
-    .bNumConfigurations = 0x01,
+    .bcdDevice = 0x00,
+    .iManufacturer = 1,
+    .iProduct = 2,
+    .iSerialNumber = 3,
+    .bNumConfigurations = 1,
 };
 
 const usb_desc_qualifier_t qualifier_desc = {

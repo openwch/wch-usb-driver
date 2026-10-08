@@ -7,11 +7,6 @@
  *
  */
 
-/* @define */
-#ifndef USBD_INDEX
-#define USBD_INDEX 0
-#endif
-
 /* @include*/
 #include <assert.h>
 #include <string.h>
@@ -22,6 +17,11 @@
 
 #include "usb_driver.h"
 #include "descriptor.h"
+
+/* @define */
+#ifndef USBD_INDEX
+#define USBD_INDEX 0
+#endif
 
 #if USBD_INDEX >= USB_COUNT
 #error "Not supported: USBD_INDEX exceeds USB_COUNT"

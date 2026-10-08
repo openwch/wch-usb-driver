@@ -50,9 +50,6 @@ SRC_DIR += \
 	$(ROOT_DIR)/src \
 	$(wildcard $(ROOT_DIR)/src/class/*)
 
-# --- Add Assembly Source Files ---
-ASMS += $(foreach dir,$(ASM_DIR),$(wildcard $(dir)/*.S))
-
 # --- Add C Source Files ---
 SRCS += $(foreach dir,$(SRC_DIR),$(wildcard $(dir)/*.c))
 

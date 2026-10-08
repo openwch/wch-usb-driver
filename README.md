@@ -6,7 +6,20 @@
 
 | 系列 | 芯片 | IP（索引） |
 | --- | --- | --- |
-| CH32V205 | ch32v203cct6 | usbfs (0) |
+| CH32V30x | ch32v303cbt6 | usbfs (0) |
+| CH32V30x | ch32v303rbt6 | usbfs (0) |
+| CH32V30x | ch32v303rct6 | usbfs (0) |
+| CH32V30x | ch32v303rct7 | usbfs (0) |
+| CH32V30x | ch32v303vct6 | usbfs (0) |
+| CH32V30x | ch32v305cct6 | usbfs (0) |
+| CH32V30x | ch32v305fbp6 | usbfs (0) |
+| CH32V30x | ch32v305gbu6 | usbfs (0) |
+| CH32V30x | ch32v305rbt6 | usbfs (0) |
+| CH32V30x | ch32v307rct6 | usbfs (0) |
+| CH32V30x | ch32v307vct6 | usbfs (0) |
+| CH32V30x | ch32v307wcu6 | usbfs (0) |
+| CH32V30x | ch32v317vct6 | usbfs (0) |
+| CH32V205 | ch32v317wcu6 | usbfs (0) |
 | CH32V205 | ch32v205cct6 | usbfs (0) / usbhs (1) |
 | CH32V205 | ch32v205rct6 | usbfs (0) / usbhs (1) |
 | CH32V205 | ch32v205vct6 | usbfs (0) / usbhs (1) |

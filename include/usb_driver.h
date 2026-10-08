@@ -33,6 +33,9 @@ extern "C" {
 #endif
 
 /* @define */
+#define USB_DRIVER_VERSION_NUMBER 0x0130
+#define USB_DRIVER_VERSION_STRING "v1.3"
+
 #ifndef USB_LOG_TAG
 #define USB_LOG_TAG "?"
 #endif

@@ -8,6 +8,7 @@
  */
 
 /* @include */
+#include "board.h"
 #include "ch32v4x7.h"
 #include "usb_driver.h"
 #include "usbhs_port.h"
@@ -23,7 +24,6 @@ typedef enum
 {
     USBHS1_INDEX,
     USBHS2_INDEX,
-    USB_COUNT,
 } usb_index_t;
 
 typedef enum
@@ -53,7 +53,7 @@ void board_init(void)
 
 usbd_handle_t *board_usbd_init(uint8_t index)
 {
-    if (index >= USB_ARRAY_SIZE(usb_modes) || usb_modes[index] != USB_MODE_IDLE) return NULL;
+    if (index >= USB_COUNT || usb_modes[index] != USB_MODE_IDLE) return NULL;
 
     switch (index)
     {
@@ -126,6 +126,8 @@ usbd_handle_t *board_usbd_init(uint8_t index)
 
 usbd_handle_t *board_usbd_deinit(uint8_t index)
 {
+    if (index >= USB_COUNT) return NULL;
+
     switch (index)
     {
     case USBHS1_INDEX:

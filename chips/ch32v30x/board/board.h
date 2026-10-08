@@ -17,6 +17,11 @@
 extern "C" {
 #endif
 
+/* @define */
+#ifndef USB_COUNT
+#define USB_COUNT 1
+#endif
+
 /* @function declaration */
 void board_init(void);
 usbd_handle_t *board_usbd_init(uint8_t index);

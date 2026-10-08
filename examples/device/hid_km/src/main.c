@@ -7,6 +7,11 @@
  *
  */
 
+/* @define */
+#ifndef USBD_INDEX
+#define USBD_INDEX 0
+#endif
+
 /* @include*/
 #include <assert.h>
 #include <string.h>
@@ -18,9 +23,8 @@
 #include "usb_driver.h"
 #include "descriptor.h"
 
-/* @define */
-#ifndef USBD
-#define USBD 0
+#if USBD_INDEX >= USB_COUNT
+#error "Not supported: USBD_INDEX exceeds USB_COUNT"
 #endif
 
 /* @struct */
@@ -304,7 +308,7 @@ int main(void)
     button_init();
     led_init();
 
-    usbd_handle_t *h = board_usbd_init(USBD);
+    usbd_handle_t *h = board_usbd_init(USBD_INDEX);
     assert(h != NULL);
 
     assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_stand_desc_cb));

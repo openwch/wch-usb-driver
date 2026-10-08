@@ -8,6 +8,7 @@
  */
 
 /* @include */
+#include "board.h"
 #include "ch32v205.h"
 #include "usb_driver.h"
 #include "usbfs_port.h"
@@ -24,7 +25,6 @@ typedef enum
 {
     USBFS_INDEX,
     USBHS_INDEX,
-    USB_COUNT,
 } usb_index_t;
 
 typedef enum
@@ -37,13 +37,8 @@ typedef enum
 /* @global */
 static usb_mode_t usb_modes[USB_COUNT];
 static usbd_handle_t usbd_handles[USB_COUNT];
-
-#ifdef USBFS
 static usbfsd_ctx_t usbfsd_ctx;
-#endif
-#ifdef USBHS
 static usbhsd_ctx_t usbhsd_ctx;
-#endif
 
 void board_init(void)
 {
@@ -60,11 +55,10 @@ void board_init(void)
 
 usbd_handle_t *board_usbd_init(uint8_t index)
 {
-    if (index >= USB_ARRAY_SIZE(usb_modes) || usb_modes[index] != USB_MODE_IDLE) return NULL;
+    if (index >= USB_COUNT || usb_modes[index] != USB_MODE_IDLE) return NULL;
 
     switch (index)
     {
-#ifdef USBFS
     case USBFS_INDEX:
         /* Initialize USBHS PLL if not already enabled */
         if (!(RCC->CTLR & RCC_USBHS_PLLRDY))
@@ -93,9 +87,7 @@ usbd_handle_t *board_usbd_init(uint8_t index)
         usbfsd_ctx.delay_ms = Delay_Ms;
         usbfsd_handle_init(&usbd_handles[USBFS_INDEX], USBFSD_BASE_ADDR, &usbfsd_ctx);
         return &usbd_handles[USBFS_INDEX];
-#endif
 
-#ifdef USBHS
     case USBHS_INDEX:
         if (!(RCC->CTLR & RCC_USBHS_PLLRDY))
         {
@@ -112,7 +104,6 @@ usbd_handle_t *board_usbd_init(uint8_t index)
         memset(&usbhsd_ctx, 0, sizeof(usbhsd_ctx));
         usbhsd_handle_init(&usbd_handles[USBHS_INDEX], USBHSD_BASE_ADDR, &usbhsd_ctx);
         return &usbd_handles[USBHS_INDEX];
-#endif
 
     default:
         return NULL;
@@ -121,9 +112,10 @@ usbd_handle_t *board_usbd_init(uint8_t index)
 
 usbd_handle_t *board_usbd_deinit(uint8_t index)
 {
+    if (index >= USB_COUNT) return NULL;
+
     switch (index)
     {
-#ifdef USBFS
     case USBFS_INDEX:
         /* Disable USBFS interrupt */
         NVIC_DisableIRQ(USBFS_IRQn);
@@ -140,9 +132,7 @@ usbd_handle_t *board_usbd_deinit(uint8_t index)
         /* Mark USB device as idle */
         usb_modes[USBFS_INDEX] = USB_MODE_IDLE;
         return &usbd_handles[USBFS_INDEX];
-#endif
 
-#ifdef USBHS
     case USBHS_INDEX:
         NVIC_DisableIRQ(USBHS_IRQn);
         RCC_HBPeriphClockCmd(RCC_HBPeriph_USBHS, DISABLE);
@@ -152,14 +142,12 @@ usbd_handle_t *board_usbd_deinit(uint8_t index)
         }
         usb_modes[USBHS_INDEX] = USB_MODE_IDLE;
         return &usbd_handles[USBHS_INDEX];
-#endif
 
     default:
         return NULL;
     }
 }
 
-#ifdef USBFS
 __attribute__((interrupt("WCH-Interrupt-fast"))) void USBFS_IRQHandler(void)
 {
     switch (usb_modes[USBFS_INDEX])
@@ -172,9 +160,7 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void USBFS_IRQHandler(void)
         break;
     }
 }
-#endif
 
-#ifdef USBHS
 __attribute__((interrupt("WCH-Interrupt-fast"))) void USBHS_IRQHandler(void)
 {
     switch (usb_modes[USBHS_INDEX])
@@ -187,4 +173,3 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void USBHS_IRQHandler(void)
         break;
     }
 }
-#endif

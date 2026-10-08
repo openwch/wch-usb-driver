@@ -3,4 +3,4 @@
 ########################################
 
 # --- Compiler Flags ---
-CFLAGS += -DUSBFS -DUSBHS
+CFLAGS += -DUSB_COUNT=2

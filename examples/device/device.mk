@@ -3,8 +3,8 @@
 ########################################
 
 # --- Compiler Flags ---
-ifneq ($(USBD),)
-CFLAGS += -DUSBD=$(USBD)
+ifneq ($(USBD_INDEX),)
+CFLAGS += -DUSBD_INDEX=$(USBD_INDEX)
 endif
 
 # --- Include Build Makefile ---

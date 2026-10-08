@@ -4,6 +4,11 @@
         "${workspaceFolder}/port/usbhs/*",
         "${workspaceFolder}/port/usbfs/*",
 
+        "${workspaceFolder}/chips/ch32v4x7/board/*",
+        "${workspaceFolder}/chips/ch32v4x7/sdk/Core/*",
+        "${workspaceFolder}/chips/ch32v4x7/sdk/Debug/*",
+        "${workspaceFolder}/chips/ch32v4x7/sdk/Peripheral/inc/*",
+
         "${workspaceFolder}/chips/ch32v30x/board/*",
         "${workspaceFolder}/chips/ch32v30x/sdk/Core/*",
         "${workspaceFolder}/chips/ch32v30x/sdk/Debug/*",

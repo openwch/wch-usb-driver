@@ -4,6 +4,12 @@
 
 # --- Supported chips ---
 SUPPORTED_CHIPS := \
+	ch32v407ret6 \
+	ch32v407vet6 \
+	ch32v407weu6 \
+	ch32v467ret6 \
+	ch32v467vet6 \
+	ch32v467weu6 \
 	ch32v303cbt6 \
 	ch32v303rbt6 \
 	ch32v303rct6 \

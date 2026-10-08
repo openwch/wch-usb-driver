@@ -1,5 +1,5 @@
 ########################################
-# Makefile for CH32V30x Family
+# Makefile for CH32V4x7 Family
 ########################################
 
 # --- Toolchain ---
@@ -15,10 +15,13 @@ INCLUDES += \
 	$(FAMILY_DIR)/sdk/Debug \
 	$(FAMILY_DIR)/sdk/Peripheral/inc \
 	$(FAMILY_DIR)/board \
-	$(ROOT_DIR)/port/usbfs
+	$(ROOT_DIR)/port/usbhs
 
 # --- Assembly Source Directories ---
 ASM_DIR += $(FAMILY_DIR)/sdk/Startup
+
+# --- Assembly Source Files ---
+ASMS += $(FAMILY_DIR)/sdk/Startup/startup_ch32v4x7.S
 
 # --- C Source Directories ---
 SRC_DIR += \
@@ -26,11 +29,11 @@ SRC_DIR += \
 	$(FAMILY_DIR)/sdk/Debug \
 	$(FAMILY_DIR)/sdk/Peripheral/src \
 	$(FAMILY_DIR)/board \
-	$(ROOT_DIR)/port/usbfs
+	$(ROOT_DIR)/port/usbhs
 
 # --- Compiler Flags ---
 CFLAGS += \
-	-march=rv32imac_xw \
+	-march=rv32imac_zba_zbb_zbc_zbs_zve64x_zvl64b_zvbb_xw \
 	-mabi=ilp32 \
 	-msmall-data-limit=8 \
 	-msave-restore \
@@ -56,4 +59,5 @@ LDFLAGS += \
 	-Wl,--print-memory-usage \
 	-Wl,-Map,$(MAP_FILE) \
 	--specs=nano.specs \
-	--specs=nosys.specs
+	--specs=nosys.specs \
+	-T "$(FAMILY_DIR)/sdk/Ld/Link.ld"

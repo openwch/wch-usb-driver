@@ -131,24 +131,22 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
     }
 }
 
-static bool read_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
+static void read_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
 {
     hidd_handle_t *h = (hidd_handle_t *)handle;
     if (h->read_comp_cb)
     {
         h->read_comp_cb(h, buf, len);
     }
-    return false;
 }
 
-static bool write_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
+static void write_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
 {
     hidd_handle_t *h = (hidd_handle_t *)handle;
     if (h->write_comp_cb)
     {
         h->write_comp_cb(h, buf, len);
     }
-    return false;
 }
 
 bool hidd_drv_open(hidd_handle_t *hidd)

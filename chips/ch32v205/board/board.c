@@ -10,6 +10,7 @@
 /* @include */
 #include "ch32v205.h"
 #include "usb_driver.h"
+#include "usbfs_port.h"
 #include "usbhs_port.h"
 
 /* @define */
@@ -37,6 +38,13 @@ typedef enum
 static usb_mode_t usb_modes[USB_COUNT];
 static usbd_handle_t usbd_handles[USB_COUNT];
 
+#ifdef USBFS
+static usbfsd_ctx_t usbfsd_ctx;
+#endif
+#ifdef USBHS
+static usbhsd_ctx_t usbhsd_ctx;
+#endif
+
 void board_init(void)
 {
     SystemCoreClockUpdate();
@@ -58,29 +66,51 @@ usbd_handle_t *board_usbd_init(uint8_t index)
     {
 #ifdef USBFS
     case USBFS_INDEX:
-        return NULL;
+        /* Initialize USBHS PLL if not already enabled */
+        if (!(RCC->CTLR & RCC_USBHS_PLLRDY))
+        {
+            RCC_USBHS_PLLCmd(DISABLE);
+            RCC_USBHSPLLCLKConfig((RCC->CTLR & RCC_HSERDY) ? RCC_USBHSPLLSource_HSE : RCC_USBHSPLLSource_HSI);
+            RCC_USBHSPLLReferConfig(RCC_USBHSPLLRefer_8M);
+            RCC_USBHSPLLClockSourceDivConfig(RCC_USBHSPLL_IN_Div1);
+            RCC_USBHS_PLLCmd(ENABLE);
+            while (!(RCC->CTLR & RCC_USBHS_PLLRDY));
+        }
+
+        /* Configure USBFS clock source */
+        RCC_USBFSCLKConfig(RCC_USBFSCLKSource_USBHSPLL);
+
+        /* Enable USBFS Clock */
+        RCC_HBPeriphClockCmd(RCC_HBPeriph_USBFS, ENABLE);
+
+        /* Enable USBFS interrupt */
+        NVIC_EnableIRQ(USBFS_IRQn);
+
+        /* Initialize USBFS device handle */
+        usb_modes[USBFS_INDEX] = USB_MODE_DEVICE;
+        memset(&usbfsd_ctx, 0, sizeof(usbfsd_ctx));
+        usbfsd_ctx.delay_us = Delay_Us;
+        usbfsd_ctx.delay_ms = Delay_Ms;
+        usbfsd_handle_init(&usbd_handles[USBFS_INDEX], USBFSD_BASE_ADDR, &usbfsd_ctx);
+        return &usbd_handles[USBFS_INDEX];
 #endif
 
 #ifdef USBHS
     case USBHS_INDEX:
-        /* Configure USBHS PLL */
-        RCC_HBPeriphClockCmd(RCC_HBPeriph_USBHS, DISABLE);
-        RCC_USBHS_PLLCmd(DISABLE);
-        RCC_USBHSPLLCLKConfig(RCC_USBHSPLLSource_HSE);
-        RCC_USBHSPLLReferConfig(RCC_USBHSPLLRefer_8M);
-        RCC_USBHSPLLClockSourceDivConfig(RCC_USBHSPLL_IN_Div1);
-        RCC_USBHS_PLLCmd(ENABLE);
-        while (!(RCC->CTLR & RCC_USBHS_PLLRDY));
-
-        /* Enable USBHS Clock */
+        if (!(RCC->CTLR & RCC_USBHS_PLLRDY))
+        {
+            RCC_USBHS_PLLCmd(DISABLE);
+            RCC_USBHSPLLCLKConfig((RCC->CTLR & RCC_HSERDY) ? RCC_USBHSPLLSource_HSE : RCC_USBHSPLLSource_HSI);
+            RCC_USBHSPLLReferConfig(RCC_USBHSPLLRefer_8M);
+            RCC_USBHSPLLClockSourceDivConfig(RCC_USBHSPLL_IN_Div1);
+            RCC_USBHS_PLLCmd(ENABLE);
+            while (!(RCC->CTLR & RCC_USBHS_PLLRDY));
+        }
         RCC_HBPeriphClockCmd(RCC_HBPeriph_USBHS, ENABLE);
-
-        /* Enable USBHS interrupt */
         NVIC_EnableIRQ(USBHS_IRQn);
-
-        /* Initialize USBHS device handle */
         usb_modes[USBHS_INDEX] = USB_MODE_DEVICE;
-        usbhsd_handle_init(&usbd_handles[USBHS_INDEX], USBHSD_BASE_ADDR);
+        memset(&usbhsd_ctx, 0, sizeof(usbhsd_ctx));
+        usbhsd_handle_init(&usbd_handles[USBHS_INDEX], USBHSD_BASE_ADDR, &usbhsd_ctx);
         return &usbd_handles[USBHS_INDEX];
 #endif
 
@@ -95,19 +125,31 @@ usbd_handle_t *board_usbd_deinit(uint8_t index)
     {
 #ifdef USBFS
     case USBFS_INDEX:
-        return NULL;
+        /* Disable USBFS interrupt */
+        NVIC_DisableIRQ(USBFS_IRQn);
+
+        /* Disable USBFS clock */
+        RCC_HBPeriphClockCmd(RCC_HBPeriph_USBFS, DISABLE);
+
+        /* Disable USBHS PLL if both USBFS and USBHS are not enabled */
+        if (!(RCC->HBPCENR & (RCC_HBPeriph_USBFS | RCC_HBPeriph_USBHS)))
+        {
+            RCC_USBHS_PLLCmd(DISABLE);
+        }
+
+        /* Mark USB device as idle */
+        usb_modes[USBFS_INDEX] = USB_MODE_IDLE;
+        return &usbd_handles[USBFS_INDEX];
 #endif
 
 #ifdef USBHS
     case USBHS_INDEX:
-        /* Disable USBHS interrupt */
         NVIC_DisableIRQ(USBHS_IRQn);
-
-        /* Disable USBHS clock and PLL */
         RCC_HBPeriphClockCmd(RCC_HBPeriph_USBHS, DISABLE);
-        RCC_USBHS_PLLCmd(DISABLE);
-
-        /* Mark USB device as idle */
+        if (!(RCC->HBPCENR & (RCC_HBPeriph_USBFS | RCC_HBPeriph_USBHS)))
+        {
+            RCC_USBHS_PLLCmd(DISABLE);
+        }
         usb_modes[USBHS_INDEX] = USB_MODE_IDLE;
         return &usbd_handles[USBHS_INDEX];
 #endif
@@ -120,6 +162,15 @@ usbd_handle_t *board_usbd_deinit(uint8_t index)
 #ifdef USBFS
 __attribute__((interrupt("WCH-Interrupt-fast"))) void USBFS_IRQHandler(void)
 {
+    switch (usb_modes[USBFS_INDEX])
+    {
+    case USB_MODE_DEVICE:
+        usbfsd_event_handle(&usbd_handles[USBFS_INDEX]);
+        break;
+
+    case USB_MODE_HOST:
+        break;
+    }
 }
 #endif
 

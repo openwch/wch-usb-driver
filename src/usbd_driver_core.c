@@ -86,7 +86,6 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
     usb_setup_t *setup = &h->setup;
     uint8_t dir = USB_ENDP_DIR(ctx->xfer.endp);
     uint8_t num = USB_ENDP_NUM(ctx->xfer.endp);
-    usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[dir ? USB_DIR_IN : USB_DIR_OUT][num];
 
     /* Control transfer event handling */
     if (num == 0)
@@ -95,18 +94,18 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         if ((setup->bmRequestType & 0x80) == (ctx->xfer.endp & 0x80))
         {
             /* Send zero-length packet to acknowledge the data stage */
-            if (endp_ctx->xfer_ofs && endp_ctx->xfer_ofs < setup->wLength && endp_ctx->xfer_ofs % endp_ctx->mps == 0 &&
+            if (ctx->xfer.len && ctx->xfer.len < setup->wLength && ctx->xfer.len % h->ep0_mps == 0 &&
                 setup->bmRequestType & 0x80 && !h->ctrl_xfer_zlp)
             {
                 h->ctrl_xfer_zlp = true;
-                h->ctrl_xfer_len = endp_ctx->xfer_ofs;
+                h->ctrl_xfer_len = ctx->xfer.len;
                 h->endp_transfer(h, 0x80, NULL, 0);
                 return;
             }
 
             if (!h->ctrl_xfer_zlp)
             {
-                h->ctrl_xfer_len = endp_ctx->xfer_ofs;
+                h->ctrl_xfer_len = ctx->xfer.len;
             }
 
             bool rst = true;
@@ -135,11 +134,12 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         }
     }
     /* Isochronous/interrupt/bulk transfer event handling */
-    else if (endp_ctx->cb)
+    else
     {
-        if (endp_ctx->cb((void *)endp_ctx->class_handle, ctx->xfer.endp, endp_ctx->xfer_buf, endp_ctx->xfer_ofs))
+        usbd_xfer_cb_ctx_t *cb_ctx = &h->cb_ctxs[dir ? USB_DIR_IN : USB_DIR_OUT][num - 1];
+        if (cb_ctx->function)
         {
-            h->endp_transfer(h, ctx->xfer.endp, endp_ctx->xfer_buf, endp_ctx->xfer_len);
+            cb_ctx->function((void *)cb_ctx->class_handle, ctx->xfer.endp, ctx->xfer.buf, ctx->xfer.len);
         }
     }
 }
@@ -434,8 +434,6 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         h->link_speed = USB_SPEED_UNKNOWN;
         h->config_num = 0;
         h->set_address(h, 0);
-        h->endp_ctxs[USB_DIR_IN][0].mps = h->ep0_mps;
-        h->endp_ctxs[USB_DIR_OUT][0].mps = h->ep0_mps;
         h->endp_open(h, 0x80, USB_ENDP_TYPE_CTRL, h->ep0_mps);
         h->endp_open(h, 0x00, USB_ENDP_TYPE_CTRL, h->ep0_mps);
         if (h->event_cbs[USBD_EVENT_RESET])
@@ -523,14 +521,14 @@ bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint
 {
     if (!h || !ep_desc) return false;
     usb_endp_t endp = ep_desc->bEndpointAddress;
+    uint8_t endp_num = USB_ENDP_NUM(endp);
+    if (endp_num == 0) return false;
     usb_endp_type_t endp_type = USB_ENDP_GET_TYPE(ep_desc->bmAttributes);
     uint16_t endp_mps = USB_ENDP_GET_MPS(ep_desc->wMaxPacketSize);
 
-    usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][USB_ENDP_NUM(endp)];
-    memset(endp_ctx, 0, sizeof(usbd_endp_ctx_t));
-    endp_ctx->mps = endp_mps;
-    endp_ctx->cb = cb;
-    endp_ctx->class_handle = class;
+    usbd_xfer_cb_ctx_t *cb_ctx = &h->cb_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
+    cb_ctx->class_handle = class;
+    cb_ctx->function = cb;
     return h->endp_open(h, endp, endp_type, endp_mps);
 }
 

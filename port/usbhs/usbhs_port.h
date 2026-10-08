@@ -552,9 +552,27 @@ typedef struct
     __IO uint32_t ROOT_BC_CTRL;
 } usbhsh_ip_t;
 
+typedef struct
+{
+    uint16_t mps;
+    void *xfer_buf;
+    size_t xfer_len;
+    size_t xfer_ofs;
+} usbhs_xfer_ctx_t;
+
+typedef struct
+{
+    usbhs_xfer_ctx_t endp_ctxs[2][8];
+    __attribute__((aligned(4))) uint8_t endp0_dma_buf[64];
+} usbhsd_ctx_t;
+
+typedef struct
+{
+} usbhsh_ctx_t;
+
 /* @function declaration */
-void usbhsd_handle_init(usbd_handle_t *h, uint32_t base_addr);
-void usbhsh_handle_init(usbd_handle_t *h, uint32_t base_addr);
+void usbhsd_handle_init(usbd_handle_t *h, uint32_t base_addr, usbhsd_ctx_t *ctx);
+void usbhsh_handle_init(usbd_handle_t *h, uint32_t base_addr, usbhsh_ctx_t *ctx);
 void usbhsd_event_handle(usbd_handle_t *h);
 void usbhsh_event_handle(usbd_handle_t *h);
 

@@ -85,7 +85,6 @@ wch-usb-driver/
     - 输出文件位于 `examples/device/hid_km/build/<chip>/output/`，包含 `.elf`、`.bin`、`.hex`、`.lst` 及 `.map`。
     - 可通过 `WCH-LinkUtility` 或 `WCHISPStudio` 工具烧录到单片机。
 
-
 4. 清理:
 
     ```bash

@@ -29,7 +29,7 @@ typedef enum
 } usbd_port_event_t;
 
 /* @function pointer */
-typedef bool (*usbd_data_xfer_cb)(void *handle, usb_endp_t endp, void *buf, size_t len);
+typedef void (*usbd_data_xfer_cb)(void *handle, usb_endp_t endp, void *buf, size_t len);
 
 /* @struct */
 typedef struct
@@ -55,13 +55,9 @@ typedef struct
 
 typedef struct
 {
-    uint16_t mps;
-    void *xfer_buf;
-    size_t xfer_len;
-    size_t xfer_ofs;
-    usbd_data_xfer_cb cb;
     const void *class_handle;
-} usbd_endp_ctx_t;
+    usbd_data_xfer_cb function;
+} usbd_xfer_cb_ctx_t;
 
 typedef struct
 {
@@ -88,6 +84,9 @@ typedef struct usbd_handle
     /* Base address of the USB device controller */
     uint32_t base_addr;
 
+    /* Port-specific context */
+    void *port_ctx;
+
     /* USB device information */
     bool remote_wakeup;
     uint8_t ep0_mps;
@@ -100,11 +99,8 @@ typedef struct usbd_handle
     /* USB Standard Request Temporary Buffer */
     uint32_t stand_req_buf;
 
-    /* Endpoint transfer contexts */
-    usbd_endp_ctx_t endp_ctxs[2][USB_MAX_ENDP_NUM];
-
-    /* Endpoint 0 buffer aligned to 4 bytes */
-    __attribute__((aligned(4))) uint8_t ep0_buf[USB_ENDP0_MAX_LEN];
+    /* Data transfer callbacks contexts */
+    usbd_xfer_cb_ctx_t cb_ctxs[2][USB_MAX_ENDP_NUM - 1];
 
     /* Event callback functions */
     usbd_event_cb event_cbs[USBD_EVENT_COUNT];

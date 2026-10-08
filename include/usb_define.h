@@ -27,7 +27,6 @@ extern "C" {
 #define USB_ENDP_NUM(endp)              ((endp) & 0x0F)
 #define USB_ENDP_GET_TYPE(attributes)   ((attributes) & 0x03)
 #define USB_ENDP_GET_MPS(mps)           ((mps) & 0x07FF)
-#define USB_ENDP0_MAX_LEN               (64)
 #define USB_MAX_ENDP_NUM                (16)
 
 #define USB_ARRAY_SIZE(arr)             (sizeof(arr) / sizeof((arr)[0]))

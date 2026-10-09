@@ -14,7 +14,7 @@
 /* @define */
 #define USBHSH ((usbhsh_ip_t *)h->base_addr)
 
-bool open(usbh_handle_t *h)
+static bool open(usbh_handle_t *h)
 {
     USBHSH->CFG = USBHS_RST_LINK | USBHS_UH_PHY_SUSPENDM;
     USBHSH->PORT_CFG = USBHS_UH_PD_EN | USBHS_UH_HOST_EN;
@@ -25,9 +25,10 @@ bool open(usbh_handle_t *h)
     return true;
 }
 
-bool close(usbh_handle_t *h)
+static bool close(usbh_handle_t *h)
 {
     USBHSH->CFG = USBHS_UD_RST_LINK | USBHS_UD_RST_SIE | USBHS_UD_CLR_ALL;
+    return true;
 }
 
 void usbhsh_handle_init(usbh_handle_t *h, uint32_t base_addr, usbhsh_ctx_t *ctx)

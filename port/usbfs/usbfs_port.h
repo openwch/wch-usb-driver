@@ -387,6 +387,8 @@ typedef struct
 
 typedef struct
 {
+    void (*delay_us)(uint32_t us);
+    void (*delay_ms)(uint32_t ms);
 } usbfsh_ctx_t;
 
 /* @function declaration */

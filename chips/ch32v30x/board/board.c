@@ -109,6 +109,8 @@ void *board_usb_init(uint8_t index, usb_mode_t mode)
         static const uint32_t usbh_base_addrs[] = {USBFSH_BASE_ADDR};
         usb_modes[index] = USB_MODE_HOST;
         memset(&usbfsh_ctx, 0, sizeof(usbfsh_ctx_t));
+        usbfsh_ctx.delay_us = Delay_Us;
+        usbfsh_ctx.delay_ms = Delay_Ms;
         usbfsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbfsh_ctx);
         return &usbh_handles[index];
     }

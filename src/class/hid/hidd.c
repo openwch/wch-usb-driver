@@ -114,7 +114,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         {
             uint8_t report_id = USB_U16_LOW(setup->wValue);
             uint8_t idle_rate = USB_U16_HIGH(setup->wValue);
-            USB_LOGI("SET_IDLE: Report_ID=%d, Idle_Rate=%d", report_id, idle_rate);
+            USB_LOGI("Handle: %p SET_IDLE: Report_ID=%d, Idle_Rate=%d", h, report_id, idle_rate);
             h->idle_rate[report_id] = idle_rate;
             if (h->set_idle_cb)
             {
@@ -126,7 +126,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         case HID_CLASS_REQ_SET_PROTOCOL:
         {
             uint8_t protocol = USB_U16_LOW(setup->wValue);
-            USB_LOGI("SET_PROTOCOL: Protocol=%d", protocol);
+            USB_LOGI("Handle: %p SET_PROTOCOL: Protocol=%d", h, protocol);
             h->protocol = protocol;
             if (h->set_protocol_cb)
             {
@@ -175,6 +175,7 @@ bool hidd_drv_open(hidd_handle_t *hidd)
     {
         if (!usbd_endp_open(hidd->usbd_handle, hidd, hidd->out_ep, read_callback)) goto close_out_ep;
     }
+    USB_LOGI("Handle: %p Successfully opened HID", hidd);
     return true;
 
 close_out_ep:
@@ -190,6 +191,7 @@ close_in_ep:
     }
 
 unregister_interface:
+    USB_LOGE("Handle: %p Failed to open HID", hidd);
     usbd_unregister_interface_cb(hidd->usbd_handle, hidd->itf_num);
     return false;
 }

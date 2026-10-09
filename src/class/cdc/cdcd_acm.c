@@ -47,8 +47,9 @@ static bool ctrl_xfer_data(void *handle, const usb_setup_t *setup, void *buf, si
         switch (setup->bRequest)
         {
         case CDC_CLASS_REQ_SET_LINE_CODING:
-            USB_LOGI("SET_LINE_CODING: Bit_Rate=%d, Stop_Bits=%d, Parity=%d, Data_Bits=%d", h->line_coding.bit_rate,
-                     h->line_coding.stop_bits, h->line_coding.parity, h->line_coding.data_bits);
+            USB_LOGI("Handle: %p SET_LINE_CODING: Bit_Rate=%d, Stop_Bits=%d, Parity=%d, Data_Bits=%d", h,
+                     h->line_coding.bit_rate, h->line_coding.stop_bits, h->line_coding.parity,
+                     h->line_coding.data_bits);
             if (h->set_line_coding_cb)
             {
                 return h->set_line_coding_cb(h, &h->line_coding);
@@ -67,7 +68,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         switch (setup->bRequest)
         {
         case CDC_CLASS_REQ_SET_CONTROL_LINE_STATE:
-            USB_LOGI("SET_CONTROL_LINE_STATE: Bitmap=0x%04x", setup->wValue);
+            USB_LOGI("Handle: %p SET_CONTROL_LINE_STATE: Bitmap=0x%04x", h, setup->wValue);
             if (h->set_control_line_state_cb)
             {
                 h->set_control_line_state_cb(h, setup->wValue);
@@ -75,7 +76,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             break;
 
         case CDC_CLASS_REQ_SEND_BREAK:
-            USB_LOGI("SEND_BREAK: Duration=0x%04x", setup->wValue);
+            USB_LOGI("Handle: %p SEND_BREAK: Duration=0x%04x", h, setup->wValue);
             if (h->send_break_cb)
             {
                 h->send_break_cb(h, setup->wValue);
@@ -112,6 +113,7 @@ bool cdcd_acm_drv_open(cdcd_acm_handle_t *cdcd_acm)
     if (!usbd_endp_open(cdcd_acm->usbd_handle, cdcd_acm, cdcd_acm->notify_ep, NULL)) goto close_notify_ep;
     if (!usbd_endp_open(cdcd_acm->usbd_handle, cdcd_acm, cdcd_acm->in_ep, write_callback)) goto close_in_ep;
     if (!usbd_endp_open(cdcd_acm->usbd_handle, cdcd_acm, cdcd_acm->out_ep, read_callback)) goto close_out_ep;
+    USB_LOGI("Handle: %p Successfully opened CDC ACM", cdcd_acm);
     return true;
 
 close_out_ep:
@@ -125,6 +127,7 @@ close_notify_ep:
 
 unregister_itf:
     usbd_unregister_interface_cb(cdcd_acm->usbd_handle, cdcd_acm->ctrl_itf_num);
+    USB_LOGE("Handle: %p Failed to open CDC ACM", cdcd_acm);
     return false;
 }
 

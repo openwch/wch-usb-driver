@@ -3,12 +3,12 @@
 ########################################
 
 # --- Compiler Flags ---
-ifneq ($(USBD0),)
-CFLAGS += -DUSBD0=$(USBD0)
+ifneq ($(USBD0_INDEX),)
+CFLAGS += -DUSBD0_INDEX=$(USBD0_INDEX)
 endif
 
-ifneq ($(USBD1),)
-CFLAGS += -DUSBD1=$(USBD1)
+ifneq ($(USBD1_INDEX),)
+CFLAGS += -DUSBD1_INDEX=$(USBD1_INDEX)
 endif
 
 # --- Include Build Makefile ---

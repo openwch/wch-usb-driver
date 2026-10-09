@@ -53,7 +53,7 @@ typedef struct usbd_handle usbd_handle_t;
 
 /* @function pointer */
 typedef void (*usbd_event_cb)(usbd_handle_t *h, usbd_event_ctx_t *ctx);
-typedef const void *(*usbd_get_desc_cb)(uint8_t desc_type, uint8_t desc_info, size_t *len);
+typedef const void *(*usbd_get_desc_cb)(usbd_handle_t *h, uint8_t desc_type, uint8_t desc_info, size_t *len);
 
 /* @function declaration */
 bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, usbd_get_desc_cb get_desc_cb);

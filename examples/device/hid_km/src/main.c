@@ -46,6 +46,7 @@ typedef struct
 /* @global */
 static volatile bool enum_completed;
 static volatile bool is_suspended;
+static usbd_handle_t *usbd_handle;
 static hidd_handle_t kb_handle;
 static hidd_handle_t mouse_handle;
 static hid_kb_report_t hid_kb_report;
@@ -84,7 +85,7 @@ static const void *get_string_desc_cb(uint8_t string_index, size_t *len)
     return NULL;
 }
 
-static const void *get_stand_desc_cb(uint8_t desc_type, uint8_t desc_info, size_t *len)
+static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t desc_type, uint8_t desc_info, size_t *len)
 {
     switch (desc_type)
     {
@@ -308,14 +309,14 @@ int main(void)
     button_init();
     led_init();
 
-    usbd_handle_t *h = board_usbd_init(USBD_INDEX);
-    assert(h != NULL);
+    usbd_handle = board_usbd_init(USBD_INDEX);
+    assert(usbd_handle != NULL);
 
-    assert(usbd_drv_open(h, USB_SPEED_FULL, false, get_stand_desc_cb));
-    assert(usbd_register_event_callback(h, USBD_EVENT_RESET, reset_event_cb));
-    assert(usbd_register_event_callback(h, USBD_EVENT_SUSPEND, suspend_event_cb));
-    assert(usbd_register_event_callback(h, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
     enum_completed = false;
+    assert(usbd_register_event_callback(usbd_handle, USBD_EVENT_RESET, reset_event_cb));
+    assert(usbd_register_event_callback(usbd_handle, USBD_EVENT_SUSPEND, suspend_event_cb));
+    assert(usbd_register_event_callback(usbd_handle, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
+    assert(usbd_drv_open(usbd_handle, USB_SPEED_FULL, false, get_stand_desc_cb));
 
     while (1)
     {

@@ -163,7 +163,7 @@ static bool get_status_setup(void *handle, const usb_setup_t *setup, void **buf,
     case USB_REQ_RCPT_DEVICE:
         memset(&h->stand_req_buf, 0, sizeof(h->stand_req_buf));
         size_t size = 0;
-        usb_desc_config_t *desc = (usb_desc_config_t *)h->get_desc_cb(USB_DESC_CONFIGURATION, h->link_speed, &size);
+        usb_desc_config_t *desc = (usb_desc_config_t *)h->get_desc_cb(h, USB_DESC_CONFIGURATION, h->link_speed, &size);
         if (desc)
         {
             h->stand_req_buf = (desc->bmAttributes & USB_SELF_POWERED_MASK ? 0x0001 : 0x0000) |
@@ -216,27 +216,27 @@ static bool get_descriptor_setup(void *handle, const usb_setup_t *setup, void **
     switch (desc_type)
     {
     case USB_DESC_DEVICE:
-        desc = h->get_desc_cb(desc_type, 0, &desc_len);
+        desc = h->get_desc_cb(h, desc_type, 0, &desc_len);
         break;
 
     case USB_DESC_CONFIGURATION:
-        desc = h->get_desc_cb(desc_type, h->link_speed, &desc_len);
+        desc = h->get_desc_cb(h, desc_type, h->link_speed, &desc_len);
         break;
 
     case USB_DESC_STRING:
-        desc = h->get_desc_cb(desc_type, USB_U16_LOW(setup->wValue), &desc_len);
+        desc = h->get_desc_cb(h, desc_type, USB_U16_LOW(setup->wValue), &desc_len);
         break;
 
     case USB_DESC_DEVICE_QUALIFIER:
-        desc = h->get_desc_cb(desc_type, 0, &desc_len);
+        desc = h->get_desc_cb(h, desc_type, 0, &desc_len);
         break;
 
     case USB_DESC_OTHER_SPEED_CONFIG:
-        desc = h->get_desc_cb(desc_type, h->link_speed, &desc_len);
+        desc = h->get_desc_cb(h, desc_type, h->link_speed, &desc_len);
         break;
 
     case USB_DESC_BOS:
-        desc = h->get_desc_cb(desc_type, 0, &desc_len);
+        desc = h->get_desc_cb(h, desc_type, 0, &desc_len);
         break;
     }
 
@@ -335,7 +335,7 @@ bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, usbd_get_de
     h->get_desc_cb = get_desc_cb;
 
     size_t size = 0;
-    usb_desc_device_t *desc = (usb_desc_device_t *)h->get_desc_cb(USB_DESC_DEVICE, 0, &size);
+    usb_desc_device_t *desc = (usb_desc_device_t *)h->get_desc_cb(h, USB_DESC_DEVICE, 0, &size);
 
     /* Validate the endpoint 0 size */
     if (!desc || desc->bMaxPacketSize0 == 0 || desc->bMaxPacketSize0 > 64) return false;

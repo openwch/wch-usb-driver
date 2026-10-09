@@ -3,8 +3,8 @@
 ########################################
 
 # --- Compiler Flags ---
-ifneq ($(USBH),)
-CFLAGS += -DUSBH=$(USBH)
+ifneq ($(USBH_INDEX),)
+CFLAGS += -DUSBH_INDEX=$(USBH_INDEX)
 endif
 
 # --- Include Build Makefile ---

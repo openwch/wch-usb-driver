@@ -12,189 +12,10 @@
 #include "usbfs_port.h"
 
 /* @define */
-#define USBFSD            ((usbfsd_ip_t *)h->base_addr)
-#define ENDP_TX_LEN(ep)   *((volatile uint16_t *)&(USBFSD->UEP0_TX_LEN) + (ep) * 2)
-#define ENDP_TX_CTRL(ep)  *((volatile uint8_t *)&(USBFSD->UEP0_TX_CTRL) + (ep) * 4)
-#define ENDP_RX_CTRL(ep)  *((volatile uint8_t *)&(USBFSD->UEP0_RX_CTRL) + (ep) * 4)
-
-/* @function declaration */
-static bool open(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
-static bool close(usbd_handle_t *h);
-static bool resume(usbd_handle_t *h);
-static bool set_address(usbd_handle_t *h, uint8_t address);
-static usb_speed_t get_link_speed(usbd_handle_t *h);
-static bool test_mode_ctrl(usbd_handle_t *h, usb_test_select_t test_mode);
-static bool endp_open(usbd_handle_t *h, usb_endp_t endp, usb_endp_type_t type, uint16_t mps);
-static bool endp_close(usbd_handle_t *h, usb_endp_t endp);
-static bool endp_stall(usbd_handle_t *h, usb_endp_t endp, bool stall);
-static bool endp_is_stalled(usbd_handle_t *h, usb_endp_t endp);
-static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
-
-void usbfsd_handle_init(usbd_handle_t *h, uint32_t base_addr, usbfsd_ctx_t *ctx)
-{
-    memset(h, 0, sizeof(usbd_handle_t));
-    h->base_addr = base_addr;
-    h->port_ctx = ctx;
-
-    h->open = open;
-    h->close = close;
-    h->resume = resume;
-    h->set_address = set_address;
-    h->get_link_speed = get_link_speed;
-    h->test_mode_ctrl = test_mode_ctrl;
-    h->endp_open = endp_open;
-    h->endp_close = endp_close;
-    h->endp_stall = endp_stall;
-    h->endp_is_stalled = endp_is_stalled;
-    h->endp_transfer = endp_transfer;
-}
-
-void usbfsd_event_handle(usbd_handle_t *h)
-{
-    usbfsd_ctx_t *port_ctx = (usbfsd_ctx_t *)h->port_ctx;
-    usbd_port_event_ctx_t event_ctx;
-    uint8_t flag = USBFSD->INT_FG;
-
-    if (flag & USBFS_UIF_TRANSFER)
-    {
-        uint8_t stat = USBFSD->INT_ST;
-        uint8_t endp = stat & USBFS_UIS_ENDP_MASK;
-        uint8_t token = stat & USBFS_UIS_TOKEN_MASK;
-
-        switch (token)
-        {
-        case USBFS_UIS_TOKEN_SETUP:
-        {
-            /* Reset Control Endpoint Toggle */
-            ENDP_TX_CTRL(0) = USBFS_UEP_T_TOG | USBFS_UEP_T_RES_NAK;
-            ENDP_RX_CTRL(0) = USBFS_UEP_T_TOG | USBFS_UEP_R_RES_NAK;
-
-            /* Copy the setup packet from the endpoint 0 buffer to the setup structure */
-            memcpy(&h->setup, port_ctx->endp_dma_bufs[0], sizeof(usb_setup_t));
-
-            event_ctx.e = USBD_PORT_EVENT_SETUP;
-            usbd_event_handle(h, &event_ctx);
-            break;
-        }
-
-        case USBFS_UIS_TOKEN_IN:
-        {
-            size_t tx_len = ENDP_TX_LEN(endp);
-            usbfs_xfer_ctx_t *xfer_ctx = &port_ctx->xfer_ctxs[USB_DIR_IN][endp];
-
-            if (endp == 0)
-            {
-                /* Endpoint 0 Manual Toggle */
-                USBFSD->UEP0_TX_CTRL ^= USBFS_UEP_T_TOG;
-            }
-
-            xfer_ctx->xfer_ofs += tx_len;
-            if (xfer_ctx->xfer_ofs >= xfer_ctx->xfer_len)
-            {
-                ENDP_TX_CTRL(endp) = (ENDP_TX_CTRL(endp) & ~USBFS_UEP_T_RES_MASK) | USBFS_UEP_T_RES_NAK;
-                event_ctx.e = USBD_PORT_EVENT_XFER;
-                event_ctx.xfer.buf = xfer_ctx->xfer_buf;
-                event_ctx.xfer.len = xfer_ctx->xfer_ofs;
-                event_ctx.xfer.endp = 0x80 | endp;
-                usbd_event_handle(h, &event_ctx);
-            }
-            else if (endp == 0)
-            {
-                size_t xfer_len = USB_MIN(xfer_ctx->xfer_len - xfer_ctx->xfer_ofs, xfer_ctx->mps);
-                memcpy(port_ctx->endp_dma_bufs[0], (uint8_t *)xfer_ctx->xfer_buf + xfer_ctx->xfer_ofs, xfer_len);
-                USBFSD->UEP0_TX_LEN = xfer_len;
-                USBFSD->UEP0_TX_CTRL = (USBFSD->UEP0_TX_CTRL & ~USBFS_UEP_T_RES_MASK) | USBFS_UEP_T_RES_ACK;
-            }
-            else
-            {
-                size_t xfer_len = USB_MIN(xfer_ctx->xfer_len - xfer_ctx->xfer_ofs, xfer_ctx->mps);
-                memcpy(port_ctx->dma_buf_ptrs[USB_DIR_IN][endp], (uint8_t *)xfer_ctx->xfer_buf + xfer_ctx->xfer_ofs,
-                       xfer_len);
-                ENDP_TX_LEN(endp) = xfer_len;
-                ENDP_TX_CTRL(endp) = (ENDP_TX_CTRL(endp) & ~USBFS_UEP_T_RES_MASK) | USBFS_UEP_T_RES_ACK;
-            }
-            break;
-        }
-
-        case USBFS_UIS_TOKEN_OUT:
-        {
-            // Out toggle mismatch
-            if ((stat & USBFS_UIS_TOG_OK) == 0)
-            {
-                ENDP_RX_CTRL(endp) = (ENDP_RX_CTRL(endp) & ~USBFS_UEP_R_RES_MASK) | USBFS_UEP_R_RES_ACK;
-                USBFSD->INT_FG = USBFS_UIF_TRANSFER;
-                return;
-            }
-
-            size_t rx_len = USBFSD->RX_LEN;
-            usbfs_xfer_ctx_t *xfer_ctx = &port_ctx->xfer_ctxs[USB_DIR_OUT][endp];
-
-            if (endp == 0)
-            {
-                /* Endpoint 0 Manual Toggle */
-                USBFSD->UEP0_RX_CTRL ^= USBFS_UEP_R_TOG;
-                memcpy((uint8_t *)xfer_ctx->xfer_buf + xfer_ctx->xfer_ofs, port_ctx->endp_dma_bufs[0],
-                       USB_MIN(rx_len, xfer_ctx->xfer_len - xfer_ctx->xfer_ofs));
-            }
-            else
-            {
-                memcpy((uint8_t *)xfer_ctx->xfer_buf + xfer_ctx->xfer_ofs, port_ctx->dma_buf_ptrs[USB_DIR_OUT][endp],
-                       USB_MIN(rx_len, xfer_ctx->xfer_len - xfer_ctx->xfer_ofs));
-            }
-
-            xfer_ctx->xfer_ofs = USB_MIN(xfer_ctx->xfer_ofs + rx_len, xfer_ctx->xfer_len);
-            if (xfer_ctx->xfer_ofs >= xfer_ctx->xfer_len || rx_len < xfer_ctx->mps)
-            {
-                ENDP_RX_CTRL(endp) = (ENDP_RX_CTRL(endp) & ~USBFS_UEP_R_RES_MASK) | USBFS_UEP_R_RES_NAK;
-                event_ctx.e = USBD_PORT_EVENT_XFER;
-                event_ctx.xfer.buf = xfer_ctx->xfer_buf;
-                event_ctx.xfer.len = xfer_ctx->xfer_ofs;
-                event_ctx.xfer.endp = 0x00 | endp;
-                usbd_event_handle(h, &event_ctx);
-            }
-            else
-            {
-                ENDP_RX_CTRL(endp) = (ENDP_RX_CTRL(endp) & ~USBFS_UEP_R_RES_MASK) | USBFS_UEP_R_RES_ACK;
-            }
-            break;
-        }
-
-        case USBFS_UIS_TOKEN_SOF:
-        {
-            event_ctx.e = USBD_PORT_EVENT_SOF;
-            event_ctx.sof.frame_num = 0;
-            event_ctx.sof.mframe_num = 0;
-            usbd_event_handle(h, &event_ctx);
-            break;
-        }
-        }
-
-        USBFSD->INT_FG = USBFS_UIF_TRANSFER;
-    }
-    else if (flag & USBFS_UIF_BUS_RST)
-    {
-        USBFSD->INT_FG = USBFS_UIF_BUS_RST;
-        USBFSD->UEP4_1_MOD = 0;
-        USBFSD->UEP2_3_MOD = 0;
-        USBFSD->UEP5_6_MOD = 0;
-        USBFSD->UEP7_MOD = 0;
-        event_ctx.e = USBD_PORT_EVENT_RESET;
-        usbd_event_handle(h, &event_ctx);
-    }
-    else if (flag & USBFS_UIF_SUSPEND)
-    {
-        USBFSD->INT_FG = USBFS_UIF_SUSPEND;
-        if (USBFSD->MIS_ST & USBFS_UMS_SUSPEND)
-        {
-            event_ctx.e = USBD_PORT_EVENT_SUSPEND;
-            usbd_event_handle(h, &event_ctx);
-        }
-    }
-    else
-    {
-        USBFSD->INT_FG = flag;
-    }
-}
+#define USBFSD           ((usbfsd_ip_t *)h->base_addr)
+#define ENDP_TX_LEN(ep)  *((volatile uint16_t *)&(USBFSD->UEP0_TX_LEN) + (ep) * 2)
+#define ENDP_TX_CTRL(ep) *((volatile uint8_t *)&(USBFSD->UEP0_TX_CTRL) + (ep) * 4)
+#define ENDP_RX_CTRL(ep) *((volatile uint8_t *)&(USBFSD->UEP0_RX_CTRL) + (ep) * 4)
 
 static bool open(usbd_handle_t *h, usb_speed_t speed, bool sof_en)
 {
@@ -449,4 +270,170 @@ static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t l
         ENDP_RX_CTRL(num) = (ENDP_RX_CTRL(num) & ~USBFS_UEP_R_RES_MASK) | USBFS_UEP_R_RES_ACK;
     }
     return true;
+}
+
+void usbfsd_handle_init(usbd_handle_t *h, uint32_t base_addr, usbfsd_ctx_t *ctx)
+{
+    memset(h, 0, sizeof(usbd_handle_t));
+    h->base_addr = base_addr;
+    h->port_ctx = ctx;
+
+    h->open = open;
+    h->close = close;
+    h->resume = resume;
+    h->set_address = set_address;
+    h->get_link_speed = get_link_speed;
+    h->test_mode_ctrl = test_mode_ctrl;
+    h->endp_open = endp_open;
+    h->endp_close = endp_close;
+    h->endp_stall = endp_stall;
+    h->endp_is_stalled = endp_is_stalled;
+    h->endp_transfer = endp_transfer;
+}
+
+void usbfsd_event_handle(usbd_handle_t *h)
+{
+    usbfsd_ctx_t *port_ctx = (usbfsd_ctx_t *)h->port_ctx;
+    usbd_port_event_ctx_t event_ctx;
+    uint8_t flag = USBFSD->INT_FG;
+
+    if (flag & USBFS_UIF_TRANSFER)
+    {
+        uint8_t stat = USBFSD->INT_ST;
+        uint8_t endp = stat & USBFS_UIS_ENDP_MASK;
+        uint8_t token = stat & USBFS_UIS_TOKEN_MASK;
+
+        switch (token)
+        {
+        case USBFS_UIS_TOKEN_SETUP:
+        {
+            /* Reset Control Endpoint Toggle */
+            ENDP_TX_CTRL(0) = USBFS_UEP_T_TOG | USBFS_UEP_T_RES_NAK;
+            ENDP_RX_CTRL(0) = USBFS_UEP_T_TOG | USBFS_UEP_R_RES_NAK;
+
+            /* Copy the setup packet from the endpoint 0 buffer to the setup structure */
+            memcpy(&h->setup, port_ctx->endp_dma_bufs[0], sizeof(usb_setup_t));
+
+            event_ctx.e = USBD_PORT_EVENT_SETUP;
+            usbd_event_handle(h, &event_ctx);
+            break;
+        }
+
+        case USBFS_UIS_TOKEN_IN:
+        {
+            size_t tx_len = ENDP_TX_LEN(endp);
+            usbfs_xfer_ctx_t *xfer_ctx = &port_ctx->xfer_ctxs[USB_DIR_IN][endp];
+
+            if (endp == 0)
+            {
+                /* Endpoint 0 Manual Toggle */
+                USBFSD->UEP0_TX_CTRL ^= USBFS_UEP_T_TOG;
+            }
+
+            xfer_ctx->xfer_ofs += tx_len;
+            if (xfer_ctx->xfer_ofs >= xfer_ctx->xfer_len)
+            {
+                ENDP_TX_CTRL(endp) = (ENDP_TX_CTRL(endp) & ~USBFS_UEP_T_RES_MASK) | USBFS_UEP_T_RES_NAK;
+                event_ctx.e = USBD_PORT_EVENT_XFER;
+                event_ctx.xfer.buf = xfer_ctx->xfer_buf;
+                event_ctx.xfer.len = xfer_ctx->xfer_ofs;
+                event_ctx.xfer.endp = 0x80 | endp;
+                usbd_event_handle(h, &event_ctx);
+            }
+            else if (endp == 0)
+            {
+                size_t xfer_len = USB_MIN(xfer_ctx->xfer_len - xfer_ctx->xfer_ofs, xfer_ctx->mps);
+                memcpy(port_ctx->endp_dma_bufs[0], (uint8_t *)xfer_ctx->xfer_buf + xfer_ctx->xfer_ofs, xfer_len);
+                USBFSD->UEP0_TX_LEN = xfer_len;
+                USBFSD->UEP0_TX_CTRL = (USBFSD->UEP0_TX_CTRL & ~USBFS_UEP_T_RES_MASK) | USBFS_UEP_T_RES_ACK;
+            }
+            else
+            {
+                size_t xfer_len = USB_MIN(xfer_ctx->xfer_len - xfer_ctx->xfer_ofs, xfer_ctx->mps);
+                memcpy(port_ctx->dma_buf_ptrs[USB_DIR_IN][endp], (uint8_t *)xfer_ctx->xfer_buf + xfer_ctx->xfer_ofs,
+                       xfer_len);
+                ENDP_TX_LEN(endp) = xfer_len;
+                ENDP_TX_CTRL(endp) = (ENDP_TX_CTRL(endp) & ~USBFS_UEP_T_RES_MASK) | USBFS_UEP_T_RES_ACK;
+            }
+            break;
+        }
+
+        case USBFS_UIS_TOKEN_OUT:
+        {
+            // Out toggle mismatch
+            if ((stat & USBFS_UIS_TOG_OK) == 0)
+            {
+                ENDP_RX_CTRL(endp) = (ENDP_RX_CTRL(endp) & ~USBFS_UEP_R_RES_MASK) | USBFS_UEP_R_RES_ACK;
+                USBFSD->INT_FG = USBFS_UIF_TRANSFER;
+                return;
+            }
+
+            size_t rx_len = USBFSD->RX_LEN;
+            usbfs_xfer_ctx_t *xfer_ctx = &port_ctx->xfer_ctxs[USB_DIR_OUT][endp];
+
+            if (endp == 0)
+            {
+                /* Endpoint 0 Manual Toggle */
+                USBFSD->UEP0_RX_CTRL ^= USBFS_UEP_R_TOG;
+                memcpy((uint8_t *)xfer_ctx->xfer_buf + xfer_ctx->xfer_ofs, port_ctx->endp_dma_bufs[0],
+                       USB_MIN(rx_len, xfer_ctx->xfer_len - xfer_ctx->xfer_ofs));
+            }
+            else
+            {
+                memcpy((uint8_t *)xfer_ctx->xfer_buf + xfer_ctx->xfer_ofs, port_ctx->dma_buf_ptrs[USB_DIR_OUT][endp],
+                       USB_MIN(rx_len, xfer_ctx->xfer_len - xfer_ctx->xfer_ofs));
+            }
+
+            xfer_ctx->xfer_ofs = USB_MIN(xfer_ctx->xfer_ofs + rx_len, xfer_ctx->xfer_len);
+            if (xfer_ctx->xfer_ofs >= xfer_ctx->xfer_len || rx_len < xfer_ctx->mps)
+            {
+                ENDP_RX_CTRL(endp) = (ENDP_RX_CTRL(endp) & ~USBFS_UEP_R_RES_MASK) | USBFS_UEP_R_RES_NAK;
+                event_ctx.e = USBD_PORT_EVENT_XFER;
+                event_ctx.xfer.buf = xfer_ctx->xfer_buf;
+                event_ctx.xfer.len = xfer_ctx->xfer_ofs;
+                event_ctx.xfer.endp = 0x00 | endp;
+                usbd_event_handle(h, &event_ctx);
+            }
+            else
+            {
+                ENDP_RX_CTRL(endp) = (ENDP_RX_CTRL(endp) & ~USBFS_UEP_R_RES_MASK) | USBFS_UEP_R_RES_ACK;
+            }
+            break;
+        }
+
+        case USBFS_UIS_TOKEN_SOF:
+        {
+            event_ctx.e = USBD_PORT_EVENT_SOF;
+            event_ctx.sof.frame_num = 0;
+            event_ctx.sof.mframe_num = 0;
+            usbd_event_handle(h, &event_ctx);
+            break;
+        }
+        }
+
+        USBFSD->INT_FG = USBFS_UIF_TRANSFER;
+    }
+    else if (flag & USBFS_UIF_BUS_RST)
+    {
+        USBFSD->INT_FG = USBFS_UIF_BUS_RST;
+        USBFSD->UEP4_1_MOD = 0;
+        USBFSD->UEP2_3_MOD = 0;
+        USBFSD->UEP5_6_MOD = 0;
+        USBFSD->UEP7_MOD = 0;
+        event_ctx.e = USBD_PORT_EVENT_RESET;
+        usbd_event_handle(h, &event_ctx);
+    }
+    else if (flag & USBFS_UIF_SUSPEND)
+    {
+        USBFSD->INT_FG = USBFS_UIF_SUSPEND;
+        if (USBFSD->MIS_ST & USBFS_UMS_SUSPEND)
+        {
+            event_ctx.e = USBD_PORT_EVENT_SUSPEND;
+            usbd_event_handle(h, &event_ctx);
+        }
+    }
+    else
+    {
+        USBFSD->INT_FG = flag;
+    }
 }

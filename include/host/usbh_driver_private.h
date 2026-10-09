@@ -26,6 +26,10 @@ typedef struct usbh_handle
 
     /* Port-specific context */
     void *port_ctx;
+
+    /* USB host operations */
+    bool (*open)(usbh_handle_t *h);
+    bool (*close)(usbh_handle_t *h);
 } usbh_handle_t;
 
 #ifdef __cplusplus

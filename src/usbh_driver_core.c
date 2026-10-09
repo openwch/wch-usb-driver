@@ -18,12 +18,14 @@
 
 bool usbh_drv_open(usbh_handle_t *h)
 {
-    return true;
+    if (h == NULL) return false;
+    return h->open(h);
 }
 
 bool usbh_drv_close(usbh_handle_t *h)
 {
-    return true;
+    if (h == NULL) return false;
+    return h->close(h);
 }
 
 #endif // USB_HOST_DRIVER_EN

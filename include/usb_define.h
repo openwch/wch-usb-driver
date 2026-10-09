@@ -48,6 +48,28 @@ extern "C" {
 #define USB_U32_BYTE2(data)             ((uint8_t)(((data) >> 16) & 0x000000FF))
 #define USB_U32_BYTE3(data)             ((uint8_t)(((data) >> 24) & 0x000000FF))
 
+#ifndef USB_LOG_TAG
+#define USB_LOG_TAG "?"
+#endif
+
+#ifdef USB_DRIVER_LOG_INFO_EN
+#define USB_LOGI(format, ...) USB_LOG_OUTPUT("[" USB_LOG_TAG "][I]: " format "\r\n", ##__VA_ARGS__)
+#else
+#define USB_LOGI(format, ...)
+#endif
+
+#ifdef USB_DRIVER_LOG_WARNING_EN
+#define USB_LOGW(format, ...) USB_LOG_OUTPUT("[" USB_LOG_TAG "][W]: " format "\r\n", ##__VA_ARGS__)
+#else
+#define USB_LOGW(format, ...)
+#endif
+
+#ifdef USB_DRIVER_LOG_ERROR_EN
+#define USB_LOGE(format, ...) USB_LOG_OUTPUT("[" USB_LOG_TAG "][E]: " format "\r\n", ##__VA_ARGS__)
+#else
+#define USB_LOGE(format, ...)
+#endif
+
 /* @typedef */
 typedef uint8_t usb_endp_t;
 

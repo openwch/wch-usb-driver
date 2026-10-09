@@ -17,8 +17,8 @@
 #include <stdbool.h>
 
 /* USB driver includes */
-#include "usb_define.h"
 #include "usb_config.h"
+#include "usb_define.h"
 
 /* USB core driver includes */
 #include "device/usbd_driver_public.h"
@@ -36,27 +36,8 @@ extern "C" {
 #endif
 
 /* @define */
-#ifndef USB_LOG_TAG
-#define USB_LOG_TAG "?"
-#endif
-
-#ifdef USB_DRIVER_LOG_INFO_EN
-#define USB_LOGI(format, ...) USB_LOG_OUTPUT("[" USB_LOG_TAG "][I]: " format "\r\n", ##__VA_ARGS__)
-#else
-#define USB_LOGI(format, ...)
-#endif
-
-#ifdef USB_DRIVER_LOG_WARNING_EN
-#define USB_LOGW(format, ...) USB_LOG_OUTPUT("[" USB_LOG_TAG "][W]: " format "\r\n", ##__VA_ARGS__)
-#else
-#define USB_LOGW(format, ...)
-#endif
-
-#ifdef USB_DRIVER_LOG_ERROR_EN
-#define USB_LOGE(format, ...) USB_LOG_OUTPUT("[" USB_LOG_TAG "][E]: " format "\r\n", ##__VA_ARGS__)
-#else
-#define USB_LOGE(format, ...)
-#endif
+#define USB_DRIVER_VERSION_STRING "v1.0.0"
+#define USB_DRIVER_VERSION_NUMBER 0x0100
 
 #ifdef __cplusplus
 }

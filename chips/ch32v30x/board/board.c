@@ -47,6 +47,7 @@ void board_init(void)
     printf("Compiled Time: %s %s\n", __DATE__, __TIME__);
     printf("RISC-V Compiler: %s\r\n", __VERSION__);
     printf("System Clock: %ld\r\n", SystemCoreClock);
+    printf("USB Driver Version: %s\r\n", USB_DRIVER_VERSION_STRING);
     printf("=====================================\r\n\r\n");
 }
 

@@ -228,8 +228,8 @@ int main(void)
     board_init();
     led_init();
 
-    usbd_handles[0] = board_usbd_init(USBD0_INDEX);
-    usbd_handles[1] = board_usbd_init(USBD1_INDEX);
+    usbd_handles[0] = board_usb_init(USBD0_INDEX, USB_MODE_DEVICE);
+    usbd_handles[1] = board_usb_init(USBD1_INDEX, USB_MODE_DEVICE);
     assert(usbd_handles[0] != NULL && usbd_handles[1] != NULL);
 
     enum_completed[0] = false;

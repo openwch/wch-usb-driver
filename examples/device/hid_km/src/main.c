@@ -309,7 +309,7 @@ int main(void)
     button_init();
     led_init();
 
-    usbd_handle = board_usbd_init(USBD_INDEX);
+    usbd_handle = board_usb_init(USBD_INDEX, USB_MODE_DEVICE);
     assert(usbd_handle != NULL);
 
     enum_completed = false;

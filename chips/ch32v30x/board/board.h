@@ -22,10 +22,18 @@ extern "C" {
 #define USB_COUNT 1
 #endif
 
+/* @enum */
+typedef enum
+{
+    USB_MODE_IDLE,
+    USB_MODE_DEVICE,
+    USB_MODE_HOST,
+} usb_mode_t;
+
 /* @function declaration */
 void board_init(void);
-usbd_handle_t *board_usbd_init(uint8_t index);
-usbd_handle_t *board_usbd_deinit(uint8_t index);
+void *board_usb_init(uint8_t index, usb_mode_t mode);
+void board_usb_deinit(uint8_t index);
 
 #ifdef __cplusplus
 }

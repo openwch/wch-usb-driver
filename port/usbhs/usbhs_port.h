@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 #include "device/usbd_driver_private.h"
+#include "host/usbh_driver_private.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -572,9 +573,9 @@ typedef struct
 
 /* @function declaration */
 void usbhsd_handle_init(usbd_handle_t *h, uint32_t base_addr, usbhsd_ctx_t *ctx);
-void usbhsh_handle_init(usbd_handle_t *h, uint32_t base_addr, usbhsh_ctx_t *ctx);
+void usbhsh_handle_init(usbh_handle_t *h, uint32_t base_addr, usbhsh_ctx_t *ctx);
 void usbhsd_event_handle(usbd_handle_t *h);
-void usbhsh_event_handle(usbd_handle_t *h);
+void usbhsh_event_handle(usbh_handle_t *h);
 
 #ifdef __cplusplus
 }

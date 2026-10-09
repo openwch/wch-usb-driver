@@ -144,7 +144,7 @@ int main(void)
     board_init();
     led_init();
 
-    usbd_handle = board_usbd_init(USBD_INDEX);
+    usbd_handle = board_usb_init(USBD_INDEX, USB_MODE_DEVICE);
     assert(usbd_handle != NULL);
 
     assert(usbd_register_event_callback(usbd_handle, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));

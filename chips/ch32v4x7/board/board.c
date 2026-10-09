@@ -26,13 +26,6 @@ typedef enum
     USBHS2_INDEX,
 } usb_index_t;
 
-typedef enum
-{
-    USB_MODE_IDLE,
-    USB_MODE_DEVICE,
-    USB_MODE_HOST,
-} usb_mode_t;
-
 /* @global */
 static usb_mode_t usb_modes[USB_COUNT];
 
@@ -42,7 +35,8 @@ static usbhsd_ctx_t usbhsd_ctx[USB_COUNT];
 #endif
 
 #ifdef USB_HOST_DRIVER_EN
-
+static usbh_handle_t usbh_handles[USB_COUNT];
+// static usbhsh_ctx_t usbhsh_ctx[USB_COUNT];
 #endif
 
 void board_init(void)
@@ -58,11 +52,9 @@ void board_init(void)
     printf("=====================================\r\n\r\n");
 }
 
-#ifdef USB_DEVICE_DRIVER_EN
-
-usbd_handle_t *board_usbd_init(uint8_t index)
+void *board_usb_init(uint8_t index, usb_mode_t mode)
 {
-    if (index >= USB_COUNT || usb_modes[index] != USB_MODE_IDLE) return NULL;
+    if (index >= USB_COUNT || mode == USB_MODE_IDLE || usb_modes[index] != USB_MODE_IDLE) return NULL;
 
     switch (index)
     {
@@ -93,12 +85,7 @@ usbd_handle_t *board_usbd_init(uint8_t index)
 
         /* Enable USBHS1 interrupt */
         NVIC_EnableIRQ(USBHS1_IRQn);
-
-        /* Initialize USBHS1 device handle */
-        usb_modes[USBHS1_INDEX] = USB_MODE_DEVICE;
-        memset(&usbhsd_ctx[USBHS1_INDEX], 0, sizeof(usbhsd_ctx[USBHS1_INDEX]));
-        usbhsd_handle_init(&usbd_handles[USBHS1_INDEX], USBHS1D_BASE_ADDR, &usbhsd_ctx[USBHS1_INDEX]);
-        return &usbd_handles[USBHS1_INDEX];
+        break;
 
     case USBHS2_INDEX:
         if ((RCC->CTLR & RCC_USBHSPLLRDY) == 0)
@@ -122,20 +109,43 @@ usbd_handle_t *board_usbd_init(uint8_t index)
         RCC_UTMI2cmd(ENABLE);
         RCC_HBPeriphClockCmd(RCC_HBPeriph_USBHS2, ENABLE);
         NVIC_EnableIRQ(USBHS2_IRQn);
-
-        usb_modes[USBHS2_INDEX] = USB_MODE_DEVICE;
-        memset(&usbhsd_ctx[USBHS2_INDEX], 0, sizeof(usbhsd_ctx[USBHS2_INDEX]));
-        usbhsd_handle_init(&usbd_handles[USBHS2_INDEX], USBHS2D_BASE_ADDR, &usbhsd_ctx[USBHS2_INDEX]);
-        return &usbd_handles[USBHS2_INDEX];
+        break;
 
     default:
         return NULL;
     }
+
+    switch (mode)
+    {
+#ifdef USB_DEVICE_DRIVER_EN
+    case USB_MODE_DEVICE:
+    {
+        static const uint32_t usbd_base_addrs[] = {USBHS1D_BASE_ADDR, USBHS2D_BASE_ADDR};
+        usb_modes[index] = USB_MODE_DEVICE;
+        memset(&usbhsd_ctx[index], 0, sizeof(usbhsd_ctx_t));
+        usbhsd_handle_init(&usbd_handles[index], usbd_base_addrs[index], &usbhsd_ctx[index]);
+        return &usbd_handles[index];
+    }
+#endif
+
+#ifdef USB_HOST_DRIVER_EN
+    case USB_MODE_HOST:
+    {
+        // static const uint32_t usbh_base_addrs[] = {USBHS1H_BASE_ADDR, USBHS2H_BASE_ADDR};
+        usb_modes[index] = USB_MODE_HOST;
+        // memset(&usbhsh_ctx[index], 0, sizeof(usbhsh_ctx_t));
+        // usbhsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbhsh_ctx[index]);
+        return &usbh_handles[index];
+    }
+#endif
+    }
+
+    return NULL;
 }
 
-usbd_handle_t *board_usbd_deinit(uint8_t index)
+void board_usb_deinit(uint8_t index)
 {
-    if (index >= USB_COUNT) return NULL;
+    if (index >= USB_COUNT) return;
 
     switch (index)
     {
@@ -152,10 +162,7 @@ usbd_handle_t *board_usbd_deinit(uint8_t index)
         {
             RCC->CTLR &= ~RCC_USBHSPLLON;
         }
-
-        /* Mark USB device as idle */
-        usb_modes[USBHS1_INDEX] = USB_MODE_IDLE;
-        return &usbd_handles[USBHS1_INDEX];
+        break;
 
     case USBHS2_INDEX:
         NVIC_DisableIRQ(USBHS2_IRQn);
@@ -165,19 +172,11 @@ usbd_handle_t *board_usbd_deinit(uint8_t index)
         {
             RCC->CTLR &= ~RCC_USBHSPLLON;
         }
-        usb_modes[USBHS2_INDEX] = USB_MODE_IDLE;
-        return &usbd_handles[USBHS2_INDEX];
-
-    default:
-        return NULL;
+        break;
     }
+
+    usb_modes[index] = USB_MODE_IDLE;
 }
-
-#endif // USB_DEVICE_DRIVER_EN
-
-#ifdef USB_HOST_DRIVER_EN
-
-#endif // USB_HOST_DRIVER_EN
 
 __attribute__((interrupt("WCH-Interrupt-fast"))) void USBHS1_IRQHandler(void)
 {

@@ -12,7 +12,7 @@
 
 /* @include */
 #include "usb_define.h"
-#include "usbd_driver_public.h"
+#include "device/usbd_driver_public.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -38,8 +38,8 @@ static usbhsd_ctx_t usbhsd_ctx;
 
 #ifdef USB_HOST_DRIVER_EN
 static usbh_handle_t usbh_handles[USB_COUNT];
-// static usbfsh_ctx_t usbfsh_ctx;
-// static usbhsh_ctx_t usbhsh_ctx;
+static usbfsh_ctx_t usbfsh_ctx;
+static usbhsh_ctx_t usbhsh_ctx;
 #endif
 
 void board_init(void)
@@ -128,18 +128,18 @@ void *board_usb_init(uint8_t index, usb_mode_t mode)
 #ifdef USB_HOST_DRIVER_EN
     case USB_MODE_HOST:
     {
-        // static const uint32_t usbh_base_addrs[] = {USBFSH_BASE_ADDR, USBHSH_BASE_ADDR};
+        static const uint32_t usbh_base_addrs[] = {USBFSH_BASE_ADDR, USBHSH_BASE_ADDR};
         usb_modes[index] = USB_MODE_HOST;
-        // if (index == USBFS_INDEX)
-        // {
-        //     memset(&usbfsh_ctx, 0, sizeof(usbfsh_ctx_t));
-        //     usbfsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbfsh_ctx);
-        // }
-        // else
-        // {
-        //     memset(&usbhsh_ctx, 0, sizeof(usbhsh_ctx_t));
-        //     usbhsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbhsh_ctx);
-        // }
+        if (index == USBFS_INDEX)
+        {
+            memset(&usbfsh_ctx, 0, sizeof(usbfsh_ctx_t));
+            usbfsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbfsh_ctx);
+        }
+        else
+        {
+            memset(&usbhsh_ctx, 0, sizeof(usbhsh_ctx_t));
+            usbhsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbhsh_ctx);
+        }
         return &usbh_handles[index];
     }
 #endif
@@ -193,6 +193,7 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void USBFS_IRQHandler(void)
 
 #ifdef USB_HOST_DRIVER_EN
     case USB_MODE_HOST:
+        usbfsh_event_handle(&usbh_handles[USBFS_INDEX]);
         break;
 #endif
     }
@@ -210,6 +211,7 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void USBHS_IRQHandler(void)
 
 #ifdef USB_HOST_DRIVER_EN
     case USB_MODE_HOST:
+        usbhsh_event_handle(&usbh_handles[USBHS_INDEX]);
         break;
 #endif
     }

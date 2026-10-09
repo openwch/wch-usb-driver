@@ -18,19 +18,19 @@ extern "C" {
 #endif
 
 // USB device and host drivers enable macros
-#define USB_DEVICE_DRIVER_EN
-// #define USB_HOST_DRIVER_EN
+// #define USB_DEVICE_DRIVER_EN
+#define USB_HOST_DRIVER_EN
 
 // USB class device drivers enable macros
 #ifdef USB_DEVICE_DRIVER_EN
 // #define USB_CLASS_HIDD_DRIVER_EN
-#define USB_CLASS_CDCD_ACM_DRIVER_EN
+// #define USB_CLASS_CDCD_ACM_DRIVER_EN
 #endif
 
 // USB class host drivers enable macros
 #ifdef USB_HOST_DRIVER_EN
 // #define USB_CLASS_HIDH_DRIVER_EN
-// #define USB_CLASS_CDCH_ACM_DRIVER_EN
+#define USB_CLASS_CDCH_ACM_DRIVER_EN
 #endif
 
 // USB driver log output enable macros

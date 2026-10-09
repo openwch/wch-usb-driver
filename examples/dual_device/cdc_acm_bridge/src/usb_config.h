@@ -43,8 +43,11 @@ extern "C" {
 #define USB_LOG_OUTPUT(format, ...) printf(format, ##__VA_ARGS__)
 #endif
 
+// USB device driver parameters
 #define USBD_REQUEST_CB_COUNT   12
 #define USBD_INTERFACE_CB_COUNT 2
+
+// USB host driver parameters
 
 #ifdef __cplusplus
 }

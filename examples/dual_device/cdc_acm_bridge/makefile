@@ -12,5 +12,5 @@ SUPPORTED_CHIPS := \
 	ch32v205rct6 \
 	ch32v205vct6
 
-# --- Include Device Examples Makefile ---
+# --- Include Dual Device Examples Makefile ---
 include ../dual_device.mk

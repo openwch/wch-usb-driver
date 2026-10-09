@@ -10,9 +10,23 @@
 #ifndef USBH_DRIVER_PRIVATE_H
 #define USBH_DRIVER_PRIVATE_H
 
+/* @include */
+#include "usb_define.h"
+#include "host/usbh_driver_public.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* @struct */
+typedef struct usbh_handle
+{
+    /* Base address of the USB host controller */
+    uint32_t base_addr;
+
+    /* Port-specific context */
+    void *port_ctx;
+} usbh_handle_t;
 
 #ifdef __cplusplus
 }

@@ -36,7 +36,7 @@ static usbhsd_ctx_t usbhsd_ctx[USB_COUNT];
 
 #ifdef USB_HOST_DRIVER_EN
 static usbh_handle_t usbh_handles[USB_COUNT];
-// static usbhsh_ctx_t usbhsh_ctx[USB_COUNT];
+static usbhsh_ctx_t usbhsh_ctx[USB_COUNT];
 #endif
 
 void board_init(void)
@@ -131,10 +131,10 @@ void *board_usb_init(uint8_t index, usb_mode_t mode)
 #ifdef USB_HOST_DRIVER_EN
     case USB_MODE_HOST:
     {
-        // static const uint32_t usbh_base_addrs[] = {USBHS1H_BASE_ADDR, USBHS2H_BASE_ADDR};
+        static const uint32_t usbh_base_addrs[] = {USBHS1H_BASE_ADDR, USBHS2H_BASE_ADDR};
         usb_modes[index] = USB_MODE_HOST;
-        // memset(&usbhsh_ctx[index], 0, sizeof(usbhsh_ctx_t));
-        // usbhsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbhsh_ctx[index]);
+        memset(&usbhsh_ctx[index], 0, sizeof(usbhsh_ctx_t));
+        usbhsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbhsh_ctx[index]);
         return &usbh_handles[index];
     }
 #endif
@@ -190,6 +190,7 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void USBHS1_IRQHandler(void)
 
 #ifdef USB_HOST_DRIVER_EN
     case USB_MODE_HOST:
+        usbhsh_event_handle(&usbh_handles[USBHS1_INDEX]);
         break;
 #endif
     }
@@ -207,6 +208,7 @@ __attribute__((interrupt("WCH-Interrupt-fast"))) void USBHS2_IRQHandler(void)
 
 #ifdef USB_HOST_DRIVER_EN
     case USB_MODE_HOST:
+        usbhsh_event_handle(&usbh_handles[USBHS2_INDEX]);
         break;
 #endif
     }

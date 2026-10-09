@@ -30,7 +30,6 @@ wch-usb-driver/
 │   ├── class/<class>/          # 类驱动头文件
 │   ├── device/                 # 设备驱动头文件：public 供应用使用，private 供驱动内部与移植层使用
 │   ├── host/                   # 主机驱动头文件：public 供应用使用，private 供驱动内部与移植层使用
-│   ├── usb_config.h            # 驱动配置文件
 │   ├── usb_define.h            # USB 协议定义文件
 │   └── usb_driver.h            # 驱动总入口头文件：统一包含各头文件
 ├── port/                       # 移植层：USB 控制器寄存器操作

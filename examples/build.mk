@@ -32,7 +32,9 @@ LST_FILE := $(OUTPUT_DIR)/$(TARGET).lst
 ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../)
 
 # --- Include Directories ---
-INCLUDES := $(ROOT_DIR)/include
+INCLUDES := \
+	$(ROOT_DIR)/include \
+	src
 
 # --- Chip Makefile ---
 CHIP_MK := $(wildcard $(ROOT_DIR)/chips/*/$(CHIP).mk)

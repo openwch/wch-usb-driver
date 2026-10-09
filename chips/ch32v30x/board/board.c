@@ -32,8 +32,15 @@ typedef enum
 
 /* @global */
 static usb_mode_t usb_modes[USB_COUNT];
+
+#ifdef USB_DEVICE_DRIVER_EN
 static usbd_handle_t usbd_handles[USB_COUNT];
 static usbfsd_ctx_t usbfsd_ctx;
+#endif
+
+#ifdef USB_HOST_DRIVER_EN
+
+#endif
 
 void board_init(void)
 {
@@ -48,6 +55,8 @@ void board_init(void)
     printf("System Clock: %ld\r\n", SystemCoreClock);
     printf("=====================================\r\n\r\n");
 }
+
+#ifdef USB_DEVICE_DRIVER_EN
 
 usbd_handle_t *board_usbd_init(uint8_t index)
 {
@@ -117,15 +126,25 @@ usbd_handle_t *board_usbd_deinit(uint8_t index)
     }
 }
 
+#endif // USB_DEVICE_DRIVER_EN
+
+#ifdef USB_HOST_DRIVER_EN
+
+#endif // USB_HOST_DRIVER_EN
+
 __attribute__((interrupt("WCH-Interrupt-fast"))) void USBFS_IRQHandler(void)
 {
     switch (usb_modes[USBFS_INDEX])
     {
+#ifdef USB_DEVICE_DRIVER_EN
     case USB_MODE_DEVICE:
         usbfsd_event_handle(&usbd_handles[USBFS_INDEX]);
         break;
+#endif
 
+#ifdef USB_HOST_DRIVER_EN
     case USB_MODE_HOST:
         break;
+#endif
     }
 }

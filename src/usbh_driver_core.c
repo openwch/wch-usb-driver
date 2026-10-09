@@ -6,3 +6,7 @@
  * @copyright Copyright (c) 2026
  *
  */
+
+#ifdef USB_HOST_DRIVER_EN
+
+#endif // USB_HOST_DRIVER_EN

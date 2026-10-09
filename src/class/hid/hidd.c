@@ -14,6 +14,8 @@
 #include "usb_driver.h"
 #include "device/usbd_driver_private.h"
 
+#ifdef USB_CLASS_HIDD_DRIVER_EN
+
 static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len)
 {
     hidd_handle_t *h = (hidd_handle_t *)handle;
@@ -201,3 +203,5 @@ bool hidd_drv_write(hidd_handle_t *hidd, const void *buf, size_t len)
 {
     return usbd_endp_write(hidd->usbd_handle, hidd->in_ep->bEndpointAddress, buf, len);
 }
+
+#endif // USB_CLASS_HIDD_DRIVER_EN

@@ -1,22 +1,23 @@
 {
     "C_Cpp.default.includePath": [
-        "${workspaceFolder}/include/*",
-        "${workspaceFolder}/port/usbhs/*",
-        "${workspaceFolder}/port/usbfs/*",
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/examples/*/*/src",
+        "${workspaceFolder}/port/usbhs",
+        "${workspaceFolder}/port/usbfs",
 
-        "${workspaceFolder}/chips/ch32v4x7/board/*",
-        "${workspaceFolder}/chips/ch32v4x7/sdk/Core/*",
-        "${workspaceFolder}/chips/ch32v4x7/sdk/Debug/*",
-        "${workspaceFolder}/chips/ch32v4x7/sdk/Peripheral/inc/*",
+        "${workspaceFolder}/chips/ch32v4x7/board",
+        "${workspaceFolder}/chips/ch32v4x7/sdk/Core",
+        "${workspaceFolder}/chips/ch32v4x7/sdk/Debug",
+        "${workspaceFolder}/chips/ch32v4x7/sdk/Peripheral/inc",
 
-        "${workspaceFolder}/chips/ch32v30x/board/*",
-        "${workspaceFolder}/chips/ch32v30x/sdk/Core/*",
-        "${workspaceFolder}/chips/ch32v30x/sdk/Debug/*",
-        "${workspaceFolder}/chips/ch32v30x/sdk/Peripheral/inc/*",
+        "${workspaceFolder}/chips/ch32v30x/board",
+        "${workspaceFolder}/chips/ch32v30x/sdk/Core",
+        "${workspaceFolder}/chips/ch32v30x/sdk/Debug",
+        "${workspaceFolder}/chips/ch32v30x/sdk/Peripheral/inc",
 
-        "${workspaceFolder}/chips/ch32v205/board/*",
-        "${workspaceFolder}/chips/ch32v205/sdk/Core/*",
-        "${workspaceFolder}/chips/ch32v205/sdk/Debug/*",
-        "${workspaceFolder}/chips/ch32v205/sdk/Peripheral/inc/*",
+        "${workspaceFolder}/chips/ch32v205/board",
+        "${workspaceFolder}/chips/ch32v205/sdk/Core",
+        "${workspaceFolder}/chips/ch32v205/sdk/Debug",
+        "${workspaceFolder}/chips/ch32v205/sdk/Peripheral/inc",
     ],
 }

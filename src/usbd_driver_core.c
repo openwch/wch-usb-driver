@@ -14,6 +14,8 @@
 #include "usb_driver.h"
 #include "device/usbd_driver_private.h"
 
+#ifdef USB_DEVICE_DRIVER_EN
+
 static void setup_event_handle(usbd_handle_t *h)
 {
     bool rst = false;
@@ -548,3 +550,5 @@ bool usbd_endp_write(usbd_handle_t *h, usb_endp_t endp, const void *buf, size_t 
 {
     return h->endp_transfer(h, 0x80 | endp, (void *)buf, len);
 }
+
+#endif // USB_DEVICE_DRIVER_EN

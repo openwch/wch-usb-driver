@@ -14,6 +14,8 @@
 #include "usb_driver.h"
 #include "device/usbd_driver_private.h"
 
+#ifdef USB_CLASS_CDCD_ACM_DRIVER_EN
+
 static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, size_t *len)
 {
     cdcd_acm_handle_t *h = (cdcd_acm_handle_t *)handle;
@@ -135,3 +137,5 @@ bool cdcd_acm_drv_write(cdcd_acm_handle_t *cdcd_acm, const void *buf, size_t len
 {
     return usbd_endp_write(cdcd_acm->usbd_handle, cdcd_acm->in_ep->bEndpointAddress, buf, len);
 }
+
+#endif // USB_CLASS_CDCD_ACM_DRIVER_EN

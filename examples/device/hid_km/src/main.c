@@ -100,8 +100,8 @@ static const void *get_stand_desc_cb(uint8_t desc_type, uint8_t desc_info, size_
         return get_string_desc_cb(desc_info, len);
 
     case USB_DESC_DEVICE_QUALIFIER:
-        *len = sizeof(qualifier_desc);
-        return (const void *)&qualifier_desc;
+        *len = sizeof(qua_desc);
+        return (const void *)&qua_desc;
     }
 
     return NULL;
@@ -173,7 +173,7 @@ static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
     memset(&kb_handle, 0, sizeof(hidd_handle_t));
     kb_handle.usbd_handle = h;
     kb_handle.itf_num = 0;
-    kb_handle.in_ep = (usb_desc_endpoint_t *)&config_desc[27];
+    kb_handle.in_ep = (const usb_desc_endpoint_t *)&config_desc[27];
     kb_handle.report_buf = &hid_kb_led_status;
     kb_handle.report_buf_size = sizeof(hid_kb_led_status);
     kb_handle.get_desc_cb = get_hid_desc_cb;
@@ -184,7 +184,7 @@ static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
     memset(&mouse_handle, 0, sizeof(hidd_handle_t));
     mouse_handle.usbd_handle = h;
     mouse_handle.itf_num = 1;
-    mouse_handle.in_ep = (usb_desc_endpoint_t *)&config_desc[52];
+    mouse_handle.in_ep = (const usb_desc_endpoint_t *)&config_desc[52];
     mouse_handle.get_desc_cb = get_hid_desc_cb;
     assert(hidd_drv_open(&mouse_handle));
 }

@@ -12,6 +12,8 @@
 
 /* @include */
 #include "usb_define.h"
+#include "class/hid/hid.h"
+#include "device/usbd_driver_public.h"
 
 #ifdef __cplusplus
 extern "C" {

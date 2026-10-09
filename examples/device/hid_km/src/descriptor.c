@@ -28,14 +28,14 @@ const usb_desc_device_t device_desc = {
     .bNumConfigurations = 1,
 };
 
-const usb_desc_qualifier_t qualifier_desc = {
+const usb_desc_qualifier_t qua_desc = {
     .bLength = 0x0A,
     .bDescriptorType = 0x06,
-    .bcdUSB = 0x0200,
+    .bcdUSB = 0x0110,
     .bDeviceClass = 0x00,
     .bDeviceSubClass = 0x00,
     .bDeviceProtocol = 0x00,
-    .bMaxPacketSize0 = 0x08,
+    .bMaxPacketSize0 = 0x40,
     .bNumConfigurations = 0x01,
     .bReserved = 0x00,
 };

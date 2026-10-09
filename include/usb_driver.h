@@ -26,16 +26,16 @@
 
 /* USB class driver includes */
 #include "class/hid/hid.h"
+#include "class/cdc/cdc.h"
+#include "class/cdc/cdc_acm.h"
 #include "class/hid/hidd.h"
+#include "class/cdc/cdcd_acm.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* @define */
-#define USB_DRIVER_VERSION_NUMBER 0x0130
-#define USB_DRIVER_VERSION_STRING "v1.3"
-
 #ifndef USB_LOG_TAG
 #define USB_LOG_TAG "?"
 #endif

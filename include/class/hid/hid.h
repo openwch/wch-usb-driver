@@ -27,16 +27,6 @@ typedef enum
 
 typedef enum
 {
-    HID_REQ_GET_REPORT = 0x01,
-    HID_REQ_GET_IDLE = 0x02,
-    HID_REQ_GET_PROTOCOL = 0x03,
-    HID_REQ_SET_REPORT = 0x09,
-    HID_REQ_SET_IDLE = 0x0A,
-    HID_REQ_SET_PROTOCOL = 0x0B,
-} hid_request_code_t;
-
-typedef enum
-{
     HID_REPORT_TYPE_INPUT = 0x01,
     HID_REPORT_TYPE_OUTPUT = 0x02,
     HID_REPORT_TYPE_FEATURE = 0x03,
@@ -47,6 +37,16 @@ typedef enum
     HID_PROTOCOL_BOOT = 0,
     HID_PROTOCOL_REPORT = 1,
 } hid_protocol_t;
+
+typedef enum
+{
+    HID_CLASS_REQ_GET_REPORT = 0x01,
+    HID_CLASS_REQ_GET_IDLE = 0x02,
+    HID_CLASS_REQ_GET_PROTOCOL = 0x03,
+    HID_CLASS_REQ_SET_REPORT = 0x09,
+    HID_CLASS_REQ_SET_IDLE = 0x0A,
+    HID_CLASS_REQ_SET_PROTOCOL = 0x0B,
+} hid_class_request_t;
 
 typedef enum
 {

@@ -7,6 +7,7 @@
  *
  */
 
+/* @define */
 #define USB_LOG_TAG "USBD"
 
 /* @include */

@@ -1,7 +1,7 @@
 /**
  * @file descriptor.h
  * @author Links (lhd@wch.cn)
- * @brief USB descriptor for HID keyboard and mouse example
+ * @brief USB descriptor for CDC-ACM example
  *
  * @copyright Copyright (c) 2026
  *
@@ -20,9 +20,8 @@ extern "C" {
 /* @extern */
 extern const usb_desc_device_t device_desc;
 extern const usb_desc_qualifier_t qua_desc;
-extern const uint8_t config_desc[59];
-extern const uint8_t keyboard_report_desc[62];
-extern const uint8_t mouse_report_desc[52];
+extern const uint8_t config_desc_hs[67];
+extern const uint8_t config_desc_fs[67];
 
 #ifdef __cplusplus
 }

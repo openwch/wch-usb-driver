@@ -48,6 +48,9 @@ extern "C" {
 #define USB_U32_BYTE2(data)             ((uint8_t)(((data) >> 16) & 0x000000FF))
 #define USB_U32_BYTE3(data)             ((uint8_t)(((data) >> 24) & 0x000000FF))
 
+/* @typedef */
+typedef uint8_t usb_endp_t;
+
 /* @enum */
 typedef enum
 {
@@ -107,6 +110,33 @@ typedef enum
 
 typedef enum
 {
+    USB_CLASS_UNSPECIFIED = 0,
+    USB_CLASS_AUDIO = 1,
+    USB_CLASS_CDC = 2,
+    USB_CLASS_HID = 3,
+    USB_CLASS_RESERVED_4 = 4,
+    USB_CLASS_PHYSICAL = 5,
+    USB_CLASS_IMAGE = 6,
+    USB_CLASS_PRINTER = 7,
+    USB_CLASS_MSC = 8,
+    USB_CLASS_HUB = 9,
+    USB_CLASS_CDC_DATA = 10,
+    USB_CLASS_SMART_CARD = 11,
+    USB_CLASS_RESERVED_12 = 12,
+    USB_CLASS_CONTENT_SECURITY = 13,
+    USB_CLASS_VIDEO = 14,
+    USB_CLASS_PERSONAL_HEALTHCARE = 15,
+    USB_CLASS_AUDIO_VIDEO = 16,
+
+    USB_CLASS_DIAGNOSTIC = 0xDC,
+    USB_CLASS_WIRELESS_CONTROLLER = 0xE0,
+    USB_CLASS_MISC = 0xEF,
+    USB_CLASS_APPLICATION_SPECIFIC = 0xFE,
+    USB_CLASS_VENDOR_SPECIFIC = 0xFF,
+} usb_class_code_t;
+
+typedef enum
+{
     USB_REQ_GET_STATUS = 0,
     USB_REQ_CLEAR_FEATURE = 1,
     USB_REQ_RESERVED = 2,
@@ -124,7 +154,6 @@ typedef enum
 
 typedef enum
 {
-    // Standard USB Descriptor Types
     USB_DESC_DEVICE = 0x01,
     USB_DESC_CONFIGURATION = 0x02,
     USB_DESC_STRING = 0x03,
@@ -140,14 +169,12 @@ typedef enum
     USB_DESC_DEVICE_CAPABILITY = 0x10,
     USB_DESC_FUNCTIONAL = 0x21,
 
-    // Class Specific Descriptor
     USB_DESC_CS_DEVICE = 0x21,
     USB_DESC_CS_CONFIGURATION = 0x22,
     USB_DESC_CS_STRING = 0x23,
     USB_DESC_CS_INTERFACE = 0x24,
     USB_DESC_CS_ENDPOINT = 0x25,
 
-    // SuperSpeed USB Descriptors
     USB_DESC_SUPERSPEED_ENDPOINT_COMPANION = 0x30,
     USB_DESC_SUPERSPEED_ISO_ENDPOINT_COMPANION = 0x31,
 } usb_desc_type_t;
@@ -159,9 +186,7 @@ typedef enum
     USB_FEATURE_TEST_MODE = 2,
 } usb_feature_selector_t;
 
-/* @typedef */
-typedef uint8_t usb_endp_t;
-
+/* @struct */
 typedef struct __attribute__((packed))
 {
     uint8_t bmRequestType;
@@ -171,7 +196,6 @@ typedef struct __attribute__((packed))
     uint16_t wLength;
 } usb_setup_t;
 
-/* USB Descriptor */
 typedef struct __attribute__((packed))
 {
     uint8_t bLength;

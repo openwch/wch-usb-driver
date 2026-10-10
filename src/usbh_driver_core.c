@@ -205,8 +205,10 @@ static void print_config_desc(usbh_device_t *dev, const usb_desc_config_t *confi
     USB_LOGI("===================================================");
 }
 
-static void enum_ctrl_xfer_cb(usbh_device_t *dev, bool rst, usb_setup_t *setup, const void *buf, uint16_t length)
+static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
 {
+    usbh_device_t *dev = (usbh_device_t *)handle;
+
     if (!rst)
     {
         USB_LOGE("Handle: %p Enumeration control transfer failed at stage %d", dev, dev->enum_stage);
@@ -225,12 +227,13 @@ static void enum_ctrl_xfer_cb(usbh_device_t *dev, bool rst, usb_setup_t *setup, 
             dev->ctrl_endp.mps = ep0_mps;
             USB_LOGI("Handle: %p EP0 max packet size is %d", dev, ep0_mps);
 
-            setup->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
-            setup->bRequest = USB_REQ_SET_ADDRESS;
-            setup->wValue = dev->address;
-            setup->wIndex = 0;
-            setup->wLength = 0;
-            usbh_ctrl_xfer(dev, setup, (void *)buf);
+            usb_setup_t *request = (usb_setup_t *)buf;
+            request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+            request->bRequest = USB_REQ_SET_ADDRESS;
+            request->wValue = dev->address;
+            request->wIndex = 0;
+            request->wLength = 0;
+            usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -241,43 +244,48 @@ static void enum_ctrl_xfer_cb(usbh_device_t *dev, bool rst, usb_setup_t *setup, 
     }
 
     case ENUM_STAGE_SET_ADDR:
+    {
         dev->enum_stage = ENUM_STAGE_GET_DEVICE_DESC;
         dev->ctrl_endp.xfer_unit.dev_addr = dev->address;
         USB_LOGI("Handle: %p Set bus address %d", dev, dev->address);
 
-        setup->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
-        setup->bRequest = USB_REQ_GET_DESCRIPTOR;
-        setup->wValue = USB_DESC_DEVICE << 8;
-        setup->wIndex = 0;
-        setup->wLength = sizeof(usb_desc_device_t);
-        usbh_ctrl_xfer(dev, setup, (void *)buf);
+        usb_setup_t *request = (usb_setup_t *)buf;
+        request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+        request->bRequest = USB_REQ_GET_DESCRIPTOR;
+        request->wValue = USB_DESC_DEVICE << 8;
+        request->wIndex = 0;
+        request->wLength = sizeof(usb_desc_device_t);
+        usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
         break;
+    }
 
     case ENUM_STAGE_GET_DEVICE_DESC:
     {
-        uint8_t rst = check_device_desc((usb_desc_device_t *)buf);
-        if (rst == 0)
+        uint8_t check_rst = check_device_desc((usb_desc_device_t *)buf);
+        if (check_rst == 0)
         {
             dev->enum_stage = ENUM_STAGE_GET_STRING_DESC;
             memcpy(&dev->dev_desc, buf, sizeof(usb_desc_device_t));
             print_device_desc(dev, &dev->dev_desc);
 
-            setup->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
-            setup->bRequest = USB_REQ_GET_DESCRIPTOR;
-            setup->wValue = USB_DESC_STRING << 8;
-            setup->wIndex = 0;
-            setup->wLength = 4;
-            usbh_ctrl_xfer(dev, setup, (void *)buf);
+            usb_setup_t *request = (usb_setup_t *)buf;
+            request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+            request->bRequest = USB_REQ_GET_DESCRIPTOR;
+            request->wValue = USB_DESC_STRING << 8;
+            request->wIndex = 0;
+            request->wLength = 4;
+            usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
         }
         else
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Invalid device descriptor error code: %d", dev, rst);
+            USB_LOGE("Handle: %p Invalid device descriptor error code: %d", dev, check_rst);
         }
         break;
     }
 
     case ENUM_STAGE_GET_STRING_DESC:
+    {
         /* Check if the string descriptor is valid */
         if (((uint8_t *)buf)[0] == 4 && ((uint8_t *)buf)[1] == USB_DESC_STRING)
         {
@@ -285,14 +293,16 @@ static void enum_ctrl_xfer_cb(usbh_device_t *dev, bool rst, usb_setup_t *setup, 
             memcpy(&dev->language_id, buf + 2, sizeof(uint16_t));
             USB_LOGI("Handle: %p Language ID is 0x%04X", dev, dev->language_id);
 
-            setup->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
-            setup->bRequest = USB_REQ_GET_DESCRIPTOR;
-            setup->wValue = USB_DESC_CONFIGURATION << 8;
-            setup->wIndex = 0;
-            setup->wLength = 4;
-            usbh_ctrl_xfer(dev, setup, (void *)buf);
+            usb_setup_t *request = (usb_setup_t *)buf;
+            request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+            request->bRequest = USB_REQ_GET_DESCRIPTOR;
+            request->wValue = USB_DESC_CONFIGURATION << 8;
+            request->wIndex = 0;
+            request->wLength = 4;
+            usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
         }
         break;
+    }
 
     case ENUM_STAGE_GET_CONFIG_DESC_SIZE:
     {
@@ -304,11 +314,12 @@ static void enum_ctrl_xfer_cb(usbh_device_t *dev, bool rst, usb_setup_t *setup, 
             dev->enum_stage = ENUM_STAGE_GET_CONFIG_DESC;
             USB_LOGI("Handle: %p Configuration descriptor size is %d", dev, config_desc->wTotalLength);
 
-            setup->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
-            setup->bRequest = USB_REQ_GET_DESCRIPTOR;
-            setup->wIndex = 0;
-            setup->wLength = config_desc->wTotalLength;
-            usbh_ctrl_xfer(dev, setup, (void *)buf);
+            usb_setup_t *request = (usb_setup_t *)buf;
+            request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+            request->bRequest = USB_REQ_GET_DESCRIPTOR;
+            request->wIndex = 0;
+            request->wLength = config_desc->wTotalLength;
+            usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -333,8 +344,8 @@ static void enum_ctrl_xfer_cb(usbh_device_t *dev, bool rst, usb_setup_t *setup, 
         }
 
         /* Validate the configuration descriptor */
-        uint8_t rst = check_config_desc(buf, length);
-        if (rst == 0)
+        uint8_t check_rst = check_config_desc(buf, length);
+        if (check_rst == 0)
         {
             dev->enum_stage = ENUM_STAGE_BIND_DRIVER;
             print_config_desc(dev, (const usb_desc_config_t *)buf);
@@ -342,15 +353,17 @@ static void enum_ctrl_xfer_cb(usbh_device_t *dev, bool rst, usb_setup_t *setup, 
         else
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Invalid configuration descriptor error code: %d", dev, rst);
+            USB_LOGE("Handle: %p Invalid configuration descriptor error code: %d", dev, check_rst);
         }
         break;
     }
 
     case ENUM_STAGE_SET_CONFIG:
+    {
         dev->enum_stage = ENUM_STAGE_END;
         USB_LOGI("Handle: %p Enumeration complete, set configuration %d", dev, setup->wValue);
         break;
+    }
     }
 }
 
@@ -411,7 +424,6 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             ctrl_endp->mps = ENDP0_DEFAULT_MPS;
             ctrl_endp->interval = endpoint_interval_calc(h->speed, dev->speed, USB_ENDP_TYPE_CTRL, 0);
             ctrl_endp->handle = dev;
-            ctrl_endp->xfer_cb = enum_ctrl_xfer_cb;
             usbh_list_append((void **)&h->endpoint_list[USB_ENDP_TYPE_CTRL], ctrl_endp);
 
             /* Initialize the transfer unit for the control endpoint */
@@ -435,13 +447,13 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
                 xfer_unit->pre = true;
             }
 
-            usb_setup_t *setup = &h->enum_setup;
-            setup->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
-            setup->bRequest = USB_REQ_GET_DESCRIPTOR;
-            setup->wValue = USB_DESC_DEVICE << 8;
-            setup->wIndex = 0;
-            setup->wLength = 8;
-            usbh_ctrl_xfer(dev, setup, h->enum_desc_buf);
+            usb_setup_t *request = &h->enum_setup;
+            request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+            request->bRequest = USB_REQ_GET_DESCRIPTOR;
+            request->wValue = USB_DESC_DEVICE << 8;
+            request->wIndex = 0;
+            request->wLength = 8;
+            usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, enum_ctrl_xfer_cb);
         }
         break;
 
@@ -452,13 +464,13 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             usb_desc_config_t *config_desc = (usb_desc_config_t *)h->enum_desc_buf;
             USB_LOGI("Handle: %p Binding driver for configuration %d", dev, config_desc->bConfigurationValue);
 
-            usb_setup_t *setup = &h->enum_setup;
-            setup->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
-            setup->bRequest = USB_REQ_SET_CONFIGURATION;
-            setup->wValue = config_desc->bConfigurationValue;
-            setup->wIndex = 0;
-            setup->wLength = 0;
-            usbh_ctrl_xfer(dev, setup, h->enum_desc_buf);
+            usb_setup_t *request = &h->enum_setup;
+            request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+            request->bRequest = USB_REQ_SET_CONFIGURATION;
+            request->wValue = config_desc->bConfigurationValue;
+            request->wIndex = 0;
+            request->wLength = 0;
+            usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -469,13 +481,13 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
                 dev->enum_stage = ENUM_STAGE_GET_CONFIG_DESC_SIZE;
                 USB_LOGW("Handle: %p configuration %d not supported, trying next", dev, config_index);
 
-                usb_setup_t *setup = &h->enum_setup;
-                setup->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
-                setup->bRequest = USB_REQ_GET_DESCRIPTOR;
-                setup->wValue = (USB_DESC_CONFIGURATION << 8) | (config_index + 1);
-                setup->wIndex = 0;
-                setup->wLength = 4;
-                usbh_ctrl_xfer(dev, setup, h->enum_desc_buf);
+                usb_setup_t *request = &h->enum_setup;
+                request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+                request->bRequest = USB_REQ_GET_DESCRIPTOR;
+                request->wValue = (USB_DESC_CONFIGURATION << 8) | (config_index + 1);
+                request->wIndex = 0;
+                request->wLength = 4;
+                usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, enum_ctrl_xfer_cb);
             }
             else
             {
@@ -837,11 +849,13 @@ void usbh_device_reset(usbh_handle_t *h, usbh_device_t *dev)
     }
 }
 
-bool usbh_ctrl_xfer(usbh_device_t *dev, usb_setup_t *setup, void *buf)
+bool usbh_ctrl_xfer(usbh_device_t *dev, const void *handle, usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb)
 {
     usbh_xfer_ctx_t *xfer_ctx = &dev->ctrl_endp.xfer_ctx;
     if (!xfer_ctx->is_busy)
     {
+        dev->ctrl_endp.handle = (void *)handle;
+        dev->ctrl_endp.xfer_cb = (void *)cb;
         memset(xfer_ctx, 0, sizeof(usbh_xfer_ctx_t));
         xfer_ctx->is_busy = true;
         xfer_ctx->length = setup->wLength;
@@ -852,7 +866,7 @@ bool usbh_ctrl_xfer(usbh_device_t *dev, usb_setup_t *setup, void *buf)
     return false;
 }
 
-bool usbh_endp_open(const void *class, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb)
+bool usbh_endp_open(usbh_device_t *dev, const void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb)
 {
     endpoint_handle_alloc();
     return true;

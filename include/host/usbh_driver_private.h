@@ -64,8 +64,8 @@ typedef enum
 } usbh_toggle_t;
 
 /* @function pointer */
-typedef void (*usbh_data_xfer_cb)(void *class_handle, bool rst, usb_endp_t endp, void *buf, size_t len);
-typedef void (*usbh_ctrl_xfer_cb)(usbh_device_t *dev, bool rst, usb_setup_t *setup, const void *buf, uint16_t length);
+typedef void (*usbh_ctrl_xfer_cb)(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length);
+typedef void (*usbh_data_xfer_cb)(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
 
 /* @typedef */
 typedef struct usbh_endpoint usbh_endpoint_t;
@@ -151,7 +151,7 @@ typedef struct usbh_xfer_ctx
     uint32_t length;
     uint32_t offset;
     void *buf;
-    usb_setup_t *setup;
+    const usb_setup_t *setup;
 } usbh_xfer_ctx_t;
 
 typedef struct usbh_endpoint
@@ -228,8 +228,8 @@ typedef struct usbh_handle
 void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_reset(usbh_handle_t *h, usbh_device_t *dev);
-bool usbh_ctrl_xfer(usbh_device_t *dev, usb_setup_t *setup, void *buf);
-bool usbh_endp_open(const void *class, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
+bool usbh_ctrl_xfer(usbh_device_t *dev, const void *handle, usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb);
+bool usbh_endp_open(usbh_device_t *dev, const void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
 bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp);
 bool usbh_endp_read(usbh_device_t *dev, usb_endp_t endp, void *buf, size_t len);
 bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_t len);

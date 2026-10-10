@@ -94,7 +94,7 @@ typedef struct usbd_handle
     usbd_event_cb event_cbs[USBD_EVENT_COUNT];
 
     /* Control transfer context */
-    usb_setup_t setup;
+    __attribute__((aligned(4))) usb_setup_t setup;
     void *ctrl_handle;
     bool ctrl_xfer_zlp;
     void *ctrl_xfer_buf;

@@ -87,8 +87,9 @@ static usbh_endpoint_t *endpoint_handle_alloc(void)
 {
     for (size_t i = 0; i < USB_ARRAY_SIZE(endpoint_pool); i++)
     {
-        if (endpoint_pool[i].type == 0)
+        if (!endpoint_pool[i].is_used)
         {
+            endpoint_pool[i].is_used = true;
             return &endpoint_pool[i];
         }
     }
@@ -99,7 +100,7 @@ static void endpoint_handle_free(usbh_endpoint_t *ep)
 {
     if (ep)
     {
-        ep->type = 0;
+        ep->is_used = false;
     }
 }
 
@@ -115,11 +116,11 @@ static uint16_t endpoint_interval_calc(uint8_t host_speed, uint8_t dev_speed, ui
             }
             else if (type == USB_ENDP_TYPE_ISOC)
             {
-                return (1 << (interval - 1)) * 8;
+                return (1 << (interval - 1)) << 3;
             }
             else
             {
-                return interval * 8;
+                return interval << 3;
             }
         }
         else if (type == USB_ENDP_TYPE_ISOC)
@@ -227,7 +228,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             dev->ctrl_endp.mps = ep0_mps;
             USB_LOGI("Handle: %p EP0 max packet size is %d", dev, ep0_mps);
 
-            usb_setup_t *request = (usb_setup_t *)buf;
+            usb_setup_t *request = (usb_setup_t *)setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
             request->bRequest = USB_REQ_SET_ADDRESS;
             request->wValue = dev->address;
@@ -249,7 +250,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         dev->ctrl_endp.xfer_unit.dev_addr = dev->address;
         USB_LOGI("Handle: %p Set bus address %d", dev, dev->address);
 
-        usb_setup_t *request = (usb_setup_t *)buf;
+        usb_setup_t *request = (usb_setup_t *)setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
         request->bRequest = USB_REQ_GET_DESCRIPTOR;
         request->wValue = USB_DESC_DEVICE << 8;
@@ -268,7 +269,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             memcpy(&dev->dev_desc, buf, sizeof(usb_desc_device_t));
             print_device_desc(dev, &dev->dev_desc);
 
-            usb_setup_t *request = (usb_setup_t *)buf;
+            usb_setup_t *request = (usb_setup_t *)setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
             request->bRequest = USB_REQ_GET_DESCRIPTOR;
             request->wValue = USB_DESC_STRING << 8;
@@ -293,13 +294,18 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             memcpy(&dev->language_id, buf + 2, sizeof(uint16_t));
             USB_LOGI("Handle: %p Language ID is 0x%04X", dev, dev->language_id);
 
-            usb_setup_t *request = (usb_setup_t *)buf;
+            usb_setup_t *request = (usb_setup_t *)setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
             request->bRequest = USB_REQ_GET_DESCRIPTOR;
             request->wValue = USB_DESC_CONFIGURATION << 8;
             request->wIndex = 0;
             request->wLength = 4;
             usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
+        }
+        else
+        {
+            dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
+            USB_LOGE("Handle: %p Invalid language string descriptor", dev);
         }
         break;
     }
@@ -314,7 +320,8 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             dev->enum_stage = ENUM_STAGE_GET_CONFIG_DESC;
             USB_LOGI("Handle: %p Configuration descriptor size is %d", dev, config_desc->wTotalLength);
 
-            usb_setup_t *request = (usb_setup_t *)buf;
+            /* Keep the configuration index requested by the driver-binding stage */
+            usb_setup_t *request = (usb_setup_t *)setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
             request->bRequest = USB_REQ_GET_DESCRIPTOR;
             request->wIndex = 0;
@@ -499,7 +506,8 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
         break;
 
     case ENUM_STAGE_ENUM_FAILED:
-        usbh_device_remove(h, dev->hub_addr, dev->hub_port);
+        // TODO: Suspend the device
+        dev->enum_stage = ENUM_STAGE_END;
         break;
     }
 }
@@ -526,7 +534,7 @@ static void xfer_completed_process(usbh_xfer_unit_t *xfer_unit)
         }
 
         /* If the NYET is received, switch to the PING token */
-        if (xfer_unit->token == USBH_PID_NYET)
+        if (xfer_unit->rx_pid == USBH_PID_NYET)
         {
             xfer_unit->token = USBH_PID_PING;
         }
@@ -658,14 +666,17 @@ static usbh_xfer_unit_t **ctrl_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
 
 static usbh_xfer_unit_t **isoc_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
 {
+    return last;
 }
 
 static usbh_xfer_unit_t **bulk_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
 {
+    return last;
 }
 
 static usbh_xfer_unit_t **intr_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
 {
+    return last;
 }
 
 void usbh_drv_task(usbh_handle_t *h)
@@ -689,16 +700,21 @@ void usbh_drv_task(usbh_handle_t *h)
     /* Handle device enumeration tasks */
     if (h->tick - h->enum_tick > ENUM_TASK_INTERVAL)
     {
+        h->enum_tick = h->tick;
+
         usbh_device_t *dev = h->device_list;
         while (dev)
         {
+            /* Save the next device pointer in case the current device is removed during enumeration */
+            usbh_device_t *next = dev->next;
+
             /* Check if the device is in the enumeration process */
             if (dev->enum_stage < ENUM_STAGE_END)
             {
                 device_enum_task(h, dev);
             }
 
-            dev = dev->next;
+            dev = next;
         }
     }
 
@@ -722,11 +738,8 @@ void usbh_drv_task(usbh_handle_t *h)
             last_xfer_unit = isoc_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_ISOC]);
             last_xfer_unit = intr_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_INTR]);
         }
-        else
-        {
-            last_xfer_unit = ctrl_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_CTRL]);
-            last_xfer_unit = bulk_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_BULK]);
-        }
+        last_xfer_unit = ctrl_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_CTRL]);
+        last_xfer_unit = bulk_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_BULK]);
 
         if (h->xfer_unit_list)
         {
@@ -745,6 +758,7 @@ bool usbh_drv_open(usbh_handle_t *h)
 bool usbh_drv_close(usbh_handle_t *h)
 {
     if (h == NULL) return false;
+    usbh_device_remove(h, 0, 0);
     return h->close(h);
 }
 
@@ -752,16 +766,25 @@ void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
 {
     /* Allocate a new device handle */
     usbh_device_t *dev = device_handle_alloc();
-    if (dev == NULL) return;
+    if (dev == NULL)
+    {
+        USB_LOGE("Handle: %p Failed to allocate device handle", h);
+        return;
+    }
 
     /* Initialize the device handle */
     memset(dev, 0, sizeof(usbh_device_t));
 
     /* Allocate a bus address for the new device */
     dev->address = bus_address_alloc(h);
-    if (dev->address == 0) goto free_device;
+    if (dev->address == 0)
+    {
+        USB_LOGE("Handle: %p Failed to allocate bus address for device %p", h, dev);
+        goto free_device;
+    }
 
-    /* Set the hub address and port for the new device */
+    /* Set the host, hub address, and hub port for the new device */
+    dev->host = h;
     dev->hub_addr = hub_addr;
     dev->hub_port = hub_port;
 
@@ -769,7 +792,7 @@ void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     usbh_list_append((void **)&h->device_list, dev);
 
     /* Reset device */
-    usbh_device_reset(h, dev);
+    usbh_device_reset(dev);
 
     USB_LOGI("Handle: %p Inserted device %p at hub_addr: %d, hub_port: %d", h, dev, hub_addr, hub_port);
     return;
@@ -812,6 +835,7 @@ void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     unbind_class_driver(h, target);
 
     /* Close all endpoints of the target device */
+    usbh_endp_close(target, 0);
     for (size_t i = 0; i < USB_ARRAY_SIZE(target->data_endp); i++)
     {
         for (size_t j = 0; j < USB_ARRAY_SIZE(target->data_endp[i]); j++)
@@ -830,22 +854,22 @@ void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     USB_LOGI("Removed device %p from hub_addr: %d, hub_port: %d", target, hub_addr, hub_port);
 }
 
-void usbh_device_reset(usbh_handle_t *h, usbh_device_t *dev)
+void usbh_device_reset(usbh_device_t *dev)
 {
-    if (h == NULL || dev == NULL || dev->address == 0) return;
+    if (dev == NULL || dev->address == 0) return;
 
     dev->enum_stage = ENUM_STAGE_RESET;
     if (dev->hub_addr == 0)
     {
-        h->root_set_feature(h, USBH_PORT_FEATURE_RESET);
+        dev->host->root_set_feature(dev->host, USBH_PORT_FEATURE_RESET);
     }
-    else if (h->port_set_feature)
+    else if (dev->host->port_set_feature)
     {
-        h->port_set_feature(h, USBH_PORT_FEATURE_RESET);
+        dev->host->port_set_feature(dev->host, USBH_PORT_FEATURE_RESET);
     }
     else
     {
-        USB_LOGW("Handle: %p Does not support hub port operations", h);
+        USB_LOGW("Handle: %p Does not support hub port operations", dev->host);
     }
 }
 
@@ -868,7 +892,24 @@ bool usbh_ctrl_xfer(usbh_device_t *dev, const void *handle, usb_setup_t *setup, 
 
 bool usbh_endp_open(usbh_device_t *dev, const void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb)
 {
-    endpoint_handle_alloc();
+    usbh_endpoint_t *ep = endpoint_handle_alloc();
+    if (!ep)
+    {
+        USB_LOGW("Handle: %p Failed to allocate endpoint handle", dev);
+        return false;
+    }
+
+    uint8_t endp_dir = USB_ENDP_DIR(ep_desc->bEndpointAddress);
+    uint8_t endp_num = USB_ENDP_NUM(ep_desc->bEndpointAddress);
+
+    if (endp_num == 0)
+    {
+        USB_LOGW("Handle: %p Cannot open endpoint 0", dev);
+        endpoint_handle_free(ep);
+        return false;
+    }
+
+    dev->data_endp[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1] = ep;
     return true;
 }
 
@@ -877,10 +918,26 @@ bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp)
     uint8_t endp_dir = USB_ENDP_DIR(endp);
     uint8_t endp_num = USB_ENDP_NUM(endp);
 
-    if (endp_num && endp_num < USB_MAX_ENDP_NUM)
+    if (endp_num < USB_MAX_ENDP_NUM)
     {
-        usbh_endpoint_t *ep = dev->data_endp[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
-        endpoint_handle_free(ep);
+        usbh_endpoint_t *ep;
+        if (endp_num == 0)
+        {
+            ep = &dev->ctrl_endp;
+            ep->xfer_ctx.is_busy = false;
+            usbh_list_remove((void **)&dev->host->endpoint_list[USB_ENDP_TYPE_CTRL], ep);
+        }
+        else
+        {
+            ep = dev->data_endp[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
+            dev->data_endp[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1] = NULL;
+            if (ep)
+            {
+                ep->xfer_ctx.is_busy = false;
+                usbh_list_remove((void **)&dev->host->endpoint_list[USB_MIN(ep->type, 3)], ep);
+                endpoint_handle_free(ep);
+            }
+        }
     }
 
     return true;

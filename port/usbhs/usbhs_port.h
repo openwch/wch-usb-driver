@@ -571,6 +571,7 @@ typedef struct
 typedef struct
 {
     uint32_t base_addr;
+    usbh_xfer_unit_t *xfer_list;
 } usbhsh_ctx_t;
 
 /* @function declaration */

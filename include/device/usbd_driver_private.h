@@ -84,22 +84,13 @@ typedef struct usbd_handle
     /* Port context */
     void *port_ctx;
 
-    /* USB device information */
+    /* System context */
     bool remote_wakeup;
     uint8_t ep0_mps;
     uint8_t link_speed;
     uint8_t config_num;
-
-    /* USB device get descriptor callback */
-    usbd_get_desc_cb get_desc_cb;
-
-    /* USB Standard Request Temporary Buffer */
     uint32_t stand_req_buf;
-
-    /* Data transfer callbacks contexts */
-    usbd_xfer_cb_ctx_t cb_ctxs[2][USB_MAX_ENDP_NUM - 1];
-
-    /* Event callback functions */
+    usbd_get_desc_cb get_desc_cb;
     usbd_event_cb event_cbs[USBD_EVENT_COUNT];
 
     /* Control transfer context */
@@ -109,10 +100,11 @@ typedef struct usbd_handle
     void *ctrl_xfer_buf;
     size_t ctrl_xfer_len;
     usbd_ctrl_xfer_cbs_t *ctrl_cbs;
-
-    /* Request and interface callbacks */
     usbd_request_cbs_t request_cbs[USBD_REQUEST_CB_COUNT];
     usbd_interface_cbs_t interface_cbs[USBD_INTERFACE_CB_COUNT];
+
+    /* Data transfer context */
+    usbd_xfer_cb_ctx_t cb_ctxs[2][USB_MAX_ENDP_NUM - 1];
 
     /* USB device port operations */
     bool (*open)(usbd_handle_t *h, usb_speed_t speed, bool sof_en);

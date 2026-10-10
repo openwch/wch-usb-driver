@@ -50,6 +50,7 @@ extern "C" {
 /* USB host driver parameters macros */
 #define USBH_DEVICE_POOL_SIZE   4
 #define USBH_ENDPOINT_POOL_SIZE 12
+#define USBH_DESC_BUF_SIZE      1024
 
 #ifdef __cplusplus
 }

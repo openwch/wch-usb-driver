@@ -17,7 +17,11 @@
 #ifdef USB_HOST_DRIVER_EN
 
 /* @define */
-#define ENDP0_DEFAULT_MPS 8
+#define ENDP0_DEFAULT_MPS   8
+
+#define ENUM_TASK_INTERVAL  100
+#define CTRL_XFER_MAX_RETRY 500
+#define DATA_XFER_MAX_RETRY 10000
 
 /* @enum */
 typedef enum
@@ -129,6 +133,10 @@ static void get_split_hub_info(usbh_handle_t *h, usbh_device_t *dev, uint8_t *hu
     *hub_port = hshub_port;
 }
 
+static void enum_ctrl_xfer_cb(usbh_device_t *dev, bool rst, const usb_setup_t *setup, void *buf, uint16_t length)
+{
+}
+
 static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
 {
     usbh_port_status_t port_status;
@@ -164,6 +172,8 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             else
                 dev->speed = USB_SPEED_FULL;
 
+            USB_LOGI("Handle: %p reset complete, device speed: %d", dev, dev->speed);
+
             /* Update the host speed if the device is connected directly to the root hub */
             if (dev->hub_addr == 0) h->speed = dev->speed;
 
@@ -174,8 +184,11 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             usbh_endpoint_t *ctrl_endp = &dev->ctrl_endp;
             memset(ctrl_endp, 0, sizeof(usbh_endpoint_t));
             ctrl_endp->ping_en = dev->speed == USB_SPEED_HIGH ? true : false;
+            ctrl_endp->mps = ENDP0_DEFAULT_MPS;
             ctrl_endp->interval = endpoint_interval_calc(dev->speed, USB_ENDP_TYPE_CTRL, 0);
-            ctrl_endp->class_handle = dev;
+            ctrl_endp->handle = dev;
+            ctrl_endp->xfer_cb = enum_ctrl_xfer_cb;
+            usbh_list_append((void **)&h->endpoint_list[USB_ENDP_TYPE_CTRL], ctrl_endp);
 
             /* Initialize the transfer unit for the control endpoint */
             usbh_xfer_unit_t *xfer_unit = &ctrl_endp->xfer_unit;
@@ -197,6 +210,14 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             {
                 xfer_unit->pre = true;
             }
+
+            usb_setup_t *setup = &h->enum_setup;
+            setup->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
+            setup->bRequest = USB_REQ_GET_DESCRIPTOR;
+            setup->wValue = USB_DESC_DEVICE << 8;
+            setup->wIndex = 0;
+            setup->wLength = 8;
+            usbh_ctrl_xfer(dev, setup, h->enum_desc_buf);
         }
         break;
 
@@ -206,8 +227,159 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
     }
 }
 
+static void xfer_completed_process(usbh_xfer_unit_t *xfer_unit)
+{
+    bool rst = false;
+    usbh_endpoint_t *endp = xfer_unit->endpoint;
+    usbh_xfer_ctx_t *xfer_ctx = &endp->xfer_ctx;
+    static const uint8_t tog_to_pid[] = {USBH_PID_DATA0, USBH_PID_DATA1, USBH_PID_DATA2, USBH_PID_MDATA};
+
+    if (endp->type == USB_ENDP_TYPE_ISOC || xfer_unit->rx_pid == USBH_PID_ACK || xfer_unit->rx_pid == USBH_PID_NYET ||
+        xfer_unit->rx_pid == tog_to_pid[xfer_unit->toggle])
+    {
+        xfer_ctx->retry = 0;
+        if (xfer_unit->token == USBH_PID_PING)
+        {
+            xfer_unit->token = USBH_PID_OUT;
+            return;
+        }
+
+        if (xfer_unit->token == USBH_PID_NYET)
+        {
+            xfer_unit->token = USBH_PID_PING;
+        }
+
+        if (endp->type != USB_ENDP_TYPE_ISOC)
+        {
+            xfer_ctx->toggle ^= USBH_TOGGLE_DATA1;
+        }
+
+        xfer_ctx->offset += xfer_unit->xfer_len;
+
+        if (endp->type != USB_ENDP_TYPE_CTRL)
+        {
+            if (xfer_ctx->offset >= xfer_ctx->length || xfer_unit->xfer_len < endp->mps)
+            {
+                rst = true;
+                xfer_ctx->is_busy = false;
+            }
+        }
+        else if (xfer_ctx->ctrl_stage == USB_CTRL_STAGE_SETUP)
+        {
+            xfer_ctx->offset = 0;
+            xfer_ctx->toggle = USBH_TOGGLE_DATA1;
+            xfer_ctx->ctrl_stage = xfer_ctx->length ? USB_CTRL_STAGE_DATA : USB_CTRL_STAGE_STATUS;
+        }
+        else if (xfer_ctx->ctrl_stage == USB_CTRL_STAGE_DATA)
+        {
+            if (xfer_ctx->offset >= xfer_ctx->length || xfer_unit->xfer_len < endp->mps)
+            {
+                xfer_ctx->toggle = USBH_TOGGLE_DATA1;
+                xfer_ctx->ctrl_stage = USB_CTRL_STAGE_STATUS;
+            }
+        }
+        else
+        {
+            rst = true;
+            xfer_ctx->is_busy = false;
+        }
+    }
+    else if (xfer_unit->rx_pid == USBH_PID_NAK)
+    {
+        if (endp->ping_en && xfer_unit->token == USBH_PID_OUT)
+        {
+            xfer_unit->token = USBH_PID_PING;
+        }
+    }
+    else if (xfer_unit->rx_pid == USBH_PID_STALL)
+    {
+        xfer_ctx->is_busy = false;
+        xfer_ctx->is_stalled = true;
+    }
+    else
+    {
+    }
+
+    xfer_ctx->retry++;
+    if (!rst)
+    {
+        uint32_t max_retry = endp->type == USB_ENDP_TYPE_CTRL ? CTRL_XFER_MAX_RETRY : DATA_XFER_MAX_RETRY;
+        if (xfer_ctx->retry >= max_retry)
+        {
+            xfer_ctx->is_busy = false;
+        }
+    }
+
+    if (!xfer_ctx->is_busy && endp->xfer_cb)
+    {
+        if (endp->type == USB_ENDP_TYPE_CTRL)
+        {
+            ((usbh_ctrl_xfer_cb)endp->xfer_cb)(endp->handle, rst, xfer_ctx->setup, xfer_ctx->buf, xfer_ctx->offset);
+        }
+        else
+        {
+            ((usbh_data_xfer_cb)endp->xfer_cb)(endp->handle, rst, endp->addr, xfer_ctx->buf, xfer_ctx->offset);
+        }
+    }
+}
+
+static usbh_xfer_unit_t **ctrl_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
+{
+    usbh_endpoint_t *endp = list;
+    while (endp)
+    {
+        usbh_xfer_ctx_t *xfer_ctx = &endp->xfer_ctx;
+        if (xfer_ctx->is_busy)
+        {
+            usbh_xfer_unit_t *xfer_unit = &endp->xfer_unit;
+            switch (xfer_ctx->ctrl_stage)
+            {
+            case USB_CTRL_STAGE_SETUP:
+                xfer_unit->token = USBH_PID_SETUP;
+                xfer_unit->toggle = USBH_TOGGLE_DATA0;
+                xfer_unit->xfer_len = sizeof(usb_setup_t);
+                xfer_unit->buf = (void *)xfer_ctx->setup;
+                break;
+
+            case USB_CTRL_STAGE_DATA:
+                xfer_unit->token = USB_ENDP_DIR(xfer_ctx->setup->bmRequestType) ? USBH_PID_IN : USBH_PID_OUT;
+                xfer_unit->toggle = xfer_ctx->toggle;
+                xfer_unit->xfer_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, endp->mps);
+                xfer_unit->buf = (uint8_t *)xfer_ctx->buf + xfer_ctx->offset;
+                break;
+
+            case USB_CTRL_STAGE_STATUS:
+                xfer_unit->token = USB_ENDP_DIR(xfer_ctx->setup->bmRequestType) ? USBH_PID_OUT : USBH_PID_IN;
+                xfer_unit->toggle = USBH_TOGGLE_DATA1;
+                xfer_unit->xfer_len = 0;
+                xfer_unit->buf = NULL;
+                break;
+            }
+            xfer_unit->next = NULL;
+            *last = xfer_unit;
+            last = &xfer_unit->next;
+        }
+
+        endp = endp->next;
+    }
+    return last;
+}
+
+static usbh_xfer_unit_t **isoc_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
+{
+}
+
+static usbh_xfer_unit_t **bulk_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
+{
+}
+
+static usbh_xfer_unit_t **intr_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
+{
+}
+
 void usbh_drv_task(usbh_handle_t *h)
 {
+    /* Handle root port status change */
     if (h->root_port_change)
     {
         h->root_port_change = false;
@@ -223,16 +395,53 @@ void usbh_drv_task(usbh_handle_t *h)
         }
     }
 
-    usbh_device_t *dev = h->device_list;
-    while (dev)
+    /* Handle device enumeration tasks */
+    if (h->tick - h->enum_tick > ENUM_TASK_INTERVAL)
     {
-        /* Check if the device is in the enumeration process */
-        if (dev->enum_stage < ENUM_STAGE_END)
+        usbh_device_t *dev = h->device_list;
+        while (dev)
         {
-            device_enum_task(h, dev);
+            /* Check if the device is in the enumeration process */
+            if (dev->enum_stage < ENUM_STAGE_END)
+            {
+                device_enum_task(h, dev);
+            }
+
+            dev = dev->next;
+        }
+    }
+
+    /* Handle transfer tasks */
+    if (!h->xfer_busy)
+    {
+        /* Process transfer completed units */
+        usbh_xfer_unit_t *xfer_unit = h->xfer_unit_list;
+        while (xfer_unit)
+        {
+            xfer_completed_process(xfer_unit);
+            xfer_unit = xfer_unit->next;
         }
 
-        dev = dev->next;
+        /* Rebuild the transfer unit list priority order: ISOC > INTR > CTRL > BULK*/
+        h->xfer_unit_list = NULL;
+        usbh_xfer_unit_t **last_xfer_unit = &h->xfer_unit_list;
+        if (h->xfer_tick != h->tick)
+        {
+            h->xfer_tick = h->tick;
+            last_xfer_unit = isoc_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_ISOC]);
+            last_xfer_unit = intr_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_INTR]);
+        }
+        else
+        {
+            last_xfer_unit = ctrl_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_CTRL]);
+            last_xfer_unit = bulk_xfer_process(h, last_xfer_unit, h->endpoint_list[USB_ENDP_TYPE_BULK]);
+        }
+
+        if (h->xfer_unit_list)
+        {
+            h->xfer_busy = true;
+            h->start_transfer(h);
+        }
     }
 }
 
@@ -312,6 +521,21 @@ void usbh_device_reset(usbh_handle_t *h, usbh_device_t *dev)
     {
         USB_LOGW("Handle: %p does not support hub port operations", h);
     }
+}
+
+bool usbh_ctrl_xfer(usbh_device_t *dev, const usb_setup_t *setup, void *buf)
+{
+    usbh_xfer_ctx_t *xfer_ctx = &dev->ctrl_endp.xfer_ctx;
+    if (!xfer_ctx->is_busy)
+    {
+        memset(xfer_ctx, 0, sizeof(usbh_xfer_ctx_t));
+        xfer_ctx->is_busy = true;
+        xfer_ctx->length = setup->wLength;
+        xfer_ctx->buf = buf;
+        xfer_ctx->setup = setup;
+        return true;
+    }
+    return false;
 }
 
 bool usbh_endp_open(usbh_handle_t *h, const void *class, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb)

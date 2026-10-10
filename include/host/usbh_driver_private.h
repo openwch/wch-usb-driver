@@ -32,8 +32,40 @@ typedef enum
     USBH_PORT_FEATURE_INDICATOR = 0x16,
 } usbh_port_feature_t;
 
+typedef enum
+{
+    USBH_PID_OUT = 0x01,
+    USBH_PID_IN = 0x09,
+    USBH_PID_SOF = 0x05,
+    USBH_PID_SETUP = 0x0D,
+
+    USBH_PID_DATA0 = 0x03,
+    USBH_PID_DATA1 = 0x0B,
+    USBH_PID_DATA2 = 0x07,
+    USBH_PID_MDATA = 0x0F,
+
+    USBH_PID_ACK = 0x02,
+    USBH_PID_NAK = 0x0A,
+    USBH_PID_STALL = 0x0E,
+    USBH_PID_NYET = 0x06,
+
+    USBH_PID_PRE_ERR = 0x0C,
+    USBH_PID_SPLIT = 0x08,
+    USBH_PID_PING = 0x04,
+    USBH_PID_RESERVED = 0x00,
+} usbh_pid_t;
+
+typedef enum
+{
+    USBH_TOGGLE_DATA0,
+    USBH_TOGGLE_DATA1,
+    USBH_TOGGLE_DATA2,
+    USBH_TOGGLE_MDATA,
+} usbh_toggle_t;
+
 /* @function pointer */
-typedef void (*usbh_data_xfer_cb)(void *handle, usb_endp_t endp, void *buf, size_t len);
+typedef void (*usbh_data_xfer_cb)(void *class_handle, bool rst, usb_endp_t endp, void *buf, size_t len);
+typedef void (*usbh_ctrl_xfer_cb)(usbh_device_t *dev, bool rst, const usb_setup_t *setup, void *buf, uint16_t length);
 
 /* @typedef */
 typedef struct usbh_endpoint usbh_endpoint_t;
@@ -85,8 +117,8 @@ typedef struct
 typedef struct usbh_xfer_unit
 {
     struct usbh_xfer_unit *next;
-    usbh_endpoint_t *endpoint;
 
+    /* Transfer unit context */
     uint32_t xfer_len;
     void *buf;
     bool pre;
@@ -103,6 +135,9 @@ typedef struct usbh_xfer_unit
     uint16_t split_iso_out_len;
     uint16_t split_iso_out_ofs;
     usbh_split_data_t split_data;
+
+    /* Associated endpoint */
+    usbh_endpoint_t *endpoint;
 } usbh_xfer_unit_t;
 
 typedef struct usbh_xfer_ctx
@@ -115,8 +150,8 @@ typedef struct usbh_xfer_ctx
     uint32_t retry;
     uint32_t length;
     uint32_t offset;
-    usb_request_t *request;
     void *buf;
+    const usb_setup_t *setup;
 } usbh_xfer_ctx_t;
 
 typedef struct usbh_endpoint
@@ -127,7 +162,7 @@ typedef struct usbh_endpoint
     uint8_t addr;
     uint16_t mps;
     uint16_t interval;
-    void *class_handle;
+    void *handle;
     void *xfer_cb;
     usbh_xfer_ctx_t xfer_ctx;
     usbh_xfer_unit_t xfer_unit;
@@ -151,23 +186,23 @@ typedef struct usbh_handle
     /* Port context */
     void *port_ctx;
 
-    /* Root port change flag */
+    /* System context */
     bool root_port_change;
-
-    /* USB host speed */
+    bool xfer_busy;
     uint8_t speed;
-
-    /* Bus address bitmap */
     uint32_t bus_address_bitmap[4];
-
-    /* System tick */
     uint32_t tick;
-
-    /* Device list */
     usbh_device_t *device_list;
 
-    /* Endpoint list */
+    /* Transfer context */
+    uint32_t xfer_tick;
+    usbh_xfer_unit_t *xfer_unit_list;
     usbh_endpoint_t *endpoint_list[4];
+
+    /* Enumeration context */
+    uint32_t enum_tick;
+    usb_setup_t enum_setup;
+    __attribute__((aligned(4))) uint8_t enum_desc_buf[USBH_DESC_BUF_SIZE];
 
     /* USB host port operations */
     bool (*open)(usbh_handle_t *h);
@@ -186,6 +221,7 @@ typedef struct usbh_handle
 void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_reset(usbh_handle_t *h, usbh_device_t *dev);
+bool usbh_ctrl_xfer(usbh_device_t *dev, const usb_setup_t *setup, void *buf);
 bool usbh_endp_open(usbh_handle_t *h, const void *class, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
 bool usbh_endp_close(usbh_handle_t *h, usb_endp_t endp);
 bool usbh_endp_read(usbh_handle_t *h, usb_endp_t endp, void *buf, size_t len);

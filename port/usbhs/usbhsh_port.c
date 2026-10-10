@@ -14,6 +14,63 @@
 /* @define */
 #define USBHSH ((usbhsh_ip_t *)((usbhsh_ctx_t *)h->port_ctx)->base_addr)
 
+static void unit_transfer(usbh_handle_t *h, usbh_xfer_unit_t *xfer)
+{
+    uint32_t supplement = 0;
+
+    USBHSH->DEV_ADDR = xfer->dev_addr;
+
+    if (xfer->split_data.split_data)
+    {
+        usbh_split_data_t *split = &xfer->split_data;
+        USBHSH->SPLIT = split->split_data;
+
+        if (split->sc == 0)
+        {
+            if (split->et == USB_ENDP_TYPE_ISOC || split->et == USB_ENDP_TYPE_INTR)
+            {
+                supplement = USBHS_UH_SPLIT_VALID | USBHS_UH_TX_NO_RES | USBHS_UH_RX_NO_DATA;
+            }
+            else
+            {
+                supplement = USBHS_UH_SPLIT_VALID | USBHS_UH_RX_NO_DATA;
+            }
+        }
+        else
+        {
+            supplement = USBHS_UH_SPLIT_VALID | USBHS_UH_RX_NO_RES | USBHS_UH_TX_NO_DATA;
+        }
+    }
+    else if (xfer->pre)
+    {
+        supplement = USBHS_UH_PRE_PID_EN;
+    }
+
+    if (xfer->iso)
+    {
+        supplement |= USBHS_UH_RX_NO_RES | USBHS_UH_TX_NO_RES;
+    }
+
+    if (xfer->token == USBH_PID_IN)
+    {
+        USBHSH->RX_MAX_LEN = xfer->xfer_len;
+        USBHSH->RX_DMA = (uint32_t)xfer->buf;
+        USBHSH->CONTROL = USBHS_UH_HOST_ACTION | xfer->token | (xfer->endp_num << 4) | supplement;
+    }
+    else if (xfer->token == USBH_PID_OUT || xfer->token == USBH_PID_SETUP)
+    {
+        USBHSH->TX_LEN = xfer->xfer_len;
+        USBHSH->TX_DMA = (uint32_t)xfer->buf;
+        USBHSH->CONTROL = USBHS_UH_HOST_ACTION | xfer->token | (xfer->endp_num << 4) | (xfer->toggle << 8) | supplement;
+    }
+    else if (xfer->token == USBH_PID_PING)
+    {
+        USBHSH->TX_LEN = 0;
+        USBHSH->TX_DMA = 0;
+        USBHSH->CONTROL = USBHS_UH_HOST_ACTION | xfer->token | (xfer->endp_num << 4);
+    }
+}
+
 static bool open(usbh_handle_t *h)
 {
     USBHSH->CFG = USBHS_RST_LINK | USBHS_UH_PHY_SUSPENDM;
@@ -33,6 +90,9 @@ static bool close(usbh_handle_t *h)
 
 static void start_transfer(usbh_handle_t *h)
 {
+    usbhsh_ctx_t *ctx = (usbhsh_ctx_t *)h->port_ctx;
+    ctx->xfer_list = h->xfer_unit_list;
+    unit_transfer(h, ctx->xfer_list);
 }
 
 static void root_set_feature(usbh_handle_t *h, usbh_port_feature_t feature)
@@ -83,6 +143,22 @@ void usbhsh_event_handle(usbh_handle_t *h)
     if (int_flag & USBHS_UHIF_TRANSFER)
     {
         USBHSH->INT_FLAG = USBHS_UHIF_TRANSFER;
+        usbhsh_ctx_t *ctx = (usbhsh_ctx_t *)h->port_ctx;
+        if (ctx->xfer_list->token == USBH_PID_IN)
+        {
+            ctx->xfer_list->xfer_len = USBHSH->RX_LEN;
+        }
+        ctx->xfer_list->rx_pid = USBHSH->INT_ST & 0x0F;
+        ctx->xfer_list = ctx->xfer_list->next;
+
+        if (ctx->xfer_list)
+        {
+            unit_transfer(h, ctx->xfer_list);
+        }
+        else
+        {
+            h->xfer_busy = false;
+        }
     }
     else if (int_flag & USBHS_UHIF_SOF_ACT)
     {

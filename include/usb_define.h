@@ -31,6 +31,7 @@ extern "C" {
 
 #define USB_ARRAY_SIZE(arr)             (sizeof(arr) / sizeof((arr)[0]))
 
+#define USB_SET_REQ(dir, type, rcpt)    (((dir) << 7) | ((type) << 5) | (rcpt))
 #define USB_GET_REQ_DIR(bmRequestType)  (((bmRequestType) & 0x80) >> 7)
 #define USB_GET_REQ_TYPE(bmRequestType) (((bmRequestType) & 0x60) >> 5)
 #define USB_GET_REQ_RCPT(bmRequestType) (((bmRequestType) & 0x1F) >> 0)
@@ -76,59 +77,73 @@ typedef uint8_t usb_endp_t;
 /* @enum */
 typedef enum
 {
-    USB_SPEED_UNKNOWN = 0,
-    USB_SPEED_FULL = 1,
-    USB_SPEED_LOW = 2,
-    USB_SPEED_HIGH = 3,
-    USB_SPEED_SUPER = 4,
+    USB_SPEED_UNKNOWN,
+    USB_SPEED_FULL,
+    USB_SPEED_LOW,
+    USB_SPEED_HIGH,
+    USB_SPEED_SUPER,
 } usb_speed_t;
 
 typedef enum
 {
-    USB_ENDP_TYPE_CTRL = 0,
-    USB_ENDP_TYPE_ISOC = 1,
-    USB_ENDP_TYPE_BULK = 2,
-    USB_ENDP_TYPE_INTR = 3,
+    USB_ENDP_TYPE_CTRL,
+    USB_ENDP_TYPE_ISOC,
+    USB_ENDP_TYPE_BULK,
+    USB_ENDP_TYPE_INTR,
 } usb_endp_type_t;
 
 typedef enum
 {
-    USB_TEST_SELECT_RESERVED = 0,
-    USB_TEST_SELECT_J = 1,
-    USB_TEST_SELECT_K = 2,
-    USB_TEST_SELECT_SE0_NAK = 3,
-    USB_TEST_SELECT_PACKET = 4,
-    USB_TEST_SELECT_FORCE_ENABLE = 5,
-} usb_test_select_t;
-
-typedef enum
-{
-    USB_CTRL_STAGE_SETUP = 0,
-    USB_CTRL_STAGE_DATA = 1,
-    USB_CTRL_STAGE_STATUS = 2,
+    USB_CTRL_STAGE_SETUP,
+    USB_CTRL_STAGE_DATA,
+    USB_CTRL_STAGE_STATUS,
 } usb_ctrl_stage_t;
 
 typedef enum
 {
-    USB_DIR_OUT = 0,
-    USB_DIR_IN = 1,
+    USB_DIR_OUT,
+    USB_DIR_IN,
 } usb_dir_t;
 
 typedef enum
 {
-    USB_REQ_TYPE_STANDARD = 0,
-    USB_REQ_TYPE_CLASS = 1,
-    USB_REQ_TYPE_VENDOR = 2,
-    USB_REQ_TYPE_RESERVED = 3,
+    USB_REQ_TYPE_STANDARD,
+    USB_REQ_TYPE_CLASS,
+    USB_REQ_TYPE_VENDOR,
+    USB_REQ_TYPE_RESERVED,
 } usb_req_type_t;
 
 typedef enum
 {
-    USB_REQ_RCPT_DEVICE = 0,
-    USB_REQ_RCPT_INTERFACE = 1,
-    USB_REQ_RCPT_ENDPOINT = 2,
-    USB_REQ_RCPT_OTHER = 3,
+    USB_REQ_RCPT_DEVICE,
+    USB_REQ_RCPT_INTERFACE,
+    USB_REQ_RCPT_ENDPOINT,
+    USB_REQ_RCPT_OTHER,
 } usb_req_rcpt_t;
+
+typedef enum
+{
+    USB_REQ_GET_STATUS = 0,
+    USB_REQ_CLEAR_FEATURE = 1,
+    USB_REQ_RESERVED = 2,
+    USB_REQ_SET_FEATURE = 3,
+    USB_REQ_RESERVED2 = 4,
+    USB_REQ_SET_ADDRESS = 5,
+    USB_REQ_GET_DESCRIPTOR = 6,
+    USB_REQ_SET_DESCRIPTOR = 7,
+    USB_REQ_GET_CONFIGURATION = 8,
+    USB_REQ_SET_CONFIGURATION = 9,
+    USB_REQ_GET_INTERFACE = 10,
+    USB_REQ_SET_INTERFACE = 11,
+    USB_REQ_SYNCH_FRAME = 12,
+} usb_request_t;
+
+typedef enum
+{
+    USB_FEATURE_EDPT_HALT = 0,
+    USB_FEATURE_REMOTE_WAKEUP = 1,
+    USB_FEATURE_TEST_MODE = 2,
+} usb_feature_t;
 
 typedef enum
 {
@@ -159,23 +174,6 @@ typedef enum
 
 typedef enum
 {
-    USB_REQ_GET_STATUS = 0,
-    USB_REQ_CLEAR_FEATURE = 1,
-    USB_REQ_RESERVED = 2,
-    USB_REQ_SET_FEATURE = 3,
-    USB_REQ_RESERVED2 = 4,
-    USB_REQ_SET_ADDRESS = 5,
-    USB_REQ_GET_DESCRIPTOR = 6,
-    USB_REQ_SET_DESCRIPTOR = 7,
-    USB_REQ_GET_CONFIGURATION = 8,
-    USB_REQ_SET_CONFIGURATION = 9,
-    USB_REQ_GET_INTERFACE = 10,
-    USB_REQ_SET_INTERFACE = 11,
-    USB_REQ_SYNCH_FRAME = 12,
-} usb_request_t;
-
-typedef enum
-{
     USB_DESC_DEVICE = 0x01,
     USB_DESC_CONFIGURATION = 0x02,
     USB_DESC_STRING = 0x03,
@@ -203,10 +201,13 @@ typedef enum
 
 typedef enum
 {
-    USB_FEATURE_EDPT_HALT = 0,
-    USB_FEATURE_REMOTE_WAKEUP = 1,
-    USB_FEATURE_TEST_MODE = 2,
-} usb_feature_t;
+    USB_TEST_SELECT_RESERVED,
+    USB_TEST_SELECT_J,
+    USB_TEST_SELECT_K,
+    USB_TEST_SELECT_SE0_NAK,
+    USB_TEST_SELECT_PACKET,
+    USB_TEST_SELECT_FORCE_ENABLE,
+} usb_test_select_t;
 
 /* @struct */
 typedef struct __attribute__((packed))

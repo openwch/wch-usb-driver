@@ -18,6 +18,7 @@ extern "C" {
 #endif
 
 /* @typedef */
+typedef struct usbh_device usbh_device_t;
 typedef struct usbh_handle usbh_handle_t;
 
 /* @function declaration */

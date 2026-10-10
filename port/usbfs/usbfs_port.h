@@ -378,22 +378,24 @@ typedef struct
 
 typedef struct
 {
-    void (*delay_us)(uint32_t us);
-    void (*delay_ms)(uint32_t ms);
+    uint32_t base_addr;
     usbfs_xfer_ctx_t xfer_ctxs[2][8];
     uint8_t *dma_buf_ptrs[2][8];
     __attribute__((aligned(4))) uint8_t endp_dma_bufs[8][128];
+    void (*delay_us)(uint32_t us);
+    void (*delay_ms)(uint32_t ms);
 } usbfsd_ctx_t;
 
 typedef struct
 {
+    uint32_t base_addr;
     void (*delay_us)(uint32_t us);
     void (*delay_ms)(uint32_t ms);
 } usbfsh_ctx_t;
 
 /* @function declaration */
-void usbfsd_handle_init(usbd_handle_t *h, uint32_t base_addr, usbfsd_ctx_t *ctx);
-void usbfsh_handle_init(usbh_handle_t *h, uint32_t base_addr, usbfsh_ctx_t *ctx);
+void usbfsd_handle_init(usbd_handle_t *h, usbfsd_ctx_t *ctx);
+void usbfsh_handle_init(usbh_handle_t *h, usbfsh_ctx_t *ctx);
 void usbfsd_event_handle(usbd_handle_t *h);
 void usbfsh_event_handle(usbh_handle_t *h);
 

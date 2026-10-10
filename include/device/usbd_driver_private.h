@@ -81,10 +81,7 @@ typedef struct
 
 typedef struct usbd_handle
 {
-    /* Base address of the USB device controller */
-    uint32_t base_addr;
-
-    /* Port-specific context */
+    /* Port context */
     void *port_ctx;
 
     /* USB device information */

@@ -12,7 +12,7 @@
 #include "usbhs_port.h"
 
 /* @define */
-#define USBHSH ((usbhsh_ip_t *)h->base_addr)
+#define USBHSH ((usbhsh_ip_t *)((usbhsh_ctx_t *)h->port_ctx)->base_addr)
 
 static bool open(usbh_handle_t *h)
 {
@@ -31,10 +31,9 @@ static bool close(usbh_handle_t *h)
     return true;
 }
 
-void usbhsh_handle_init(usbh_handle_t *h, uint32_t base_addr, usbhsh_ctx_t *ctx)
+void usbhsh_handle_init(usbh_handle_t *h, usbhsh_ctx_t *ctx)
 {
     memset(h, 0, sizeof(usbh_handle_t));
-    h->base_addr = base_addr;
     h->port_ctx = ctx;
 
     h->open = open;

@@ -124,7 +124,8 @@ void *board_usb_init(uint8_t index, usb_mode_t mode)
         static const uint32_t usbd_base_addrs[] = {USBHS1D_BASE_ADDR, USBHS2D_BASE_ADDR};
         usb_modes[index] = USB_MODE_DEVICE;
         memset(&usbhsd_ctx[index], 0, sizeof(usbhsd_ctx_t));
-        usbhsd_handle_init(&usbd_handles[index], usbd_base_addrs[index], &usbhsd_ctx[index]);
+        usbhsd_ctx[index].base_addr = usbd_base_addrs[index];
+        usbhsd_handle_init(&usbd_handles[index], &usbhsd_ctx[index]);
         return &usbd_handles[index];
     }
 #endif
@@ -135,7 +136,8 @@ void *board_usb_init(uint8_t index, usb_mode_t mode)
         static const uint32_t usbh_base_addrs[] = {USBHS1H_BASE_ADDR, USBHS2H_BASE_ADDR};
         usb_modes[index] = USB_MODE_HOST;
         memset(&usbhsh_ctx[index], 0, sizeof(usbhsh_ctx_t));
-        usbhsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbhsh_ctx[index]);
+        usbhsh_ctx[index].base_addr = usbh_base_addrs[index];
+        usbhsh_handle_init(&usbh_handles[index], &usbhsh_ctx[index]);
         return &usbh_handles[index];
     }
 #endif

@@ -12,7 +12,7 @@
 #include "usbhs_port.h"
 
 /* @define */
-#define USBHSD               ((usbhsd_ip_t *)h->base_addr)
+#define USBHSD               ((usbhsd_ip_t *)((usbhsd_ctx_t *)h->port_ctx)->base_addr)
 #define ENDP_MAX_LEN(ep)     *((volatile uint32_t *)&(USBHSD->UEP0_MAX_LEN) + (ep))
 #define ENDP_TX_LEN(ep)      *((volatile uint16_t *)&(USBHSD->UEP0_TX_LEN) + (ep) * 2)
 #define ENDP_RX_LEN(ep)      *((volatile uint16_t *)&(USBHSD->UEP0_RX_LEN) + (ep) * 2)
@@ -290,10 +290,9 @@ static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t l
     return true;
 }
 
-void usbhsd_handle_init(usbd_handle_t *h, uint32_t base_addr, usbhsd_ctx_t *ctx)
+void usbhsd_handle_init(usbd_handle_t *h, usbhsd_ctx_t *ctx)
 {
     memset(h, 0, sizeof(usbd_handle_t));
-    h->base_addr = base_addr;
     h->port_ctx = ctx;
 
     h->open = open;

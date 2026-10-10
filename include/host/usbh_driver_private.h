@@ -21,10 +21,7 @@ extern "C" {
 /* @struct */
 typedef struct usbh_handle
 {
-    /* Base address of the USB host controller */
-    uint32_t base_addr;
-
-    /* Port-specific context */
+    /* Port context */
     void *port_ctx;
 
     /* USB host operations */

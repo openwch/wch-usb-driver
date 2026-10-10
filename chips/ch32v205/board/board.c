@@ -112,14 +112,16 @@ void *board_usb_init(uint8_t index, usb_mode_t mode)
         if (index == USBFS_INDEX)
         {
             memset(&usbfsd_ctx, 0, sizeof(usbfsd_ctx_t));
+            usbfsd_ctx.base_addr = usbd_base_addrs[index];
             usbfsd_ctx.delay_us = Delay_Us;
             usbfsd_ctx.delay_ms = Delay_Ms;
-            usbfsd_handle_init(&usbd_handles[index], usbd_base_addrs[index], &usbfsd_ctx);
+            usbfsd_handle_init(&usbd_handles[index], &usbfsd_ctx);
         }
         else
         {
             memset(&usbhsd_ctx, 0, sizeof(usbhsd_ctx_t));
-            usbhsd_handle_init(&usbd_handles[index], usbd_base_addrs[index], &usbhsd_ctx);
+            usbhsd_ctx.base_addr = usbd_base_addrs[index];
+            usbhsd_handle_init(&usbd_handles[index], &usbhsd_ctx);
         }
 
         return &usbd_handles[index];
@@ -134,14 +136,16 @@ void *board_usb_init(uint8_t index, usb_mode_t mode)
         if (index == USBFS_INDEX)
         {
             memset(&usbfsh_ctx, 0, sizeof(usbfsh_ctx_t));
+            usbfsh_ctx.base_addr = usbh_base_addrs[index];
             usbfsh_ctx.delay_us = Delay_Us;
             usbfsh_ctx.delay_ms = Delay_Ms;
-            usbfsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbfsh_ctx);
+            usbfsh_handle_init(&usbh_handles[index], &usbfsh_ctx);
         }
         else
         {
             memset(&usbhsh_ctx, 0, sizeof(usbhsh_ctx_t));
-            usbhsh_handle_init(&usbh_handles[index], usbh_base_addrs[index], &usbhsh_ctx);
+            usbhsh_ctx.base_addr = usbh_base_addrs[index];
+            usbhsh_handle_init(&usbh_handles[index], &usbhsh_ctx);
         }
         return &usbh_handles[index];
     }

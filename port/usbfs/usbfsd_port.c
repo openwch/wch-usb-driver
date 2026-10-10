@@ -12,7 +12,7 @@
 #include "usbfs_port.h"
 
 /* @define */
-#define USBFSD           ((usbfsd_ip_t *)h->base_addr)
+#define USBFSD           ((usbfsd_ip_t *)((usbfsd_ctx_t *)h->port_ctx)->base_addr)
 #define ENDP_TX_LEN(ep)  *((volatile uint16_t *)&(USBFSD->UEP0_TX_LEN) + (ep) * 2)
 #define ENDP_TX_CTRL(ep) *((volatile uint8_t *)&(USBFSD->UEP0_TX_CTRL) + (ep) * 4)
 #define ENDP_RX_CTRL(ep) *((volatile uint8_t *)&(USBFSD->UEP0_RX_CTRL) + (ep) * 4)
@@ -272,10 +272,9 @@ static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t l
     return true;
 }
 
-void usbfsd_handle_init(usbd_handle_t *h, uint32_t base_addr, usbfsd_ctx_t *ctx)
+void usbfsd_handle_init(usbd_handle_t *h, usbfsd_ctx_t *ctx)
 {
     memset(h, 0, sizeof(usbd_handle_t));
-    h->base_addr = base_addr;
     h->port_ctx = ctx;
 
     h->open = open;

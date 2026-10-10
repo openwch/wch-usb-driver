@@ -563,17 +563,19 @@ typedef struct
 
 typedef struct
 {
+    uint32_t base_addr;
     usbhs_xfer_ctx_t endp_ctxs[2][8];
     __attribute__((aligned(4))) uint8_t endp0_dma_buf[64];
 } usbhsd_ctx_t;
 
 typedef struct
 {
+    uint32_t base_addr;
 } usbhsh_ctx_t;
 
 /* @function declaration */
-void usbhsd_handle_init(usbd_handle_t *h, uint32_t base_addr, usbhsd_ctx_t *ctx);
-void usbhsh_handle_init(usbh_handle_t *h, uint32_t base_addr, usbhsh_ctx_t *ctx);
+void usbhsd_handle_init(usbd_handle_t *h, usbhsd_ctx_t *ctx);
+void usbhsh_handle_init(usbh_handle_t *h, usbhsh_ctx_t *ctx);
 void usbhsd_event_handle(usbd_handle_t *h);
 void usbhsh_event_handle(usbh_handle_t *h);
 

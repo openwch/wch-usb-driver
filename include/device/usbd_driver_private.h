@@ -114,7 +114,7 @@ typedef struct usbd_handle
     usbd_request_cbs_t request_cbs[USBD_REQUEST_CB_COUNT];
     usbd_interface_cbs_t interface_cbs[USBD_INTERFACE_CB_COUNT];
 
-    /* USB device operations */
+    /* USB device port operations */
     bool (*open)(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
     bool (*close)(usbd_handle_t *h);
 

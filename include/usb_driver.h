@@ -28,8 +28,12 @@
 #include "class/hid/hid.h"
 #include "class/cdc/cdc.h"
 #include "class/cdc/cdc_acm.h"
+
+/* USB device class driver includes */
 #include "class/hid/hidd.h"
 #include "class/cdc/cdcd_acm.h"
+
+/* USB host class driver includes */
 
 #ifdef __cplusplus
 extern "C" {

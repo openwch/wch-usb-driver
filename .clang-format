@@ -61,7 +61,7 @@ ReferenceAlignment:     Right                       # 引用靠右：int &r（�
 # ---------- 对齐 ----------
 AlignConsecutiveMacros:       AcrossEmptyLinesAndComments   # 连续宏定义对齐（可跨空行与注释）
 AlignConsecutiveAssignments:  None                          # 连续赋值不对齐
-AlignConsecutiveBitFields:    AcrossEmptyLinesAndComments   # 连续位域对齐
+AlignConsecutiveBitFields:    None                          # 连续位域对齐
 AlignConsecutiveDeclarations: None                          # 连续声明不对齐
 AlignArrayOfStructures:       Right                         # 结构体数组初始化列表不做列对齐
 AlignEscapedNewlines:         Right                         # 宏定义续行符 \ 右对齐到行宽

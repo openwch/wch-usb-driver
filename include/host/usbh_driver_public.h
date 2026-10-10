@@ -21,6 +21,7 @@ extern "C" {
 typedef struct usbh_handle usbh_handle_t;
 
 /* @function declaration */
+void usbh_drv_task(usbh_handle_t *h);
 bool usbh_drv_open(usbh_handle_t *h);
 bool usbh_drv_close(usbh_handle_t *h);
 

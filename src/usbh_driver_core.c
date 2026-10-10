@@ -16,6 +16,14 @@
 
 #ifdef USB_HOST_DRIVER_EN
 
+void usbh_drv_task(usbh_handle_t *h)
+{
+    if (h->root_port_change)
+    {
+        h->root_port_change = false;
+    }
+}
+
 bool usbh_drv_open(usbh_handle_t *h)
 {
     if (h == NULL) return false;

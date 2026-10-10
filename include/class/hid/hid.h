@@ -23,7 +23,7 @@ typedef enum
     HID_DESC_HID = 0x21,
     HID_DESC_REPORT = 0x22,
     HID_DESC_PHYSICAL = 0x23,
-} hid_desc_type_t;
+} hid_desc_t;
 
 typedef enum
 {
@@ -40,13 +40,13 @@ typedef enum
 
 typedef enum
 {
-    HID_CLASS_REQ_GET_REPORT = 0x01,
-    HID_CLASS_REQ_GET_IDLE = 0x02,
-    HID_CLASS_REQ_GET_PROTOCOL = 0x03,
-    HID_CLASS_REQ_SET_REPORT = 0x09,
-    HID_CLASS_REQ_SET_IDLE = 0x0A,
-    HID_CLASS_REQ_SET_PROTOCOL = 0x0B,
-} hid_class_request_t;
+    HID_REQ_GET_REPORT = 0x01,
+    HID_REQ_GET_IDLE = 0x02,
+    HID_REQ_GET_PROTOCOL = 0x03,
+    HID_REQ_SET_REPORT = 0x09,
+    HID_REQ_SET_IDLE = 0x0A,
+    HID_REQ_SET_PROTOCOL = 0x0B,
+} hid_request_t;
 
 typedef enum
 {
@@ -280,7 +280,7 @@ typedef struct __attribute__((packed))
     uint8_t bNumDescriptors;
     uint8_t bReportType;
     uint16_t wReportLength;
-} hid_desc_t;
+} hid_desc_hid_t;
 
 #ifdef __cplusplus
 }

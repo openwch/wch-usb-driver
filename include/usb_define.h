@@ -172,7 +172,7 @@ typedef enum
     USB_REQ_GET_INTERFACE = 10,
     USB_REQ_SET_INTERFACE = 11,
     USB_REQ_SYNCH_FRAME = 12,
-} usb_request_code_t;
+} usb_request_t;
 
 typedef enum
 {
@@ -206,7 +206,7 @@ typedef enum
     USB_FEATURE_EDPT_HALT = 0,
     USB_FEATURE_REMOTE_WAKEUP = 1,
     USB_FEATURE_TEST_MODE = 2,
-} usb_feature_selector_t;
+} usb_feature_t;
 
 /* @struct */
 typedef struct __attribute__((packed))

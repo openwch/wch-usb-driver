@@ -24,14 +24,14 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
     {
         switch (setup->bRequest)
         {
-        case CDC_CLASS_REQ_SET_LINE_CODING:
-        case CDC_CLASS_REQ_GET_LINE_CODING:
+        case CDC_REQ_SET_LINE_CODING:
+        case CDC_REQ_GET_LINE_CODING:
             *buf = &h->line_coding;
             *len = sizeof(h->line_coding);
             return true;
 
-        case CDC_CLASS_REQ_SET_CONTROL_LINE_STATE:
-        case CDC_CLASS_REQ_SEND_BREAK:
+        case CDC_REQ_SET_CONTROL_LINE_STATE:
+        case CDC_REQ_SEND_BREAK:
             return true;
         }
     }
@@ -46,7 +46,7 @@ static bool ctrl_xfer_data(void *handle, const usb_setup_t *setup, void *buf, si
     {
         switch (setup->bRequest)
         {
-        case CDC_CLASS_REQ_SET_LINE_CODING:
+        case CDC_REQ_SET_LINE_CODING:
             USB_LOGI("Handle: %p SET_LINE_CODING: Bit_Rate=%d, Stop_Bits=%d, Parity=%d, Data_Bits=%d", h,
                      h->line_coding.bit_rate, h->line_coding.stop_bits, h->line_coding.parity,
                      h->line_coding.data_bits);
@@ -67,7 +67,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
     {
         switch (setup->bRequest)
         {
-        case CDC_CLASS_REQ_SET_CONTROL_LINE_STATE:
+        case CDC_REQ_SET_CONTROL_LINE_STATE:
             USB_LOGI("Handle: %p SET_CONTROL_LINE_STATE: Bitmap=0x%04x", h, setup->wValue);
             if (h->set_control_line_state_cb)
             {
@@ -75,7 +75,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             }
             break;
 
-        case CDC_CLASS_REQ_SEND_BREAK:
+        case CDC_REQ_SEND_BREAK:
             USB_LOGI("Handle: %p SEND_BREAK: Duration=0x%04x", h, setup->wValue);
             if (h->send_break_cb)
             {

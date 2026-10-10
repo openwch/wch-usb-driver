@@ -44,23 +44,23 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
     {
         switch (setup->bRequest)
         {
-        case HID_CLASS_REQ_GET_IDLE:
-        case HID_CLASS_REQ_GET_PROTOCOL:
-            h->ctrl_req_buf = setup->bRequest == HID_CLASS_REQ_GET_IDLE ? h->idle_rate[USB_U16_LOW(setup->wValue)]
+        case HID_REQ_GET_IDLE:
+        case HID_REQ_GET_PROTOCOL:
+            h->ctrl_req_buf = setup->bRequest == HID_REQ_GET_IDLE ? h->idle_rate[USB_U16_LOW(setup->wValue)]
                                                                         : h->protocol;
             *buf = &h->ctrl_req_buf;
             *len = 1;
             return true;
 
-        case HID_CLASS_REQ_GET_REPORT:
-        case HID_CLASS_REQ_SET_REPORT:
-            if ((setup->bRequest == HID_CLASS_REQ_GET_REPORT && h->get_report_prev_cb) ||
-                (setup->bRequest == HID_CLASS_REQ_SET_REPORT && h->set_report_prev_cb))
+        case HID_REQ_GET_REPORT:
+        case HID_REQ_SET_REPORT:
+            if ((setup->bRequest == HID_REQ_GET_REPORT && h->get_report_prev_cb) ||
+                (setup->bRequest == HID_REQ_SET_REPORT && h->set_report_prev_cb))
             {
                 *buf = h->report_buf;
                 uint8_t report_type = USB_U16_HIGH(setup->wValue);
                 uint8_t report_id = USB_U16_LOW(setup->wValue);
-                return setup->bRequest == HID_CLASS_REQ_GET_REPORT
+                return setup->bRequest == HID_REQ_GET_REPORT
                            ? h->get_report_prev_cb(h, report_type, report_id, setup->wLength, len)
                            : h->set_report_prev_cb(h, report_type, report_id, setup->wLength, len);
             }
@@ -75,8 +75,8 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
                 return false;
             }
 
-        case HID_CLASS_REQ_SET_IDLE:
-        case HID_CLASS_REQ_SET_PROTOCOL:
+        case HID_REQ_SET_IDLE:
+        case HID_REQ_SET_PROTOCOL:
             return true;
         }
     }
@@ -92,7 +92,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
     {
         switch (setup->bRequest)
         {
-        case HID_CLASS_REQ_GET_REPORT:
+        case HID_REQ_GET_REPORT:
             if (h->get_report_comp_cb)
             {
                 uint8_t report_type = USB_U16_HIGH(setup->wValue);
@@ -101,7 +101,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             }
             break;
 
-        case HID_CLASS_REQ_SET_REPORT:
+        case HID_REQ_SET_REPORT:
             if (h->set_report_comp_cb)
             {
                 uint8_t report_type = USB_U16_HIGH(setup->wValue);
@@ -110,7 +110,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             }
             break;
 
-        case HID_CLASS_REQ_SET_IDLE:
+        case HID_REQ_SET_IDLE:
         {
             uint8_t report_id = USB_U16_LOW(setup->wValue);
             uint8_t idle_rate = USB_U16_HIGH(setup->wValue);
@@ -123,7 +123,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             break;
         }
 
-        case HID_CLASS_REQ_SET_PROTOCOL:
+        case HID_REQ_SET_PROTOCOL:
         {
             uint8_t protocol = USB_U16_LOW(setup->wValue);
             USB_LOGI("Handle: %p SET_PROTOCOL: Protocol=%d", h, protocol);

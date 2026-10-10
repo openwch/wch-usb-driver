@@ -62,23 +62,23 @@ const uint8_t config_desc_hs[] = {
 
     0x05,                                                     // bFunctionLength
     USB_DESC_CS_INTERFACE,                                    // bDescriptorType
-    CDC_SUB_DESC_HEADER,                                      // bDescriptorSubtype
+    CDC_DESC_HEADER,                                          // bDescriptorSubtype
     USB_U16_TO_U8_LSB(0x0120),                                // bcdCDC
 
     0x05,                                                     // bFunctionLength
     USB_DESC_CS_INTERFACE,                                    // bDescriptorType
-    CDC_SUB_DESC_CALL_MANAGEMENT,                             // bDescriptorSubtype
+    CDC_DESC_CALL_MANAGEMENT,                                 // bDescriptorSubtype
     0x00,                                                     // bmCapabilities
     0x01,                                                     // bDataInterface
 
     0x04,                                                     // bFunctionLength
     USB_DESC_CS_INTERFACE,                                    // bDescriptorType
-    CDC_SUB_DESC_ABSTRACT_CONTROL_MANAGEMENT,                 // bDescriptorSubtype
+    CDC_DESC_ABSTRACT_CONTROL_MANAGEMENT,                     // bDescriptorSubtype
     (CDC_ACM_CAPBIT_LINE_CODING | CDC_ACM_CAPBIT_SEND_BREAK), // bmCapabilities
 
     0x05,                                                     // bFunctionLength
     USB_DESC_CS_INTERFACE,                                    // bDescriptorType
-    CDC_SUB_DESC_UNION,                                       // bDescriptorSubtype
+    CDC_DESC_UNION,                                           // bDescriptorSubtype
     0x00,                                                     // bControlInterface
     0x01,                                                     // bSubordinateInterface0
 
@@ -136,23 +136,23 @@ const uint8_t config_desc_fs[] = {
 
     0x05,                                                     // bFunctionLength
     USB_DESC_CS_INTERFACE,                                    // bDescriptorType
-    CDC_SUB_DESC_HEADER,                                      // bDescriptorSubtype
+    CDC_DESC_HEADER,                                          // bDescriptorSubtype
     USB_U16_TO_U8_LSB(0x0120),                                // bcdCDC
 
     0x05,                                                     // bFunctionLength
     USB_DESC_CS_INTERFACE,                                    // bDescriptorType
-    CDC_SUB_DESC_CALL_MANAGEMENT,                             // bDescriptorSubtype
+    CDC_DESC_CALL_MANAGEMENT,                                 // bDescriptorSubtype
     0x00,                                                     // bmCapabilities
     0x01,                                                     // bDataInterface
 
     0x04,                                                     // bFunctionLength
     USB_DESC_CS_INTERFACE,                                    // bDescriptorType
-    CDC_SUB_DESC_ABSTRACT_CONTROL_MANAGEMENT,                 // bDescriptorSubtype
+    CDC_DESC_ABSTRACT_CONTROL_MANAGEMENT,                     // bDescriptorSubtype
     (CDC_ACM_CAPBIT_LINE_CODING | CDC_ACM_CAPBIT_SEND_BREAK), // bmCapabilities
 
     0x05,                                                     // bFunctionLength
     USB_DESC_CS_INTERFACE,                                    // bDescriptorType
-    CDC_SUB_DESC_UNION,                                       // bDescriptorSubtype
+    CDC_DESC_UNION,                                           // bDescriptorSubtype
     0x00,                                                     // bControlInterface
     0x01,                                                     // bSubordinateInterface0
 

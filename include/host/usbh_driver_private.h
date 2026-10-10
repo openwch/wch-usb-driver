@@ -65,7 +65,7 @@ typedef enum
 
 /* @function pointer */
 typedef void (*usbh_data_xfer_cb)(void *class_handle, bool rst, usb_endp_t endp, void *buf, size_t len);
-typedef void (*usbh_ctrl_xfer_cb)(usbh_device_t *dev, bool rst, const usb_setup_t *setup, void *buf, uint16_t length);
+typedef void (*usbh_ctrl_xfer_cb)(usbh_device_t *dev, bool rst, usb_setup_t *setup, const void *buf, uint16_t length);
 
 /* @typedef */
 typedef struct usbh_endpoint usbh_endpoint_t;
@@ -151,7 +151,7 @@ typedef struct usbh_xfer_ctx
     uint32_t length;
     uint32_t offset;
     void *buf;
-    const usb_setup_t *setup;
+    usb_setup_t *setup;
 } usbh_xfer_ctx_t;
 
 typedef struct usbh_endpoint
@@ -171,14 +171,21 @@ typedef struct usbh_endpoint
 typedef struct usbh_device
 {
     struct usbh_device *next;
+
+    /* Device handle context */
     uint8_t address;
     uint8_t hub_addr;
     uint8_t hub_port;
     uint8_t enum_stage;
     uint8_t speed;
-    uint8_t ep0_mps;
+    uint16_t language_id;
+
+    /* Endpoint context */
     usbh_endpoint_t ctrl_endp;
     usbh_endpoint_t *data_endp[2][USB_MAX_ENDP_NUM - 1];
+
+    /* Device descriptor */
+    usb_desc_device_t dev_desc;
 } usbh_device_t;
 
 typedef struct usbh_handle
@@ -221,11 +228,11 @@ typedef struct usbh_handle
 void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_reset(usbh_handle_t *h, usbh_device_t *dev);
-bool usbh_ctrl_xfer(usbh_device_t *dev, const usb_setup_t *setup, void *buf);
-bool usbh_endp_open(usbh_handle_t *h, const void *class, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
-bool usbh_endp_close(usbh_handle_t *h, usb_endp_t endp);
-bool usbh_endp_read(usbh_handle_t *h, usb_endp_t endp, void *buf, size_t len);
-bool usbh_endp_write(usbh_handle_t *h, usb_endp_t endp, const void *buf, size_t len);
+bool usbh_ctrl_xfer(usbh_device_t *dev, usb_setup_t *setup, void *buf);
+bool usbh_endp_open(const void *class, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
+bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp);
+bool usbh_endp_read(usbh_device_t *dev, usb_endp_t endp, void *buf, size_t len);
+bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_t len);
 
 /* @inline functions */
 static inline void usbh_list_append(void **list, void *node)

@@ -143,13 +143,21 @@ void usbhsh_event_handle(usbh_handle_t *h)
     if (int_flag & USBHS_UHIF_TRANSFER)
     {
         USBHSH->INT_FLAG = USBHS_UHIF_TRANSFER;
+
         usbhsh_ctx_t *ctx = (usbhsh_ctx_t *)h->port_ctx;
-        if (ctx->xfer_list->token == USBH_PID_IN)
+        if (USBHSH->PORT_STATUS & USBHS_UHIS_PORT_CONNECT)
         {
-            ctx->xfer_list->xfer_len = USBHSH->RX_LEN;
+            if (ctx->xfer_list->token == USBH_PID_IN)
+            {
+                ctx->xfer_list->xfer_len = USBHSH->RX_LEN;
+            }
+            ctx->xfer_list->rx_pid = USBHSH->INT_ST & 0x0F;
+            ctx->xfer_list = ctx->xfer_list->next;
         }
-        ctx->xfer_list->rx_pid = USBHSH->INT_ST & 0x0F;
-        ctx->xfer_list = ctx->xfer_list->next;
+        else
+        {
+            ctx->xfer_list = NULL;
+        }
 
         if (ctx->xfer_list)
         {

@@ -240,6 +240,19 @@ typedef struct __attribute__((packed))
 {
     uint8_t bLength;
     uint8_t bDescriptorType;
+    uint16_t bcdUSB;
+    uint8_t bDeviceClass;
+    uint8_t bDeviceSubClass;
+    uint8_t bDeviceProtocol;
+    uint8_t bMaxPacketSize0;
+    uint8_t bNumConfigurations;
+    uint8_t bReserved;
+} usb_desc_qualifier_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
     uint16_t wTotalLength;
     uint8_t bNumInterfaces;
     uint8_t bConfigurationValue;
@@ -270,19 +283,6 @@ typedef struct __attribute__((packed))
     uint16_t wMaxPacketSize;
     uint8_t bInterval;
 } usb_desc_endpoint_t;
-
-typedef struct __attribute__((packed))
-{
-    uint8_t bLength;
-    uint8_t bDescriptorType;
-    uint16_t bcdUSB;
-    uint8_t bDeviceClass;
-    uint8_t bDeviceSubClass;
-    uint8_t bDeviceProtocol;
-    uint8_t bMaxPacketSize0;
-    uint8_t bNumConfigurations;
-    uint8_t bReserved;
-} usb_desc_qualifier_t;
 
 #ifdef __cplusplus
 }

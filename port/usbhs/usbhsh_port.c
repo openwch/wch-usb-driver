@@ -87,6 +87,7 @@ void usbhsh_event_handle(usbh_handle_t *h)
     else if (int_flag & USBHS_UHIF_SOF_ACT)
     {
         USBHSH->INT_FLAG = USBHS_UHIF_SOF_ACT;
+        h->tick++;
     }
     else
     {

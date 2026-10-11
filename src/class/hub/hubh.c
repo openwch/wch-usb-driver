@@ -202,7 +202,6 @@ static void hub_enum_task(hubh_handle_t *hub)
         {
             hub->enum_stage = ENUM_STAGE_GET_HUB_DESC;
         }
-
         break;
     }
 
@@ -228,7 +227,7 @@ static void hub_enum_task(hubh_handle_t *hub)
 
     case ENUM_STAGE_ENUM_FAILED:
         hub->enum_stage = ENUM_STAGE_END;
-        usbh_device_suspend(hub->dev);
+        usbh_device_suspend(hub->dev, NULL);
         hubh_drv_unbind_cb(hub->dev, hub->itf_num);
         break;
     }
@@ -247,7 +246,8 @@ static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, c
     else
     {
         hub_port_status_t *port_status = &hub->port_status[setup->wIndex - 1];
-        if (port_status->change == 0)
+
+        if (port_status->change)
         {
             if (port_status->status_bits.connect && port_status->status_bits.enable == 0)
             {
@@ -256,6 +256,11 @@ static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, c
             else if (port_status->status_bits.connect == 0)
             {
                 usbh_device_remove(hub->dev->host, hub->dev->address, setup->wIndex);
+            }
+
+            if (port_status->change_bits.suspend && port_status->status_bits.suspend == 0)
+            {
+                usbh_device_resume(hub->dev->host, hub->dev->address, setup->wIndex);
             }
         }
     }
@@ -335,7 +340,7 @@ static void hub_port_handle(hubh_handle_t *hub, size_t port)
             return;
 
         usbh_ctrl_xfer(hub->dev, hub, request, NULL, NULL);
-        hub->status_change_bitmap |= (1 << port);
+        hub->status_change_bitmap |= 1 << port;
     }
     else if (hub->port_feature[port - 1])
     {
@@ -348,6 +353,21 @@ static void hub_port_handle(hubh_handle_t *hub, size_t port)
         request->wValue = hub->port_feature[port - 1];
         usbh_ctrl_xfer(hub->dev, hub, request, NULL, NULL);
         hub->port_feature[port - 1] = 0;
+        hub->status_change_bitmap |= 1 << port;
+    }
+}
+
+static void hub_wakeup_cb(usbh_device_t *dev)
+{
+    hubh_handle_t *hub = hub_list;
+    while (hub)
+    {
+        if (hub->dev == dev)
+        {
+            hub->status_change_bitmap = 0xFFFFFFFF;
+            return;
+        }
+        hub = hub->next;
     }
 }
 
@@ -374,16 +394,16 @@ static void hub_run_task(hubh_handle_t *hub)
 
     if (hub->status_change_bitmap == 0)
     {
-        // if (is_has_device)
-        // {
-        usbh_endp_read(hub->dev, hub->in_ep.bEndpointAddress, &hub->status_change_bitmap,
-                       sizeof(hub->status_change_bitmap), 0);
-        // }
-        // else
-        // {
-        //     /* Suspend the HUB if no active ports have connected HUB */
-        //     usbh_device_suspend(hub->dev);
-        // }
+        if (is_has_device)
+        {
+            usbh_endp_read(hub->dev, hub->in_ep.bEndpointAddress, &hub->status_change_bitmap,
+                           sizeof(hub->status_change_bitmap), 0);
+        }
+        else
+        {
+            /* Suspend the HUB if no active ports have connected HUB */
+            // usbh_device_suspend(hub->dev, hub_wakeup_cb);
+        }
     }
 }
 
@@ -392,16 +412,19 @@ void hubh_drv_task(void)
     hubh_handle_t *hub = hub_list;
     while (hub)
     {
-        if (hub->enum_stage < ENUM_STAGE_END)
+        hubh_handle_t *next = hub->next;
+        if (!hub->dev->suspended)
         {
-            hub_enum_task(hub);
+            if (hub->enum_stage < ENUM_STAGE_END)
+            {
+                hub_enum_task(hub);
+            }
+            else
+            {
+                hub_run_task(hub);
+            }
         }
-        else
-        {
-            hub_run_task(hub);
-        }
-
-        hub = hub->next;
+        hub = next;
     }
 }
 
@@ -470,11 +493,13 @@ static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t leng
 {
     if (!dev || dev->speed == USB_SPEED_LOW || !desc || length == 0) return false;
 
-    hubh_handle_t temp_hub;
+    uint8_t itf_num;
+    uint8_t alt_setting;
+    uint8_t protocol;
+    usb_desc_endpoint_t in_ep;
     uint8_t get_endp_count = 0;
     const uint8_t *curr = (const uint8_t *)desc;
     const uint8_t *end = curr + length;
-    memset(&temp_hub, 0, sizeof(hubh_handle_t));
 
     while (curr < end)
     {
@@ -493,11 +518,11 @@ static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t leng
             }
 
             /* Update the hub protocol if protocol is higher */
-            if (itf_desc->bAlternateSetting == 0 || itf_desc->bInterfaceProtocol > temp_hub.protocol)
+            if (itf_desc->bAlternateSetting == 0 || itf_desc->bInterfaceProtocol > protocol)
             {
-                temp_hub.itf_num = itf_desc->bInterfaceNumber;
-                temp_hub.alt_setting = itf_desc->bAlternateSetting;
-                temp_hub.protocol = itf_desc->bInterfaceProtocol;
+                itf_num = itf_desc->bInterfaceNumber;
+                alt_setting = itf_desc->bAlternateSetting;
+                protocol = itf_desc->bInterfaceProtocol;
                 get_endp_count = itf_desc->bNumEndpoints;
             }
             break;
@@ -517,7 +542,7 @@ static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t leng
             if (get_endp_count > 0)
             {
                 get_endp_count--;
-                memcpy(&temp_hub.in_ep, endp_desc, sizeof(usb_desc_endpoint_t));
+                memcpy(&in_ep, endp_desc, sizeof(usb_desc_endpoint_t));
             }
             break;
         }
@@ -534,8 +559,11 @@ static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t leng
         return false;
     }
 
-    memcpy(hub, &temp_hub, sizeof(hubh_handle_t));
     hub->dev = dev;
+    hub->itf_num = itf_num;
+    hub->alt_setting = alt_setting;
+    hub->protocol = protocol;
+    memcpy(&hub->in_ep, &in_ep, sizeof(usb_desc_endpoint_t));
     usbh_list_append((void **)&hub_list, hub);
     return true;
 }

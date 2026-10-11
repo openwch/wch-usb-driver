@@ -182,12 +182,16 @@ void usbhsh_event_handle(usbh_handle_t *h)
     uint8_t port_change = USBHSH->PORT_STATUS_CHG;
     if (port_change & USBHS_UHIF_PORT_CONNECT)
     {
-        h->root_port_change = true;
         USBHSH->PORT_STATUS_CHG = USBHS_UHIF_PORT_CONNECT;
+        h->root_port_change = true;
     }
     else if (port_change & USBHS_UHIF_PORT_SUSP)
     {
         USBHSH->PORT_STATUS_CHG = USBHS_UHIF_PORT_SUSP;
+        if (!(USBHSH->PORT_STATUS & USBHS_UHIS_PORT_SUSP))
+        {
+            usbh_device_resume(h, 0, 0);
+        }
     }
     else
     {

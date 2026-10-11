@@ -81,6 +81,7 @@ typedef void (*usbh_ctrl_xfer_cb)(void *handle, bool rst, const usb_setup_t *set
 typedef void (*usbh_data_xfer_cb)(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
 typedef bool (*usbh_drv_bind_cb)(usbh_device_t *dev, const void *desc, uint16_t length);
 typedef bool (*usbh_drv_unbind_cb)(usbh_device_t *dev, uint8_t itf_num);
+typedef void (*usbh_drv_dev_wakeup_cb)(usbh_device_t *dev);
 
 /* @typedef */
 typedef struct usbh_endpoint usbh_endpoint_t;
@@ -200,7 +201,9 @@ typedef struct usbh_device
     uint8_t hub_port;
     uint8_t enum_stage;
     uint8_t speed;
+    uint8_t suspend_stage;
     uint16_t language_id;
+    usbh_drv_dev_wakeup_cb wakeup_cb;
 
     /* Endpoint context */
     usbh_endpoint_t ctrl_endp;
@@ -253,9 +256,8 @@ typedef struct usbh_handle
     usbh_xfer_unit_t *xfer_unit_list;
     usbh_endpoint_t *endpoint_list[4];
 
-    /* Enumeration context */
-    uint32_t enum_tick;
-    __attribute__((aligned(4))) usb_setup_t enum_setup;
+    /* Enumeration descriptor buffer */
+    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) uint8_t enum_desc_buf[USBH_DESC_BUF_SIZE];
 
     /* USB host port operations */
@@ -275,7 +277,8 @@ typedef struct usbh_handle
 void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_reset(usbh_device_t *dev);
-void usbh_device_suspend(usbh_device_t *dev);
+void usbh_device_suspend(usbh_device_t *dev, usbh_drv_dev_wakeup_cb wakeup_cb);
+void usbh_device_resume(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 bool usbh_register_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
 bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
 bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb);

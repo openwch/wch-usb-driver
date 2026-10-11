@@ -493,9 +493,9 @@ static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t leng
 {
     if (!dev || dev->speed == USB_SPEED_LOW || !desc || length == 0) return false;
 
-    uint8_t itf_num;
-    uint8_t alt_setting;
-    uint8_t protocol;
+    uint8_t itf_num = 0;
+    uint8_t alt_setting = 0;
+    uint8_t protocol = 0;
     usb_desc_endpoint_t in_ep;
     uint8_t get_endp_count = 0;
     const uint8_t *curr = (const uint8_t *)desc;

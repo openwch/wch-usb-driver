@@ -57,6 +57,7 @@ extern "C" {
 /* USB HUB host class driver configuration macros */
 #ifdef USB_CLASS_HUBH_DRIVER_EN
 #define HUBH_HANDLE_POOL_SIZE 4
+#define HUBH_MAX_PORT_NUM     8
 #endif
 
 #ifdef __cplusplus

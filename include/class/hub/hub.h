@@ -20,6 +20,11 @@ extern "C" {
 /* @enum */
 typedef enum
 {
+    HUB_DESC_HUB = 0x29,
+} hub_desc_t;
+
+typedef enum
+{
     HUB_REQ_GET_STATUS = 0,
     HUB_REQ_CLEAR_FEATURE = 1,
     HUB_REQ_SET_FEATURE = 3,
@@ -60,7 +65,7 @@ typedef enum
 } hub_protocol_t;
 
 /* @struct */
-typedef struct __attribute__((packed))
+typedef struct
 {
     union
     {
@@ -87,7 +92,7 @@ typedef struct __attribute__((packed))
     };
 } hub_status_t;
 
-typedef struct __attribute__((packed))
+typedef struct
 {
     union
     {
@@ -124,6 +129,19 @@ typedef struct __attribute__((packed))
         } change_bits;
     };
 } hub_port_status_t;
+
+/* @struct */
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bNbrPorts;
+    uint16_t wHubCharacteristics;
+    uint8_t bPwrOn2PwrGood;
+    uint8_t bHubContrCurrent;
+    uint8_t DeviceRemovable;
+    uint8_t PortPwrCtrlMask;
+} usb_desc_hub_t;
 
 #ifdef __cplusplus
 }

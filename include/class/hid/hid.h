@@ -280,7 +280,7 @@ typedef struct __attribute__((packed))
     uint8_t bNumDescriptors;
     uint8_t bReportType;
     uint16_t wReportLength;
-} hid_desc_hid_t;
+} usb_desc_hid_t;
 
 #ifdef __cplusplus
 }

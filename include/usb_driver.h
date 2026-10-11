@@ -25,7 +25,7 @@
 #include "host/usbh_driver_public.h"
 
 /* USB class driver includes */
-#include "class/hub/hubh.h"
+#include "class/hub/hub.h"
 #include "class/hid/hid.h"
 #include "class/cdc/cdc.h"
 #include "class/cdc/cdc_acm.h"

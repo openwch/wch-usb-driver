@@ -29,6 +29,8 @@ extern "C" {
 #define USBH_DRV_MATCH_ITF_SUBCLASS 0x0040
 #define USBH_DRV_MATCH_ITF_PROTOCOL 0x0080
 
+#define USBH_DRV_ALL_INTERFACE      0xFF
+
 /* @enum */
 typedef enum
 {
@@ -163,6 +165,8 @@ typedef struct usbh_xfer_ctx
     uint32_t retry;
     uint32_t length;
     uint32_t offset;
+    uint32_t timestamp;
+    uint32_t timeout;
     void *buf;
     const usb_setup_t *setup;
 } usbh_xfer_ctx_t;
@@ -188,6 +192,9 @@ typedef struct usbh_device
 
     /* Device handle context */
     usbh_handle_t *host;
+    bool self_powered;
+    bool remote_wakeup;
+    bool suspended;
     uint8_t address;
     uint8_t hub_addr;
     uint8_t hub_port;
@@ -205,19 +212,24 @@ typedef struct usbh_device
 
 typedef struct
 {
+    /* VID PID information */
     uint16_t vid;
     uint16_t pid;
 
+    /* Device information */
     uint8_t dev_class;
     uint8_t dev_subclass;
     uint8_t dev_protocol;
 
+    /* Interface information */
     uint8_t itf_class;
     uint8_t itf_subclass;
     uint8_t itf_protocol;
 
+    /* Match criteria */
     uint16_t match_bitmap;
 
+    /* Driver callbacks */
     usbh_drv_bind_cb bind;
     usbh_drv_unbind_cb unbind;
 } usbh_drv_info_t;
@@ -255,8 +267,8 @@ typedef struct usbh_handle
     void (*root_set_feature)(usbh_handle_t *h, usbh_port_feature_t feature);
 
     /* USB host hub operations */
-    void (*port_get_status)(usbh_handle_t *h, usbh_port_status_t *status);
-    void (*port_set_feature)(usbh_handle_t *h, usbh_port_feature_t feature);
+    void (*port_get_status)(usbh_device_t *dev, usbh_port_status_t *status);
+    void (*port_set_feature)(usbh_device_t *dev, usbh_port_feature_t feature);
 } usbh_handle_t;
 
 /* @function declaration */
@@ -269,8 +281,11 @@ bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
 bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb);
 bool usbh_endp_open(usbh_device_t *dev, void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
 bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp);
-bool usbh_endp_read(usbh_device_t *dev, usb_endp_t endp, void *buf, size_t len);
-bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_t len);
+bool usbh_endp_read(usbh_device_t *dev, usb_endp_t endp, void *buf, size_t len, uint32_t timeout);
+bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_t len, uint32_t timeout);
+bool usbh_is_ctrl_xfering(usbh_device_t *dev);
+bool usbh_is_endp_xfering(usbh_device_t *dev, usb_endp_t endp);
+uint32_t usbh_drv_get_timestamp(usbh_handle_t *h);
 
 /* @inline functions */
 static inline void usbh_list_append(void **list, void *node)

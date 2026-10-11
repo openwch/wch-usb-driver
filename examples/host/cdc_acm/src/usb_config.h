@@ -29,6 +29,7 @@ extern "C" {
 
 /* USB class host drivers enable macros */
 #ifdef USB_HOST_DRIVER_EN
+#define USB_CLASS_HUBH_DRIVER_EN
 // #define USB_CLASS_HIDH_DRIVER_EN
 #define USB_CLASS_CDCH_ACM_DRIVER_EN
 #endif
@@ -48,9 +49,15 @@ extern "C" {
 #define USBD_INTERFACE_CB_COUNT 2
 
 /* USB host driver parameters macros */
+#define USBH_DRIVER_MAX_COUNT   4
 #define USBH_DEVICE_POOL_SIZE   4
 #define USBH_ENDPOINT_POOL_SIZE 12
 #define USBH_DESC_BUF_SIZE      1024
+
+/* USB HUB host class driver configuration macros */
+#ifdef USB_CLASS_HUBH_DRIVER_EN
+#define HUBH_HANDLE_POOL_SIZE 4
+#endif
 
 #ifdef __cplusplus
 }

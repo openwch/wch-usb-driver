@@ -18,6 +18,17 @@
 extern "C" {
 #endif
 
+/* @define */
+#define USBH_DRV_MATCH_ALL          0xFFFF
+#define USBH_DRV_MATCH_VID          0x0001
+#define USBH_DRV_MATCH_PID          0x0002
+#define USBH_DRV_MATCH_DEV_CLASS    0x0004
+#define USBH_DRV_MATCH_DEV_SUBCLASS 0x0008
+#define USBH_DRV_MATCH_DEV_PROTOCOL 0x0010
+#define USBH_DRV_MATCH_ITF_CLASS    0x0020
+#define USBH_DRV_MATCH_ITF_SUBCLASS 0x0040
+#define USBH_DRV_MATCH_ITF_PROTOCOL 0x0080
+
 /* @enum */
 typedef enum
 {
@@ -66,6 +77,8 @@ typedef enum
 /* @function pointer */
 typedef void (*usbh_ctrl_xfer_cb)(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length);
 typedef void (*usbh_data_xfer_cb)(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
+typedef bool (*usbh_drv_bind_cb)(usbh_device_t *dev, const void *desc, uint16_t length);
+typedef bool (*usbh_drv_unbind_cb)(usbh_device_t *dev, uint8_t itf_num);
 
 /* @typedef */
 typedef struct usbh_endpoint usbh_endpoint_t;
@@ -190,6 +203,25 @@ typedef struct usbh_device
     usb_desc_device_t dev_desc;
 } usbh_device_t;
 
+typedef struct
+{
+    uint16_t vid;
+    uint16_t pid;
+
+    uint8_t dev_class;
+    uint8_t dev_subclass;
+    uint8_t dev_protocol;
+
+    uint8_t itf_class;
+    uint8_t itf_subclass;
+    uint8_t itf_protocol;
+
+    uint16_t match_bitmap;
+
+    usbh_drv_bind_cb bind;
+    usbh_drv_unbind_cb unbind;
+} usbh_drv_info_t;
+
 typedef struct usbh_handle
 {
     /* Port context */
@@ -202,6 +234,7 @@ typedef struct usbh_handle
     uint32_t bus_address_bitmap[4];
     uint32_t tick;
     usbh_device_t *device_list;
+    const usbh_drv_info_t *drv_info_list[USBH_DRIVER_MAX_COUNT];
 
     /* Transfer context */
     uint32_t xfer_tick;
@@ -230,8 +263,11 @@ typedef struct usbh_handle
 void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 void usbh_device_reset(usbh_device_t *dev);
-bool usbh_ctrl_xfer(usbh_device_t *dev, const void *handle, usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb);
-bool usbh_endp_open(usbh_device_t *dev, const void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
+void usbh_device_suspend(usbh_device_t *dev);
+bool usbh_register_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
+bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
+bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb);
+bool usbh_endp_open(usbh_device_t *dev, void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
 bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp);
 bool usbh_endp_read(usbh_device_t *dev, usb_endp_t endp, void *buf, size_t len);
 bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_t len);

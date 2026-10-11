@@ -374,9 +374,75 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     }
 }
 
-static bool bind_class_driver(usbh_handle_t *h, usbh_device_t *dev)
+static bool match_driver(usbh_handle_t *h, usbh_device_t *dev, const void *desc, size_t size)
 {
-    return true;
+    usb_desc_device_t *dev_desc = &dev->dev_desc;
+    usb_desc_interface_t *itf_desc = (usb_desc_interface_t *)desc;
+
+    for (size_t i = 0; i < USB_ARRAY_SIZE(h->drv_info_list); i++)
+    {
+        const usbh_drv_info_t *drv_info = h->drv_info_list[i];
+        uint16_t match = drv_info->match_bitmap;
+        if (!drv_info) continue;
+        if ((match & USBH_DRV_MATCH_VID) && dev_desc->idVendor != drv_info->vid) continue;
+        if ((match & USBH_DRV_MATCH_PID) && dev_desc->idProduct != drv_info->pid) continue;
+        if ((match & USBH_DRV_MATCH_DEV_CLASS) && dev_desc->bDeviceClass != drv_info->dev_class) continue;
+        if ((match & USBH_DRV_MATCH_DEV_SUBCLASS) && dev_desc->bDeviceSubClass != drv_info->dev_subclass) continue;
+        if ((match & USBH_DRV_MATCH_DEV_PROTOCOL) && dev_desc->bDeviceProtocol != drv_info->dev_protocol) continue;
+        if ((match & USBH_DRV_MATCH_ITF_CLASS) && itf_desc->bInterfaceClass != drv_info->itf_class) continue;
+        if ((match & USBH_DRV_MATCH_ITF_SUBCLASS) && itf_desc->bInterfaceSubClass != drv_info->itf_subclass) continue;
+        if ((match & USBH_DRV_MATCH_ITF_PROTOCOL) && itf_desc->bInterfaceProtocol != drv_info->itf_protocol) continue;
+        return drv_info->bind(dev, desc, size);
+    }
+    return false;
+}
+
+static bool bind_class_driver(usbh_handle_t *h, usbh_device_t *dev, const void *desc)
+{
+    uint8_t bind_count = 0;
+    const uint8_t *slow;
+    const uint8_t *fast;
+    const uint8_t *end;
+    usb_desc_config_t *config_desc = (usb_desc_config_t *)desc;
+    slow = fast = (const uint8_t *)desc + config_desc->bLength;
+    end = (const uint8_t *)desc + config_desc->wTotalLength;
+
+    while (fast < end)
+    {
+        uint8_t len = fast[0];
+        uint8_t type = fast[1];
+
+        /* Match the current non-alternate setting interface */
+        if (type == USB_DESC_INTERFACE && fast[4] == 0 && fast > slow)
+        {
+            if (match_driver(h, dev, slow, fast - slow))
+            {
+                bind_count++;
+            }
+            slow = fast;
+            fast += len;
+        }
+        /* Skip interface association descriptor */
+        else if (type == USB_DESC_INTERFACE_ASSOCIATION)
+        {
+            fast += len;
+            slow = fast;
+        }
+        /* Skip other descriptor types */
+        else
+        {
+            fast += len;
+        }
+    }
+
+    /* Match the last interface */
+    if (match_driver(h, dev, slow, fast - slow))
+    {
+        bind_count++;
+    }
+
+    /* Return true if at least one interface was successfully matched */
+    return bind_count > 0;
 }
 
 static void unbind_class_driver(usbh_handle_t *h, usbh_device_t *dev)
@@ -465,7 +531,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
         break;
 
     case ENUM_STAGE_BIND_DRIVER:
-        if (bind_class_driver(h, dev))
+        if (bind_class_driver(h, dev, h->enum_desc_buf))
         {
             dev->enum_stage = ENUM_STAGE_SET_CONFIG;
             usb_desc_config_t *config_desc = (usb_desc_config_t *)h->enum_desc_buf;
@@ -502,11 +568,10 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
                 USB_LOGE("Handle: %p Bind driver failed", dev);
             }
         }
-
         break;
 
     case ENUM_STAGE_ENUM_FAILED:
-        // TODO: Suspend the device
+        usbh_device_suspend(dev);
         dev->enum_stage = ENUM_STAGE_END;
         break;
     }
@@ -873,7 +938,53 @@ void usbh_device_reset(usbh_device_t *dev)
     }
 }
 
-bool usbh_ctrl_xfer(usbh_device_t *dev, const void *handle, usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb)
+void usbh_device_suspend(usbh_device_t *dev)
+{
+    if (dev == NULL || dev->address == 0) return;
+
+    if (dev->hub_addr == 0)
+    {
+        dev->host->root_set_feature(dev->host, USBH_PORT_FEATURE_SUSPEND);
+    }
+    else if (dev->host->port_set_feature)
+    {
+        dev->host->port_set_feature(dev->host, USBH_PORT_FEATURE_SUSPEND);
+    }
+    else
+    {
+        USB_LOGW("Handle: %p Does not support hub port operations", dev->host);
+    }
+}
+
+bool usbh_register_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info)
+{
+    if (h == NULL || drv_info == NULL) return false;
+    for (size_t i = 0; i < USB_ARRAY_SIZE(h->drv_info_list); i++)
+    {
+        if (h->drv_info_list[i] == NULL)
+        {
+            h->drv_info_list[i] = drv_info;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info)
+{
+    if (h == NULL || drv_info == NULL) return false;
+    for (size_t i = 0; i < USB_ARRAY_SIZE(h->drv_info_list); i++)
+    {
+        if (h->drv_info_list[i] == drv_info)
+        {
+            h->drv_info_list[i] = NULL;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb)
 {
     usbh_xfer_ctx_t *xfer_ctx = &dev->ctrl_endp.xfer_ctx;
     if (!xfer_ctx->is_busy)
@@ -890,7 +1001,7 @@ bool usbh_ctrl_xfer(usbh_device_t *dev, const void *handle, usb_setup_t *setup, 
     return false;
 }
 
-bool usbh_endp_open(usbh_device_t *dev, const void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb)
+bool usbh_endp_open(usbh_device_t *dev, void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb)
 {
     usbh_endpoint_t *ep = endpoint_handle_alloc();
     if (!ep)

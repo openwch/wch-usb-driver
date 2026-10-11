@@ -35,10 +35,12 @@ int main(void)
     assert(usbh_handle != NULL);
 
     assert(usbh_drv_open(usbh_handle));
+    assert(hubh_drv_open(usbh_handle));
 
     while (1)
     {
         usbh_drv_task(usbh_handle);
+        hubh_drv_task();
     }
 
     return 0;

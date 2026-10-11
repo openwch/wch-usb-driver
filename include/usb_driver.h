@@ -25,6 +25,7 @@
 #include "host/usbh_driver_public.h"
 
 /* USB class driver includes */
+#include "class/hub/hubh.h"
 #include "class/hid/hid.h"
 #include "class/cdc/cdc.h"
 #include "class/cdc/cdc_acm.h"
@@ -34,6 +35,7 @@
 #include "class/cdc/cdcd_acm.h"
 
 /* USB host class driver includes */
+#include "class/hub/hubh.h"
 
 #ifdef __cplusplus
 extern "C" {

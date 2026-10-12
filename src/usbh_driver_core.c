@@ -516,10 +516,14 @@ static bool bind_class_driver(usbh_handle_t *h, usbh_device_t *dev, const void *
     const uint8_t *slow;
     const uint8_t *fast;
     const uint8_t *end;
+    uint8_t itf_count = 1;
     uint8_t bind_count = 0;
     usb_desc_config_t *config_desc = (usb_desc_config_t *)desc;
     slow = fast = (const uint8_t *)desc + config_desc->bLength;
     end = (const uint8_t *)desc + config_desc->wTotalLength;
+
+    /* The CDC device has two interfaces */
+    if (dev->dev_desc.bDeviceClass == USB_CLASS_CDC) itf_count = 2;
 
     while (fast < end)
     {
@@ -532,17 +536,26 @@ static bool bind_class_driver(usbh_handle_t *h, usbh_device_t *dev, const void *
             {
                 bind_count++;
             }
+            const usb_desc_iad_t *iad_desc = (const usb_desc_iad_t *)fast;
+            itf_count = iad_desc->bInterfaceCount;
             fast += len;
             slow = fast;
         }
-        else if (fast > slow && type == USB_DESC_INTERFACE && fast[3] == 0)
+        else if (type == USB_DESC_INTERFACE && fast[3] == 0 && fast > slow)
         {
+            itf_count--;
+            if (itf_count > 0)
+            {
+                fast += len;
+                continue;
+            }
+
+            itf_count = 1;
             if (match_driver(h, dev, slow, fast - slow))
             {
                 bind_count++;
             }
             slow = fast;
-            fast += len;
         }
         else
         {
@@ -565,7 +578,7 @@ static void unbind_class_driver(usbh_handle_t *h, usbh_device_t *dev)
     for (size_t i = 0; i < USB_ARRAY_SIZE(h->drv_info_list); i++)
     {
         const usbh_drv_info_t *drv_info = h->drv_info_list[i];
-        if (drv_info && drv_info->unbind)
+        if (drv_info)
         {
             drv_info->unbind(dev, USBH_DRV_ALL_INTERFACE);
         }
@@ -1229,13 +1242,13 @@ void usbh_drv_task(usbh_handle_t *h)
 
 bool usbh_drv_open(usbh_handle_t *h)
 {
-    if (h == NULL) return false;
+    if (!h) return false;
     return h->open(h);
 }
 
 bool usbh_drv_close(usbh_handle_t *h)
 {
-    if (h == NULL) return false;
+    if (!h) return false;
     usbh_device_remove(h, 0, 0);
     return h->close(h);
 }
@@ -1244,7 +1257,7 @@ void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
 {
     /* Allocate a new device handle */
     usbh_device_t *dev = device_handle_alloc();
-    if (dev == NULL)
+    if (!dev)
     {
         USB_LOGE("Host handle: %p Failed to allocate device handle", h);
         return;
@@ -1325,7 +1338,7 @@ void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
 
 void usbh_device_reset(usbh_device_t *dev)
 {
-    if (dev == NULL || dev->address == 0) return;
+    if (!dev || dev->address == 0) return;
 
     dev->enum_stage = ENUM_STAGE_RESET;
     if (dev->hub_addr == 0)
@@ -1344,7 +1357,7 @@ void usbh_device_reset(usbh_device_t *dev)
 
 void usbh_device_suspend(usbh_device_t *dev, usbh_drv_dev_wakeup_cb wakeup_cb)
 {
-    if (dev == NULL || dev->address == 0) return;
+    if (!dev || dev->address == 0) return;
 
     dev->suspended = true;
     dev->wakeup_cb = wakeup_cb;
@@ -1366,7 +1379,7 @@ void usbh_device_suspend(usbh_device_t *dev, usbh_drv_dev_wakeup_cb wakeup_cb)
 
 void usbh_device_resume(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
 {
-    if (h == NULL) return;
+    if (!h) return;
 
     usbh_device_t *dev = h->device_list;
     while (dev)
@@ -1382,7 +1395,7 @@ void usbh_device_resume(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
 
 bool usbh_register_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info)
 {
-    if (h == NULL || drv_info == NULL) return false;
+    if (!h || !drv_info || !drv_info->bind || !drv_info->unbind) return false;
     for (size_t i = 0; i < USB_ARRAY_SIZE(h->drv_info_list); i++)
     {
         if (h->drv_info_list[i] == NULL)
@@ -1396,7 +1409,7 @@ bool usbh_register_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info)
 
 bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info)
 {
-    if (h == NULL || drv_info == NULL) return false;
+    if (!h || !drv_info) return false;
     for (size_t i = 0; i < USB_ARRAY_SIZE(h->drv_info_list); i++)
     {
         if (h->drv_info_list[i] == drv_info)

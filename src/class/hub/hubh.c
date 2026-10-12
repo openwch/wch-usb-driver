@@ -470,7 +470,7 @@ static void hub_set_feature(usbh_device_t *dev, usbh_port_feature_t feature)
 
 bool hubh_drv_open(usbh_handle_t *h)
 {
-    if (h == NULL) return false;
+    if (!h) return false;
     if (!usbh_register_driver(h, &hubh_drv_info)) return false;
     h->port_get_status = hub_get_status;
     h->port_set_feature = hub_set_feature;
@@ -479,7 +479,7 @@ bool hubh_drv_open(usbh_handle_t *h)
 
 bool hubh_drv_close(usbh_handle_t *h)
 {
-    if (h == NULL) return false;
+    if (!h) return false;
     return usbh_unregister_driver(h, &hubh_drv_info);
 }
 

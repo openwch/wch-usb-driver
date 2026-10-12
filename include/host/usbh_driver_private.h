@@ -253,6 +253,7 @@ typedef struct usbh_handle
     bool root_port_change;
     bool xfer_busy;
     uint8_t speed;
+    uint8_t microframe;
     uint32_t bus_address_bitmap[4];
     uint32_t tick;
     usbh_device_t *device_list;

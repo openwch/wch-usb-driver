@@ -25,8 +25,10 @@
 #define USBH_ENDPOINT_POOL_SIZE 4
 #endif
 
-#define ENDP0_DEFAULT_MPS 8
-#define CTRL_XFER_TIMEOUT 100
+#define ENDP0_DEFAULT_MPS      8
+#define CTRL_XFER_TIMEOUT      100
+#define SPLIT_MAX_RETRY        6
+#define SPLIT_ISO_OUT_MAX_SIZE 188
 
 /* @enum */
 typedef enum
@@ -654,6 +656,72 @@ static void device_suspend_task(usbh_handle_t *h, usbh_device_t *dev)
     }
 }
 
+static bool split_xfer_completed_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit)
+{
+    usbh_split_data_t *split = &xfer_unit->split_data;
+    if (split->sc == 0)
+    {
+        /* Check if there is any remaining split ISO OUT data to be transferred */
+        if (xfer_unit->split_iso_out_len)
+        {
+            xfer_unit->split_iso_out_ofs += xfer_unit->xfer_len;
+
+            /* Update the split ISO OUT offset with the length of the completed transfer */
+            if (xfer_unit->split_iso_out_ofs >= xfer_unit->split_iso_out_len)
+            {
+                xfer_unit->xfer_len = xfer_unit->split_iso_out_ofs;
+                xfer_unit->split_iso_out_ofs = 0;
+                return true;
+            }
+
+            /* Prepare the next split ISO OUT transfer */
+            xfer_unit->buf += xfer_unit->xfer_len;
+            uint16_t remaining = xfer_unit->split_iso_out_len - xfer_unit->split_iso_out_ofs;
+            if (remaining <= SPLIT_ISO_OUT_MAX_SIZE)
+            {
+                split->s = 0;
+                split->e = 1;
+                xfer_unit->xfer_len = remaining;
+            }
+            else
+            {
+                split->s = 0;
+                split->e = 0;
+                xfer_unit->xfer_len = SPLIT_ISO_OUT_MAX_SIZE;
+            }
+            return false;
+        }
+
+        /* Check if the split transfer is complete or needs to continue */
+        if (split->et == USB_ENDP_TYPE_INTR || split->et == USB_ENDP_TYPE_ISOC || xfer_unit->rx_pid == USBH_PID_ACK)
+        {
+            split->sc = 1;
+            xfer_unit->split_retry = 0;
+            xfer_unit->split_tick = h->tick;
+            return false;
+        }
+    }
+    /* Complete split stage transfer incomplete */
+    else if (xfer_unit->rx_pid == USBH_PID_NYET)
+    {
+        xfer_unit->split_retry++;
+        if (xfer_unit->split_retry > SPLIT_MAX_RETRY)
+        {
+            split->sc = 0;
+        }
+        return false;
+    }
+    /* If the PID is MDATA, it indicates that there is more data to be transferred */
+    else if (xfer_unit->rx_pid == USBH_PID_MDATA)
+    {
+        xfer_unit->buf += xfer_unit->xfer_len;
+        return false;
+    }
+
+    split->sc = 0;
+    return true;
+}
+
 static void xfer_completed_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit)
 {
     usbh_endpoint_t *ep = xfer_unit->endpoint;
@@ -761,44 +829,101 @@ static void xfer_completed_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit
     }
 }
 
+static bool split_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit, usbh_xfer_unit_t ***last)
+{
+    static const uint8_t valid_microframe[] = {6, 1, 6, 2};
+    usbh_split_data_t *split = &xfer_unit->split_data;
+
+    /* Split transfer complete stage */
+    if (split->sc || xfer_unit->split_iso_out_ofs)
+    {
+        if (xfer_unit->split_tick != h->tick)
+        {
+            xfer_unit->split_tick = h->tick;
+            xfer_unit->next = NULL;
+            **last = xfer_unit;
+            *last = &xfer_unit->next;
+        }
+        return false;
+    }
+    /* Split transfer start stage */
+    else if (h->microframe < valid_microframe[xfer_unit->endpoint->type])
+    {
+        if (xfer_unit->endpoint->type == USB_ENDP_TYPE_ISOC && xfer_unit->token == USBH_PID_OUT)
+        {
+            usbh_xfer_ctx_t *xfer_ctx = &xfer_unit->endpoint->xfer_ctx;
+            xfer_unit->split_iso_out_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, 1023);
+            xfer_unit->split_iso_out_ofs = 0;
+            split->s = 1;
+            split->e = xfer_unit->split_iso_out_len <= SPLIT_ISO_OUT_MAX_SIZE ? 1 : 0;
+        }
+        return true;
+    }
+    return false;
+}
+
 static usbh_xfer_unit_t **ctrl_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
 {
     usbh_endpoint_t *ep = list;
     while (ep)
     {
         usbh_xfer_ctx_t *xfer_ctx = &ep->xfer_ctx;
-        if (xfer_ctx->is_busy)
+        if (!xfer_ctx->is_busy)
         {
-            usbh_xfer_unit_t *xfer_unit = &ep->xfer_unit;
-            switch (xfer_ctx->ctrl_stage)
+            ep = ep->next;
+            continue;
+        }
+        usbh_xfer_unit_t *xfer_unit = &ep->xfer_unit;
+
+        /* Handle split transfer */
+        if (xfer_unit->split_data.split_data)
+        {
+            if (!split_xfer_process(h, xfer_unit, &last))
             {
-            case USB_CTRL_STAGE_SETUP:
-                xfer_unit->token = USBH_PID_SETUP;
-                xfer_unit->toggle = USBH_TOGGLE_DATA0;
-                xfer_unit->xfer_len = sizeof(usb_setup_t);
-                xfer_unit->buf = (void *)xfer_ctx->setup;
-                break;
-
-            case USB_CTRL_STAGE_DATA:
-                xfer_unit->token = USB_ENDP_DIR(xfer_ctx->setup->bmRequestType) ? USBH_PID_IN : USBH_PID_OUT;
-                xfer_unit->toggle = xfer_ctx->toggle;
-                xfer_unit->xfer_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, ep->mps);
-                xfer_unit->buf = (uint8_t *)xfer_ctx->buf + xfer_ctx->offset;
-                break;
-
-            case USB_CTRL_STAGE_STATUS:
-                xfer_unit->token = USB_ENDP_DIR(xfer_ctx->setup->bmRequestType) ? USBH_PID_OUT : USBH_PID_IN;
-                xfer_unit->toggle = USBH_TOGGLE_DATA1;
-                xfer_unit->xfer_len = 0;
-                xfer_unit->buf = NULL;
-                break;
+                ep = ep->next;
+                continue;
             }
+        }
 
-            /* Append the transfer unit to the linked list */
+        /* Handle PING token separately */
+        if (xfer_unit->token == USBH_PID_PING)
+        {
             xfer_unit->next = NULL;
             *last = xfer_unit;
             last = &xfer_unit->next;
+            ep = ep->next;
+            continue;
         }
+
+        switch (xfer_ctx->ctrl_stage)
+        {
+        case USB_CTRL_STAGE_SETUP:
+            xfer_unit->token = USBH_PID_SETUP;
+            xfer_unit->toggle = USBH_TOGGLE_DATA0;
+            xfer_unit->xfer_len = sizeof(usb_setup_t);
+            xfer_unit->buf = (void *)xfer_ctx->setup;
+            break;
+
+        case USB_CTRL_STAGE_DATA:
+            xfer_unit->token = USB_ENDP_DIR(xfer_ctx->setup->bmRequestType) ? USBH_PID_IN : USBH_PID_OUT;
+            xfer_unit->toggle = xfer_ctx->toggle;
+            xfer_unit->xfer_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, ep->mps);
+            xfer_unit->buf = (uint8_t *)xfer_ctx->buf + xfer_ctx->offset;
+            break;
+
+        case USB_CTRL_STAGE_STATUS:
+            xfer_unit->token = USB_ENDP_DIR(xfer_ctx->setup->bmRequestType) ? USBH_PID_OUT : USBH_PID_IN;
+            xfer_unit->toggle = USBH_TOGGLE_DATA1;
+            xfer_unit->xfer_len = 0;
+            xfer_unit->buf = NULL;
+            break;
+        }
+
+        /* Append the transfer unit to the linked list */
+        xfer_unit->next = NULL;
+        *last = xfer_unit;
+        last = &xfer_unit->next;
+
         ep = ep->next;
     }
     return last;
@@ -811,6 +936,49 @@ static usbh_xfer_unit_t **isoc_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
 
 static usbh_xfer_unit_t **bulk_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t **last, usbh_endpoint_t *list)
 {
+    usbh_endpoint_t *ep = list;
+    while (ep)
+    {
+        usbh_xfer_ctx_t *xfer_ctx = &ep->xfer_ctx;
+        if (!xfer_ctx->is_busy)
+        {
+            ep = ep->next;
+            continue;
+        }
+        usbh_xfer_unit_t *xfer_unit = &ep->xfer_unit;
+
+        /* Handle split transfer */
+        if (xfer_unit->split_data.split_data)
+        {
+            if (!split_xfer_process(h, xfer_unit, &last))
+            {
+                ep = ep->next;
+                continue;
+            }
+        }
+
+        /* Handle PING token separately */
+        if (xfer_unit->token == USBH_PID_PING)
+        {
+            xfer_unit->next = NULL;
+            *last = xfer_unit;
+            last = &xfer_unit->next;
+            ep = ep->next;
+            continue;
+        }
+
+        /* Prepare the transfer unit for bulk transfer */
+        xfer_unit->toggle = xfer_ctx->toggle;
+        xfer_unit->xfer_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, ep->mps);
+        xfer_unit->buf = (uint8_t *)xfer_ctx->buf + xfer_ctx->offset;
+
+        /* Append the transfer unit to the linked list */
+        xfer_unit->next = NULL;
+        *last = xfer_unit;
+        last = &xfer_unit->next;
+
+        ep = ep->next;
+    }
     return last;
 }
 
@@ -820,13 +988,29 @@ static usbh_xfer_unit_t **intr_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
     while (ep)
     {
         usbh_xfer_ctx_t *xfer_ctx = &ep->xfer_ctx;
-        if (xfer_ctx->is_busy && h->tick - xfer_ctx->tick > ep->interval)
+        if (!xfer_ctx->is_busy)
+        {
+            ep = ep->next;
+            continue;
+        }
+        usbh_xfer_unit_t *xfer_unit = &ep->xfer_unit;
+
+        /* Handle split transfer */
+        if (xfer_unit->split_data.split_data)
+        {
+            if (!split_xfer_process(h, xfer_unit, &last))
+            {
+                ep = ep->next;
+                continue;
+            }
+        }
+
+        if (h->tick - xfer_ctx->tick > ep->interval)
         {
             /* Update interval tick */
             xfer_ctx->tick = h->tick;
 
-            /* Prepare the transfer unit */
-            usbh_xfer_unit_t *xfer_unit = &ep->xfer_unit;
+            /* Prepare the transfer unit for interrupt transfer */
             xfer_unit->toggle = xfer_ctx->toggle;
             xfer_unit->xfer_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, ep->mps);
             xfer_unit->buf = (uint8_t *)xfer_ctx->buf + xfer_ctx->offset;
@@ -836,6 +1020,7 @@ static usbh_xfer_unit_t **intr_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
             *last = xfer_unit;
             last = &xfer_unit->next;
         }
+
         ep = ep->next;
     }
     return last;
@@ -889,7 +1074,16 @@ void usbh_drv_task(usbh_handle_t *h)
         usbh_xfer_unit_t *xfer_unit = h->xfer_unit_list;
         while (xfer_unit)
         {
-            xfer_completed_process(h, xfer_unit);
+            bool xfer_completed = true;
+            /* Check if the transfer unit is part of a split transfer */
+            if (xfer_unit->split_data.split_data)
+            {
+                xfer_completed = split_xfer_completed_process(h, xfer_unit);
+            }
+            if (xfer_completed)
+            {
+                xfer_completed_process(h, xfer_unit);
+            }
             xfer_unit = xfer_unit->next;
         }
 

@@ -172,6 +172,7 @@ void usbhsh_event_handle(usbh_handle_t *h)
     {
         USBHSH->INT_FLAG = USBHS_UHIF_SOF_ACT;
         h->tick++;
+        h->microframe = (USBHSH->FRAME >> 16) & 0x07;
     }
     else
     {

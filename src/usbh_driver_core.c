@@ -26,7 +26,7 @@
 #endif
 
 #define ENDP0_DEFAULT_MPS      8
-#define CTRL_XFER_TIMEOUT      100
+#define CTRL_XFER_TIMEOUT      1000
 #define SPLIT_MAX_RETRY        6
 #define SPLIT_ISO_OUT_MAX_SIZE 188
 
@@ -162,13 +162,125 @@ static void get_split_hub_info(usbh_handle_t *h, usbh_device_t *dev, uint8_t *hu
     *hub_port = hshub_port;
 }
 
-static uint8_t check_device_desc(const usb_desc_device_t *dev_desc)
+static uint8_t check_device_desc(usbh_device_t *dev, const usb_desc_device_t *dev_desc)
 {
+    if (!dev || !dev->address || dev->speed == USB_SPEED_UNKNOWN || !dev_desc) return 1;
+    if (dev_desc->bLength != sizeof(usb_desc_device_t)) return 2;
+    if (dev_desc->bDescriptorType != USB_DESC_DEVICE) return 3;
+    if ((dev_desc->bcdUSB & 0xFF00) > 0x0200) return 4;
+    if (dev->speed == USB_SPEED_LOW)
+    {
+        if (dev_desc->bMaxPacketSize0 != 8) return 5;
+    }
+    else if (dev_desc->bMaxPacketSize0 != 8 && dev_desc->bMaxPacketSize0 != 16 && dev_desc->bMaxPacketSize0 != 32 &&
+             dev_desc->bMaxPacketSize0 != 64)
+        return 6;
     return 0;
 }
 
-static uint8_t check_config_desc(const void *config_desc, uint16_t length)
+static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint16_t length)
 {
+    if (!dev || !dev->address || dev->speed == USB_SPEED_UNKNOWN || !desc_coll || length < sizeof(usb_desc_config_t))
+        return 1;
+
+    const usb_desc_config_t *config_desc = (const usb_desc_config_t *)desc_coll;
+    if (config_desc->bLength != sizeof(usb_desc_config_t)) return 2;
+    if (config_desc->bDescriptorType != USB_DESC_CONFIGURATION) return 3;
+    if (config_desc->wTotalLength < sizeof(usb_desc_config_t)) return 4;
+    if (config_desc->bNumInterfaces == 0 || config_desc->bConfigurationValue == 0) return 5;
+    if (!(config_desc->bmAttributes & 0x80) || (config_desc->bmAttributes & 0x1F)) return 6;
+
+    int8_t itf_index = -1;
+    uint8_t itf_count = config_desc->bNumInterfaces;
+    uint8_t endp_count = 0;
+    uint16_t alt_used_bitmap[2] = {0};
+    uint16_t itf_used_bitmap[2] = {0};
+    uint16_t endp_used_bitmap[2] = {0};
+    const uint8_t *curr = (const uint8_t *)desc_coll + sizeof(usb_desc_config_t);
+    const uint8_t *end = (const uint8_t *)desc_coll + length;
+
+    while (curr < end)
+    {
+        uint8_t len = curr[0];
+        if (len < 2 || curr + len > end) return 7;
+
+        uint8_t type = curr[1];
+        switch (type)
+        {
+        case USB_DESC_INTERFACE:
+        {
+            usb_desc_interface_t *itf_desc = (usb_desc_interface_t *)curr;
+            if (itf_desc->bLength != sizeof(usb_desc_interface_t)) return 8;
+            itf_used_bitmap[0] |= alt_used_bitmap[0];
+            itf_used_bitmap[1] |= alt_used_bitmap[1];
+            memset(alt_used_bitmap, 0, sizeof(alt_used_bitmap));
+
+            if (itf_desc->bAlternateSetting == 0)
+            {
+                itf_index++;
+                if (itf_index >= itf_count) return 9;
+                if (endp_used_bitmap[0] & itf_used_bitmap[0] || endp_used_bitmap[1] & itf_used_bitmap[1]) return 10;
+                endp_used_bitmap[0] |= itf_used_bitmap[0];
+                endp_used_bitmap[1] |= itf_used_bitmap[1];
+                memset(itf_used_bitmap, 0, sizeof(itf_used_bitmap));
+            }
+            if (itf_desc->bInterfaceNumber != itf_index) return 11;
+            if (itf_desc->bNumEndpoints > USB_MAX_ENDP_NUM * 2 - 2) return 12;
+            if (endp_count) return 13;
+            endp_count = itf_desc->bNumEndpoints;
+            break;
+        }
+
+        case USB_DESC_ENDPOINT:
+        {
+            static const uint16_t valid_mps_table[3][4] = {
+                // CTRL    ISOC    BULK    INTR
+                {0x0040, 0x03FF, 0x0040, 0x0040}, // FULL
+                {0x0008, 0x0000, 0x0000, 0x0008}, // LOW
+                {0x0040, 0x0400, 0x0200, 0x0400}, // HIGH
+            };
+
+            if (len != sizeof(usb_desc_endpoint_t) && len != sizeof(usb_desc_iso_endpoint_t)) return 14;
+            usb_desc_endpoint_t *endp_desc = (usb_desc_endpoint_t *)curr;
+            uint8_t endp_dir = USB_ENDP_DIR(endp_desc->bEndpointAddress);
+            uint8_t endp_num = USB_ENDP_NUM(endp_desc->bEndpointAddress);
+            uint8_t endp_type = USB_ENDP_GET_TYPE(endp_desc->bmAttributes);
+            if (endp_num == 0 || endp_num >= USB_MAX_ENDP_NUM || endp_type == USB_ENDP_TYPE_CTRL) return 15;
+            uint8_t additional = USB_ENDP_GET_ADDITIONAL(endp_desc->wMaxPacketSize);
+            uint16_t mps = USB_ENDP_GET_MPS(endp_desc->wMaxPacketSize);
+            if (endp_desc->wMaxPacketSize & 0xE000) return 16;
+            if (additional == 0x03 || mps == 0 || mps > valid_mps_table[dev->speed - 1][endp_type]) return 17;
+            if (endp_type != USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_LOW) return 18;
+            if (endp_type == USB_ENDP_TYPE_ISOC && (endp_desc->bInterval == 0 || endp_desc->bInterval > 16)) return 19;
+            if (endp_type == USB_ENDP_TYPE_INTR && endp_desc->bInterval == 0) return 20;
+            if (endp_type == USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_HIGH && endp_desc->bInterval > 16) return 21;
+            if (endp_type == USB_ENDP_TYPE_BULK && dev->speed == USB_SPEED_HIGH && mps != 512) return 22;
+            if (endp_type == USB_ENDP_TYPE_BULK && dev->speed == USB_SPEED_FULL && mps != 8 && mps != 16 && mps != 32 &&
+                mps != 64)
+                return 23;
+            if ((endp_used_bitmap[endp_dir ? 1 : 0] & (1 << endp_num)) ||
+                (alt_used_bitmap[endp_dir ? 1 : 0] & (1 << endp_num)))
+                return 24;
+            if (endp_count == 0) return 25;
+            alt_used_bitmap[endp_dir ? 1 : 0] |= (1 << endp_num);
+            endp_count--;
+            break;
+        }
+
+        default:
+            /* Ignore unknown descriptor types except for IAD and class-specific descriptors */
+            if (type != USB_DESC_INTERFACE_ASSOCIATION && (type < 0x21 || type > 0x2F))
+            {
+                return 26;
+            }
+        }
+        curr += len;
+    }
+    itf_used_bitmap[0] |= alt_used_bitmap[0];
+    itf_used_bitmap[1] |= alt_used_bitmap[1];
+    if (itf_index + 1 != itf_count) return 27;
+    if (endp_count != 0) return 28;
+    if (endp_used_bitmap[0] & itf_used_bitmap[0] || endp_used_bitmap[1] & itf_used_bitmap[1]) return 29;
     return 0;
 }
 
@@ -228,7 +340,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
 
     case ENUM_STAGE_GET_DEVICE_DESC:
     {
-        uint8_t check_rst = check_device_desc((usb_desc_device_t *)buf);
+        uint8_t check_rst = check_device_desc(dev, (usb_desc_device_t *)buf);
         if (check_rst == 0)
         {
             dev->enum_stage = ENUM_STAGE_GET_STRING_DESC;
@@ -318,7 +430,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         }
 
         /* Validate the configuration descriptor */
-        uint8_t check_rst = check_config_desc(buf, length);
+        uint8_t check_rst = check_config_desc(dev, buf, length);
         if (check_rst == 0)
         {
             dev->enum_stage = ENUM_STAGE_BIND_DRIVER;
@@ -380,8 +492,16 @@ static bool bind_class_driver(usbh_handle_t *h, usbh_device_t *dev, const void *
         uint8_t len = fast[0];
         uint8_t type = fast[1];
 
-        /* Match the current non-alternate setting interface */
-        if (type == USB_DESC_INTERFACE && fast[3] == 0 && fast > slow)
+        if (type == USB_DESC_INTERFACE_ASSOCIATION)
+        {
+            if (fast > slow && match_driver(h, dev, slow, fast - slow))
+            {
+                bind_count++;
+            }
+            fast += len;
+            slow = fast;
+        }
+        else if (fast > slow && type == USB_DESC_INTERFACE && fast[3] == 0)
         {
             if (match_driver(h, dev, slow, fast - slow))
             {
@@ -390,13 +510,6 @@ static bool bind_class_driver(usbh_handle_t *h, usbh_device_t *dev, const void *
             slow = fast;
             fast += len;
         }
-        /* Skip interface association descriptor */
-        else if (type == USB_DESC_INTERFACE_ASSOCIATION)
-        {
-            fast += len;
-            slow = fast;
-        }
-        /* Skip other descriptor types */
         else
         {
             fast += len;
@@ -404,7 +517,7 @@ static bool bind_class_driver(usbh_handle_t *h, usbh_device_t *dev, const void *
     }
 
     /* Match the last interface */
-    if (match_driver(h, dev, slow, fast - slow))
+    if (fast > slow && match_driver(h, dev, slow, fast - slow))
     {
         bind_count++;
     }

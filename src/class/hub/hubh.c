@@ -92,6 +92,9 @@ static const usbh_drv_info_t hubh_drv_info = {
 
 static uint8_t check_hub_desc(const usb_desc_hub_t *hub_desc)
 {
+    if (!hub_desc) return 1;
+    if (hub_desc->bDescriptorType != HUB_DESC_HUB) return 2;
+    if (hub_desc->bNbrPorts == 0 || hub_desc->bNbrPorts > HUBH_MAX_PORT_NUM) return 3;
     return 0;
 }
 
@@ -113,13 +116,6 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         uint8_t check_rst = check_hub_desc(hub_desc);
         if (check_rst == 0)
         {
-            if (hub_desc->bNbrPorts > HUBH_MAX_PORT_NUM)
-            {
-                hub->enum_stage = ENUM_STAGE_ENUM_FAILED;
-                USB_LOGE("Handle: %p Hub has too many ports: %d, max %d", hub, hub_desc->bNbrPorts, HUBH_MAX_PORT_NUM);
-                break;
-            }
-
             hub->port_num = hub_desc->bNbrPorts;
             hub->power_delayms = hub_desc->bPwrOn2PwrGood * 2;
             USB_LOGI("Handle: %p Hub has %d ports, power delay %d ms", hub, hub->port_num, hub->power_delayms);
@@ -508,7 +504,7 @@ static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t leng
     uint8_t itf_num = 0;
     uint8_t alt_setting = 0;
     uint8_t protocol = 0;
-    usb_desc_endpoint_t in_ep;
+    usb_desc_endpoint_t in_ep = {0};
     uint8_t get_endp_count = 0;
     const uint8_t *curr = (const uint8_t *)desc;
     const uint8_t *end = curr + length;

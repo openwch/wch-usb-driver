@@ -27,6 +27,7 @@ extern "C" {
 #define USB_ENDP_NUM(endp)              ((endp) & 0x0F)
 #define USB_ENDP_GET_TYPE(attributes)   ((attributes) & 0x03)
 #define USB_ENDP_GET_MPS(mps)           ((mps) & 0x07FF)
+#define USB_ENDP_GET_ADDITIONAL(mps)    (((mps) >> 11) & 0x03)
 #define USB_MAX_ENDP_NUM                (16)
 
 #define USB_ARRAY_SIZE(arr)             (sizeof(arr) / sizeof((arr)[0]))
@@ -284,6 +285,18 @@ typedef struct __attribute__((packed))
     uint16_t wMaxPacketSize;
     uint8_t bInterval;
 } usb_desc_endpoint_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bEndpointAddress;
+    uint8_t bmAttributes;
+    uint16_t wMaxPacketSize;
+    uint8_t bInterval;
+    uint8_t bRefresh;
+    uint8_t bSynchAddress;
+} usb_desc_iso_endpoint_t;
 
 #ifdef __cplusplus
 }

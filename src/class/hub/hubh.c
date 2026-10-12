@@ -20,6 +20,8 @@
 #error "HUBH_MAX_PORT_NUM must be less than 31"
 #endif
 
+#define CTRL_XFER_TIMEOUT 100
+
 /* @enum */
 typedef enum
 {
@@ -124,7 +126,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                 request->wValue = hub->alt_setting;
                 request->wIndex = hub->itf_num;
                 request->wLength = 0;
-                usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, enum_ctrl_xfer_cb);
+                usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
             }
             else
             {
@@ -137,7 +139,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                 request->wValue = HUB_FEATURE_PORT_POWER;
                 request->wIndex = 1;
                 request->wLength = 0;
-                usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, enum_ctrl_xfer_cb);
+                usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
             }
         }
         else
@@ -158,7 +160,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         request->wValue = HUB_FEATURE_PORT_POWER;
         request->wIndex = 1;
         request->wLength = 0;
-        usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, enum_ctrl_xfer_cb);
+        usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         break;
     }
     case ENUM_STAGE_SET_PORT_POWER:
@@ -174,7 +176,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->wValue = HUB_FEATURE_PORT_POWER;
             request->wIndex = setup->wIndex + 1;
             request->wLength = 0;
-            usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -198,7 +200,7 @@ static void hub_enum_task(hubh_handle_t *hub)
         request->wValue = HUB_DESC_HUB << 8;
         request->wIndex = 0;
         request->wLength = sizeof(hub->enum_buf);
-        if (usbh_ctrl_xfer(hub->dev, hub, request, hub->enum_buf, enum_ctrl_xfer_cb))
+        if (usbh_ctrl_xfer(hub->dev, hub, request, hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb))
         {
             hub->enum_stage = ENUM_STAGE_GET_HUB_DESC;
         }
@@ -240,11 +242,13 @@ static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, c
     hubh_handle_t *hub = (hubh_handle_t *)handle;
     if (setup->wIndex == 0)
     {
+        hub->status_change_bitmap &= ~0x01;
         hub_status_t *hub_status = &hub->hub_status;
         (void)hub_status; // TODO: Handle hub status change
     }
     else
     {
+        hub->status_change_bitmap &= ~(1 << setup->wIndex);
         hub_port_status_t *port_status = &hub->port_status[setup->wIndex - 1];
 
         if (port_status->change)
@@ -277,8 +281,7 @@ static void hub_device_handle(hubh_handle_t *hub)
         request->wValue = 0;
         request->wIndex = 0;
         request->wLength = sizeof(hub->hub_status);
-        usbh_ctrl_xfer(hub->dev, hub, request, (void *)&hub->hub_status, run_ctrl_xfer_cb);
-        hub->status_change_bitmap &= ~0x01;
+        usbh_ctrl_xfer(hub->dev, hub, request, (void *)&hub->hub_status, CTRL_XFER_TIMEOUT, run_ctrl_xfer_cb);
     }
     else if (hub->hub_status.change)
     {
@@ -297,7 +300,7 @@ static void hub_device_handle(hubh_handle_t *hub)
         else
             return;
 
-        usbh_ctrl_xfer(hub->dev, hub, request, NULL, NULL);
+        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
         hub->status_change_bitmap |= 0x01;
     }
 }
@@ -313,8 +316,8 @@ static void hub_port_handle(hubh_handle_t *hub, size_t port)
         request->wValue = 0;
         request->wIndex = port;
         request->wLength = sizeof(hub->port_status[port - 1]);
-        usbh_ctrl_xfer(hub->dev, hub, request, (void *)&hub->port_status[port - 1], run_ctrl_xfer_cb);
-        hub->status_change_bitmap &= ~(1 << port);
+        usbh_ctrl_xfer(hub->dev, hub, request, (void *)&hub->port_status[port - 1], CTRL_XFER_TIMEOUT,
+                       run_ctrl_xfer_cb);
     }
     else if (hub->port_status[port - 1].change)
     {
@@ -339,7 +342,7 @@ static void hub_port_handle(hubh_handle_t *hub, size_t port)
         else
             return;
 
-        usbh_ctrl_xfer(hub->dev, hub, request, NULL, NULL);
+        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
         hub->status_change_bitmap |= 1 << port;
     }
     else if (hub->port_feature[port - 1])
@@ -351,7 +354,7 @@ static void hub_port_handle(hubh_handle_t *hub, size_t port)
         request->wIndex = port;
         request->wLength = 0;
         request->wValue = hub->port_feature[port - 1];
-        usbh_ctrl_xfer(hub->dev, hub, request, NULL, NULL);
+        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
         hub->port_feature[port - 1] = 0;
         hub->status_change_bitmap |= 1 << port;
     }
@@ -402,7 +405,7 @@ static void hub_run_task(hubh_handle_t *hub)
         else
         {
             /* Suspend the HUB if no active ports have connected HUB */
-            // usbh_device_suspend(hub->dev, hub_wakeup_cb);
+            usbh_device_suspend(hub->dev, hub_wakeup_cb);
         }
     }
 }

@@ -17,13 +17,13 @@
 #ifdef USB_HOST_DRIVER_EN
 
 /* @define */
-#define ENDP0_DEFAULT_MPS   8
-
-#define CTRL_XFER_MAX_RETRY 500
+#define ENDP0_DEFAULT_MPS 8
+#define CTRL_XFER_TIMEOUT 100
 
 /* @enum */
 typedef enum
 {
+    ENUM_STAGE_IDLE,
     ENUM_STAGE_RESET,
     ENUM_STAGE_GET_EP0_SIZE,
     ENUM_STAGE_SET_ADDR,
@@ -224,7 +224,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->wValue = dev->address;
             request->wIndex = 0;
             request->wLength = 0;
-            usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -246,7 +246,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         request->wValue = USB_DESC_DEVICE << 8;
         request->wIndex = 0;
         request->wLength = sizeof(usb_desc_device_t);
-        usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
+        usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         break;
     }
 
@@ -265,7 +265,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->wValue = USB_DESC_STRING << 8;
             request->wIndex = 0;
             request->wLength = 4;
-            usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -290,7 +290,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->wValue = USB_DESC_CONFIGURATION << 8;
             request->wIndex = 0;
             request->wLength = 4;
-            usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -316,7 +316,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->bRequest = USB_REQ_GET_DESCRIPTOR;
             request->wIndex = 0;
             request->wLength = config_desc->wTotalLength;
-            usbh_ctrl_xfer(dev, dev, request, (void *)buf, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -452,6 +452,11 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
     usbh_port_status_t port_status;
     switch (dev->enum_stage)
     {
+    case ENUM_STAGE_IDLE:
+        usbh_device_reset(dev);
+        dev->enum_stage = ENUM_STAGE_RESET;
+        break;
+
     case ENUM_STAGE_RESET:
         if (dev->hub_addr == 0)
         {
@@ -524,7 +529,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             request->wValue = USB_DESC_DEVICE << 8;
             request->wIndex = 0;
             request->wLength = 8;
-            usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         break;
 
@@ -543,7 +548,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             request->wValue = config_desc->bConfigurationValue;
             request->wIndex = 0;
             request->wLength = 0;
-            usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -560,7 +565,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
                 request->wValue = (USB_DESC_CONFIGURATION << 8) | (config_index + 1);
                 request->wIndex = 0;
                 request->wLength = 4;
-                usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, enum_ctrl_xfer_cb);
+                usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
             }
             else
             {
@@ -590,7 +595,7 @@ static void device_suspend_task(usbh_handle_t *h, usbh_device_t *dev)
         request->wValue = USB_FEATURE_REMOTE_WAKEUP;
         request->wIndex = 0;
         request->wLength = 0;
-        usbh_ctrl_xfer(dev, dev, request, NULL, NULL);
+        usbh_ctrl_xfer(dev, dev, request, NULL, CTRL_XFER_TIMEOUT, NULL);
         dev->suspend_stage = SUSPEND_STAGE_ENTRY_SUSPEND;
         break;
     }
@@ -622,7 +627,7 @@ static void device_suspend_task(usbh_handle_t *h, usbh_device_t *dev)
         request->wValue = USB_FEATURE_REMOTE_WAKEUP;
         request->wIndex = 0;
         request->wLength = 0;
-        usbh_ctrl_xfer(dev, dev, request, NULL, NULL);
+        usbh_ctrl_xfer(dev, dev, request, NULL, CTRL_XFER_TIMEOUT, NULL);
         dev->suspend_stage = SUSPEND_STAGE_WAKEUP;
         break;
     }
@@ -724,25 +729,13 @@ static void xfer_completed_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit
     {
     }
 
-    if (!rst)
+    /* Check for transfer timeout */
+    if (!rst && xfer_ctx->timeout)
     {
-        /* Check for control transfer retry count */
-        if (ep->type == USB_ENDP_TYPE_CTRL)
+        uint32_t timestamp = usbh_drv_get_timestamp(h);
+        if (timestamp - xfer_ctx->timestamp >= xfer_ctx->timeout)
         {
-            xfer_ctx->retry++;
-            if (xfer_ctx->retry >= CTRL_XFER_MAX_RETRY)
-            {
-                xfer_ctx->is_busy = false;
-            }
-        }
-        /* Check for data transfer timeout */
-        else
-        {
-            uint32_t timestamp = usbh_drv_get_timestamp(h);
-            if (timestamp - xfer_ctx->timestamp >= xfer_ctx->timeout)
-            {
-                xfer_ctx->is_busy = false;
-            }
+            xfer_ctx->is_busy = false;
         }
     }
 
@@ -858,21 +851,26 @@ void usbh_drv_task(usbh_handle_t *h)
         }
     }
 
+    /* Handle device enumeration tasks */
     usbh_device_t *dev = h->device_list;
     while (dev)
     {
-        /* Handle device enumeration tasks */
         if (dev->enum_stage < ENUM_STAGE_END)
         {
             device_enum_task(h, dev);
+            break;
         }
+        dev = dev->next;
+    }
 
-        /* Handle device suspend tasks */
+    /* Handle device suspend tasks */
+    dev = h->device_list;
+    while (dev)
+    {
         if (dev->suspend_stage != SUSPEND_STAGE_IDLE)
         {
             device_suspend_task(h, dev);
         }
-
         dev = dev->next;
     }
 
@@ -945,9 +943,6 @@ void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
 
     /* Append the new device to the device list */
     usbh_list_append((void **)&h->device_list, dev);
-
-    /* Reset device */
-    usbh_device_reset(dev);
 
     USB_LOGI("Handle: %p Inserted device %p at hub_addr: %d, hub_port: %d", h, dev, hub_addr, hub_port);
 }
@@ -1074,24 +1069,6 @@ bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info)
             h->drv_info_list[i] = NULL;
             return true;
         }
-    }
-    return false;
-}
-
-bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb)
-{
-    usbh_xfer_ctx_t *xfer_ctx = &dev->ctrl_endp.xfer_ctx;
-    if (!xfer_ctx->is_busy)
-    {
-        dev->ctrl_endp.handle = (void *)handle;
-        dev->ctrl_endp.xfer_cb = (void *)cb;
-        memset(xfer_ctx, 0, sizeof(usbh_xfer_ctx_t));
-        xfer_ctx->is_busy = true;
-        xfer_ctx->length = setup->wLength;
-        xfer_ctx->buf = buf;
-        xfer_ctx->setup = setup;
-        xfer_ctx->retry = 0;
-        return true;
     }
     return false;
 }
@@ -1227,6 +1204,27 @@ bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_
     xfer_ctx->offset = 0;
     xfer_ctx->timestamp = usbh_drv_get_timestamp(dev->host);
     return true;
+}
+
+bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, uint32_t timeout,
+                    usbh_ctrl_xfer_cb cb)
+{
+    usbh_xfer_ctx_t *xfer_ctx = &dev->ctrl_endp.xfer_ctx;
+    if (!xfer_ctx->is_busy)
+    {
+        dev->ctrl_endp.handle = (void *)handle;
+        dev->ctrl_endp.xfer_cb = (void *)cb;
+        memset(xfer_ctx, 0, sizeof(usbh_xfer_ctx_t));
+        xfer_ctx->is_busy = true;
+        xfer_ctx->buf = buf;
+        xfer_ctx->length = setup->wLength;
+        xfer_ctx->timeout = timeout;
+        xfer_ctx->offset = 0;
+        xfer_ctx->setup = setup;
+        xfer_ctx->timestamp = usbh_drv_get_timestamp(dev->host);
+        return true;
+    }
+    return false;
 }
 
 bool usbh_is_ctrl_xfering(usbh_device_t *dev)

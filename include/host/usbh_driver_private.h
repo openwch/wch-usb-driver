@@ -163,7 +163,6 @@ typedef struct usbh_xfer_ctx
     uint8_t toggle;
     uint8_t ctrl_stage;
     uint32_t tick;
-    uint32_t retry;
     uint32_t length;
     uint32_t offset;
     uint32_t timestamp;
@@ -281,11 +280,12 @@ void usbh_device_suspend(usbh_device_t *dev, usbh_drv_dev_wakeup_cb wakeup_cb);
 void usbh_device_resume(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
 bool usbh_register_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
 bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
-bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, usbh_ctrl_xfer_cb cb);
 bool usbh_endp_open(usbh_device_t *dev, void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
 bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp);
 bool usbh_endp_read(usbh_device_t *dev, usb_endp_t endp, void *buf, size_t len, uint32_t timeout);
 bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_t len, uint32_t timeout);
+bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, uint32_t timeout,
+                    usbh_ctrl_xfer_cb cb);
 bool usbh_is_ctrl_xfering(usbh_device_t *dev);
 bool usbh_is_endp_xfering(usbh_device_t *dev, usb_endp_t endp);
 uint32_t usbh_drv_get_timestamp(usbh_handle_t *h);

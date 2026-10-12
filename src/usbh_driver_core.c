@@ -17,6 +17,14 @@
 #ifdef USB_HOST_DRIVER_EN
 
 /* @define */
+#ifndef USBH_DEVICE_POOL_SIZE
+#define USBH_DEVICE_POOL_SIZE 1
+#endif
+
+#ifndef USBH_ENDPOINT_POOL_SIZE
+#define USBH_ENDPOINT_POOL_SIZE 4
+#endif
+
 #define ENDP0_DEFAULT_MPS 8
 #define CTRL_XFER_TIMEOUT 100
 

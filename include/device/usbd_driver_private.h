@@ -18,6 +18,15 @@
 extern "C" {
 #endif
 
+/* @define */
+#ifndef USBD_REQUEST_CB_COUNT
+#define USBD_REQUEST_CB_COUNT 12
+#endif
+
+#ifndef USBD_INTERFACE_CB_COUNT
+#define USBD_INTERFACE_CB_COUNT 2
+#endif
+
 /* @enum */
 typedef enum
 {

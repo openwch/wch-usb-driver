@@ -19,6 +19,14 @@ extern "C" {
 #endif
 
 /* @define */
+#ifndef USBH_DRIVER_MAX_COUNT
+#define USBH_DRIVER_MAX_COUNT 4
+#endif
+
+#ifndef USBH_DESC_BUF_SIZE
+#define USBH_DESC_BUF_SIZE 512
+#endif
+
 #define USBH_DRV_MATCH_ALL          0xFFFF
 #define USBH_DRV_MATCH_VID          0x0001
 #define USBH_DRV_MATCH_PID          0x0002

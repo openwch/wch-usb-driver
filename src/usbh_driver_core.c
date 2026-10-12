@@ -167,43 +167,9 @@ static uint8_t check_device_desc(const usb_desc_device_t *dev_desc)
     return 0;
 }
 
-static void print_device_desc(usbh_device_t *dev, const usb_desc_device_t *dev_desc)
-{
-    USB_LOGI("=== Handle: %p Device Descriptor ===", dev);
-    USB_LOGI("bLength: %d", dev_desc->bLength);
-    USB_LOGI("bDescriptorType: %d", dev_desc->bDescriptorType);
-    USB_LOGI("bcdUSB: %04x", dev_desc->bcdUSB);
-    USB_LOGI("bDeviceClass: %d", dev_desc->bDeviceClass);
-    USB_LOGI("bDeviceSubClass: %d", dev_desc->bDeviceSubClass);
-    USB_LOGI("bDeviceProtocol: %d", dev_desc->bDeviceProtocol);
-    USB_LOGI("bMaxPacketSize0: %d", dev_desc->bMaxPacketSize0);
-    USB_LOGI("idVendor: %04x", dev_desc->idVendor);
-    USB_LOGI("idProduct: %04x", dev_desc->idProduct);
-    USB_LOGI("bcdDevice: %04x", dev_desc->bcdDevice);
-    USB_LOGI("iManufacturer: %d", dev_desc->iManufacturer);
-    USB_LOGI("iProduct: %d", dev_desc->iProduct);
-    USB_LOGI("iSerialNumber: %d", dev_desc->iSerialNumber);
-    USB_LOGI("bNumConfigurations: %d", dev_desc->bNumConfigurations);
-    USB_LOGI("============================================");
-}
-
 static uint8_t check_config_desc(const void *config_desc, uint16_t length)
 {
     return 0;
-}
-
-static void print_config_desc(usbh_device_t *dev, const usb_desc_config_t *config_desc)
-{
-    USB_LOGI("=== Handle: %p Configuration Descriptor ===", dev);
-    USB_LOGI("bLength: %d", config_desc->bLength);
-    USB_LOGI("bDescriptorType: %d", config_desc->bDescriptorType);
-    USB_LOGI("wTotalLength: %d", config_desc->wTotalLength);
-    USB_LOGI("bNumInterfaces: %d", config_desc->bNumInterfaces);
-    USB_LOGI("bConfigurationValue: %d", config_desc->bConfigurationValue);
-    USB_LOGI("iConfiguration: %d", config_desc->iConfiguration);
-    USB_LOGI("bmAttributes: %02x", config_desc->bmAttributes);
-    USB_LOGI("bMaxPower: %d", config_desc->bMaxPower);
-    USB_LOGI("===================================================");
 }
 
 static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
@@ -212,7 +178,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
 
     if (!rst)
     {
-        USB_LOGE("Handle: %p Enumeration control transfer failed at stage %d", dev, dev->enum_stage);
+        USB_LOGE("Device handle: %p Enumeration control transfer failed at stage %d", dev, dev->enum_stage);
         dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
         return;
     }
@@ -226,7 +192,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         {
             dev->enum_stage = ENUM_STAGE_SET_ADDR;
             dev->ctrl_endp.mps = ep0_mps;
-            USB_LOGI("Handle: %p EP0 max packet size is %d", dev, ep0_mps);
+            USB_LOGI("Device handle: %p Get endpoint 0 max packet size is %d", dev, ep0_mps);
 
             usb_setup_t *request = &dev->host->ctrl_setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
@@ -239,7 +205,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         else
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Invalid EP0 max packet size: %d", dev, ep0_mps);
+            USB_LOGE("Device handle: %p Invalid EP0 max packet size: %d", dev, ep0_mps);
         }
         break;
     }
@@ -248,7 +214,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     {
         dev->enum_stage = ENUM_STAGE_GET_DEVICE_DESC;
         dev->ctrl_endp.xfer_unit.dev_addr = dev->address;
-        USB_LOGI("Handle: %p Set bus address %d", dev, dev->address);
+        USB_LOGI("Device handle: %p Set bus address %d", dev, dev->address);
 
         usb_setup_t *request = &dev->host->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
@@ -267,7 +233,8 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         {
             dev->enum_stage = ENUM_STAGE_GET_STRING_DESC;
             memcpy(&dev->dev_desc, buf, sizeof(usb_desc_device_t));
-            print_device_desc(dev, &dev->dev_desc);
+            USB_LOGI("Device handle: %p Get device descriptor VID: 0x%04X PID: 0x%04X", dev, dev->dev_desc.idVendor,
+                     dev->dev_desc.idProduct);
 
             usb_setup_t *request = &dev->host->ctrl_setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
@@ -280,7 +247,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         else
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Invalid device descriptor error code: %d", dev, check_rst);
+            USB_LOGE("Device handle: %p Invalid device descriptor error code: %d", dev, check_rst);
         }
         break;
     }
@@ -292,7 +259,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         {
             dev->enum_stage = ENUM_STAGE_GET_CONFIG_DESC_SIZE;
             memcpy(&dev->language_id, buf + 2, sizeof(uint16_t));
-            USB_LOGI("Handle: %p Language ID is 0x%04X", dev, dev->language_id);
+            USB_LOGI("Device handle: %p Get language ID is 0x%04X", dev, dev->language_id);
 
             usb_setup_t *request = &dev->host->ctrl_setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
@@ -305,7 +272,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         else
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Invalid language string descriptor", dev);
+            USB_LOGE("Device handle: %p Invalid language string descriptor", dev);
         }
         break;
     }
@@ -318,7 +285,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         if (config_desc->wTotalLength <= USBH_DESC_BUF_SIZE)
         {
             dev->enum_stage = ENUM_STAGE_GET_CONFIG_DESC;
-            USB_LOGI("Handle: %p Configuration descriptor size is %d", dev, config_desc->wTotalLength);
+            USB_LOGI("Device handle: %p Get configuration descriptor size is %d", dev, config_desc->wTotalLength);
 
             /* Keep the configuration index requested by the driver-binding stage */
             usb_setup_t *request = &dev->host->ctrl_setup;
@@ -331,7 +298,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         else
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Configuration descriptor size %d exceeds buffer size %d", dev,
+            USB_LOGE("Device handle: %p Configuration descriptor size %d exceeds buffer size %d", dev,
                      config_desc->wTotalLength, USBH_DESC_BUF_SIZE);
         }
         break;
@@ -345,7 +312,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         if (config_desc->wTotalLength != length)
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Configuration descriptor size mismatch: expected %d, got %d", dev,
+            USB_LOGE("Device handle: %p Configuration descriptor size mismatch: expected %d, got %d", dev,
                      config_desc->wTotalLength, length);
             break;
         }
@@ -355,12 +322,13 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         if (check_rst == 0)
         {
             dev->enum_stage = ENUM_STAGE_BIND_DRIVER;
-            print_config_desc(dev, (const usb_desc_config_t *)buf);
+            USB_LOGI("Device handle: %p Get configuration descriptor Configurations: %d Interfaces: %d", dev,
+                     config_desc->bConfigurationValue, config_desc->bNumInterfaces);
         }
         else
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Invalid configuration descriptor error code: %d", dev, check_rst);
+            USB_LOGE("Device handle: %p Invalid configuration descriptor error code: %d", dev, check_rst);
         }
         break;
     }
@@ -368,7 +336,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     case ENUM_STAGE_SET_CONFIG:
     {
         dev->enum_stage = ENUM_STAGE_END;
-        USB_LOGI("Handle: %p Enumeration completed, set configuration %d", dev, setup->wValue);
+        USB_LOGI("Device handle: %p Set configuration %d enumeration completed", dev, setup->wValue);
         break;
     }
     }
@@ -478,7 +446,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
         }
         else
         {
-            USB_LOGW("Handle: %p Enumeration on the stage %d failed, does not support hub port operations", h,
+            USB_LOGW("Device handle: %p Enumeration on the stage %d failed, does not support hub port operations", dev,
                      dev->enum_stage);
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
             return;
@@ -497,7 +465,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             else
                 dev->speed = USB_SPEED_FULL;
 
-            USB_LOGI("Handle: %p Reset complete link speed: %s speed", dev,
+            USB_LOGI("Device handle: %p Reset complete link speed: %s speed", dev,
                      dev->speed == USB_SPEED_LOW ? "low" : (dev->speed == USB_SPEED_HIGH ? "high" : "full"));
 
             /* Update the host speed if the device is connected directly to the root hub */
@@ -550,7 +518,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             usb_desc_config_t *config_desc = (usb_desc_config_t *)h->enum_desc_buf;
             dev->self_powered = config_desc->bmAttributes & 0x40 ? true : false;
             dev->remote_wakeup = config_desc->bmAttributes & 0x20 ? true : false;
-            USB_LOGI("Handle: %p Binding driver for configuration %d", dev, config_desc->bConfigurationValue);
+            USB_LOGI("Device handle: %p Binding driver for configuration %d", dev, config_desc->bConfigurationValue);
 
             usb_setup_t *request = &dev->host->ctrl_setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
@@ -567,7 +535,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             if (config_index + 1 < dev->dev_desc.bNumConfigurations)
             {
                 dev->enum_stage = ENUM_STAGE_GET_CONFIG_DESC_SIZE;
-                USB_LOGW("Handle: %p configuration %d not supported, trying next", dev, config_index);
+                USB_LOGW("Device handle: %p configuration %d not supported, trying next", dev, config_index);
 
                 usb_setup_t *request = &dev->host->ctrl_setup;
                 request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
@@ -580,7 +548,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             else
             {
                 dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
-                USB_LOGE("Handle: %p Bind driver failed", dev);
+                USB_LOGE("Device handle: %p Bind driver failed", dev);
             }
         }
         break;
@@ -613,7 +581,7 @@ static void device_suspend_task(usbh_handle_t *h, usbh_device_t *dev)
     case SUSPEND_STAGE_ENTRY_SUSPEND:
     {
         dev->suspend_stage = SUSPEND_STAGE_IDLE;
-        USB_LOGI("Handle: %p Device suspended", dev);
+        USB_LOGI("Device handle: %p suspended", dev);
         if (dev->hub_addr == 0)
         {
             dev->host->root_set_feature(dev->host, USBH_PORT_FEATURE_SUSPEND);
@@ -624,7 +592,7 @@ static void device_suspend_task(usbh_handle_t *h, usbh_device_t *dev)
         }
         else
         {
-            USB_LOGW("Handle: %p Does not support hub port operations", dev->host);
+            USB_LOGW("Host handle: %p Does not support hub port operations", dev->host);
         }
         break;
     }
@@ -646,7 +614,7 @@ static void device_suspend_task(usbh_handle_t *h, usbh_device_t *dev)
     {
         dev->suspend_stage = SUSPEND_STAGE_IDLE;
         dev->suspended = false;
-        USB_LOGI("Handle: %p Device wakeup", dev);
+        USB_LOGI("Device handle: %p Device wakeup", dev);
         if (dev->wakeup_cb)
         {
             dev->wakeup_cb(dev);
@@ -1131,7 +1099,7 @@ void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     usbh_device_t *dev = device_handle_alloc();
     if (dev == NULL)
     {
-        USB_LOGE("Handle: %p Failed to allocate device handle", h);
+        USB_LOGE("Host handle: %p Failed to allocate device handle", h);
         return;
     }
 
@@ -1139,7 +1107,7 @@ void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     dev->address = bus_address_alloc(h);
     if (dev->address == 0)
     {
-        USB_LOGE("Handle: %p Failed to allocate bus address for device %p", h, dev);
+        USB_LOGE("Host handle: %p Failed to allocate bus address for device %p", h, dev);
         return;
     }
 
@@ -1151,7 +1119,7 @@ void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     /* Append the new device to the device list */
     usbh_list_append((void **)&h->device_list, dev);
 
-    USB_LOGI("Handle: %p Inserted device %p at hub_addr: %d, hub_port: %d", h, dev, hub_addr, hub_port);
+    USB_LOGI("Host handle: %p Inserted device %p at hub_addr: %d, hub_port: %d", h, dev, hub_addr, hub_port);
 }
 
 void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
@@ -1205,7 +1173,7 @@ void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
 
     memset(target, 0, sizeof(usbh_device_t));
 
-    USB_LOGI("Removed device %p from hub_addr: %d, hub_port: %d", target, hub_addr, hub_port);
+    USB_LOGI("Host handle: %p Removed device %p from hub_addr: %d, hub_port: %d", h, target, hub_addr, hub_port);
 }
 
 void usbh_device_reset(usbh_device_t *dev)
@@ -1223,7 +1191,7 @@ void usbh_device_reset(usbh_device_t *dev)
     }
     else
     {
-        USB_LOGW("Handle: %p Does not support hub port operations", dev->host);
+        USB_LOGW("Host handle: %p Does not support hub port operations", dev->host);
     }
 }
 
@@ -1300,21 +1268,21 @@ bool usbh_endp_open(usbh_device_t *dev, void *handle, const usb_desc_endpoint_t 
 
     if (endp_num == 0)
     {
-        USB_LOGW("Handle: %p Cannot open endpoint 0", dev);
+        USB_LOGW("Device handle: %p Cannot open endpoint 0", dev);
         return false;
     }
 
     usbh_endpoint_t *ep = endpoint_handle_alloc();
     if (!ep)
     {
-        USB_LOGW("Handle: %p Failed to allocate endpoint handle", dev);
+        USB_LOGW("Device handle: %p Failed to allocate endpoint handle", dev);
         return false;
     }
 
     if (dev->data_endp[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1])
     {
         memset(ep, 0, sizeof(usbh_endpoint_t));
-        USB_LOGW("Handle: %p Endpoint %d already opened", dev, endp_num);
+        USB_LOGW("Device handle: %p Endpoint %d already opened", dev, endp_num);
         return false;
     }
 

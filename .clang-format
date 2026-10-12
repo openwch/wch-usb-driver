@@ -63,7 +63,7 @@ AlignConsecutiveMacros:       AcrossEmptyLinesAndComments   # 连续宏定义对
 AlignConsecutiveAssignments:  None                          # 连续赋值不对齐
 AlignConsecutiveBitFields:    None                          # 连续位域对齐
 AlignConsecutiveDeclarations: None                          # 连续声明不对齐
-AlignArrayOfStructures:       Right                         # 结构体数组初始化列表不做列对齐
+AlignArrayOfStructures:       None                          # 结构体数组初始化列表不做列对齐
 AlignEscapedNewlines:         Right                         # 宏定义续行符 \ 右对齐到行宽
 AlignOperands:                Align                         # 折行后的操作数尽量对齐
 AlignAfterOpenBracket:        Align                         # 左括号后的参数尽量对齐（而非固定缩进）

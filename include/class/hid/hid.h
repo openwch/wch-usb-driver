@@ -34,8 +34,8 @@ typedef enum
 
 typedef enum
 {
-    HID_PROTOCOL_BOOT = 0,
-    HID_PROTOCOL_REPORT = 1,
+    HID_PROTOCOL_BOOT = 0x00,
+    HID_PROTOCOL_REPORT = 0x01,
 } hid_protocol_t;
 
 typedef enum

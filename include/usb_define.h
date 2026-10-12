@@ -78,100 +78,110 @@ typedef uint8_t usb_endp_t;
 /* @enum */
 typedef enum
 {
-    USB_SPEED_UNKNOWN,
-    USB_SPEED_FULL,
-    USB_SPEED_LOW,
-    USB_SPEED_HIGH,
-    USB_SPEED_SUPER,
+    USB_SPEED_UNKNOWN = 0x00,
+    USB_SPEED_FULL = 0x01,
+    USB_SPEED_LOW = 0x02,
+    USB_SPEED_HIGH = 0x03,
+    USB_SPEED_SUPER = 0x04,
 } usb_speed_t;
 
 typedef enum
 {
-    USB_ENDP_TYPE_CTRL,
-    USB_ENDP_TYPE_ISOC,
-    USB_ENDP_TYPE_BULK,
-    USB_ENDP_TYPE_INTR,
+    USB_ENDP_TYPE_CTRL = 0x00,
+    USB_ENDP_TYPE_ISOC = 0x01,
+    USB_ENDP_TYPE_BULK = 0x02,
+    USB_ENDP_TYPE_INTR = 0x03,
 } usb_endp_type_t;
 
 typedef enum
 {
-    USB_CTRL_STAGE_SETUP,
-    USB_CTRL_STAGE_DATA,
-    USB_CTRL_STAGE_STATUS,
+    USB_CTRL_STAGE_SETUP = 0x00,
+    USB_CTRL_STAGE_DATA = 0x01,
+    USB_CTRL_STAGE_STATUS = 0x02,
 } usb_ctrl_stage_t;
 
 typedef enum
 {
-    USB_DIR_OUT,
-    USB_DIR_IN,
+    USB_DIR_OUT = 0x00,
+    USB_DIR_IN = 0x01,
 } usb_dir_t;
 
 typedef enum
 {
-    USB_REQ_TYPE_STANDARD,
-    USB_REQ_TYPE_CLASS,
-    USB_REQ_TYPE_VENDOR,
-    USB_REQ_TYPE_RESERVED,
+    USB_REQ_TYPE_STANDARD = 0x00,
+    USB_REQ_TYPE_CLASS = 0x01,
+    USB_REQ_TYPE_VENDOR = 0x02,
+    USB_REQ_TYPE_RESERVED = 0x03,
 } usb_req_type_t;
 
 typedef enum
 {
-    USB_REQ_RCPT_DEVICE,
-    USB_REQ_RCPT_INTERFACE,
-    USB_REQ_RCPT_ENDPOINT,
-    USB_REQ_RCPT_OTHER,
+    USB_REQ_RCPT_DEVICE = 0x00,
+    USB_REQ_RCPT_INTERFACE = 0x01,
+    USB_REQ_RCPT_ENDPOINT = 0x02,
+    USB_REQ_RCPT_OTHER = 0x03,
 } usb_req_rcpt_t;
 
 typedef enum
 {
-    USB_REQ_GET_STATUS = 0,
-    USB_REQ_CLEAR_FEATURE = 1,
-    USB_REQ_RESERVED = 2,
-    USB_REQ_SET_FEATURE = 3,
-    USB_REQ_RESERVED2 = 4,
-    USB_REQ_SET_ADDRESS = 5,
-    USB_REQ_GET_DESCRIPTOR = 6,
-    USB_REQ_SET_DESCRIPTOR = 7,
-    USB_REQ_GET_CONFIGURATION = 8,
-    USB_REQ_SET_CONFIGURATION = 9,
-    USB_REQ_GET_INTERFACE = 10,
-    USB_REQ_SET_INTERFACE = 11,
-    USB_REQ_SYNCH_FRAME = 12,
+    USB_REQ_GET_STATUS = 0x00,
+    USB_REQ_CLEAR_FEATURE = 0x01,
+    USB_REQ_RESERVED = 0x02,
+    USB_REQ_SET_FEATURE = 0x03,
+    USB_REQ_RESERVED2 = 0x04,
+    USB_REQ_SET_ADDRESS = 0x05,
+    USB_REQ_GET_DESCRIPTOR = 0x06,
+    USB_REQ_SET_DESCRIPTOR = 0x07,
+    USB_REQ_GET_CONFIGURATION = 0x08,
+    USB_REQ_SET_CONFIGURATION = 0x09,
+    USB_REQ_GET_INTERFACE = 0x0A,
+    USB_REQ_SET_INTERFACE = 0x0B,
+    USB_REQ_SYNCH_FRAME = 0x0C,
 } usb_request_t;
 
 typedef enum
 {
-    USB_FEATURE_EDPT_HALT = 0,
-    USB_FEATURE_REMOTE_WAKEUP = 1,
-    USB_FEATURE_TEST_MODE = 2,
+    USB_FEATURE_EDPT_HALT = 0x00,
+    USB_FEATURE_REMOTE_WAKEUP = 0x01,
+    USB_FEATURE_TEST_MODE = 0x02,
 } usb_feature_t;
 
 typedef enum
 {
-    USB_CLASS_UNSPECIFIED = 0,
-    USB_CLASS_AUDIO = 1,
-    USB_CLASS_CDC = 2,
-    USB_CLASS_HID = 3,
-    USB_CLASS_RESERVED_4 = 4,
-    USB_CLASS_PHYSICAL = 5,
-    USB_CLASS_IMAGE = 6,
-    USB_CLASS_PRINTER = 7,
-    USB_CLASS_MSC = 8,
-    USB_CLASS_HUB = 9,
-    USB_CLASS_CDC_DATA = 10,
-    USB_CLASS_SMART_CARD = 11,
-    USB_CLASS_RESERVED_12 = 12,
-    USB_CLASS_CONTENT_SECURITY = 13,
-    USB_CLASS_VIDEO = 14,
-    USB_CLASS_PERSONAL_HEALTHCARE = 15,
-    USB_CLASS_AUDIO_VIDEO = 16,
+    USB_CLASS_UNSPECIFIED = 0x00,
+    USB_CLASS_AUDIO = 0x01,
+    USB_CLASS_CDC = 0x02,
+    USB_CLASS_HID = 0x03,
+    USB_CLASS_RESERVED_4 = 0x04,
+    USB_CLASS_PHYSICAL = 0x05,
+    USB_CLASS_IMAGE = 0x06,
+    USB_CLASS_PRINTER = 0x07,
+    USB_CLASS_MSC = 0x08,
+    USB_CLASS_HUB = 0x09,
+    USB_CLASS_CDC_DATA = 0x0A,
+    USB_CLASS_SMART_CARD = 0x0B,
+    USB_CLASS_RESERVED_12 = 0x0C,
+    USB_CLASS_CONTENT_SECURITY = 0x0D,
+    USB_CLASS_VIDEO = 0x0E,
+    USB_CLASS_PERSONAL_HEALTHCARE = 0x0F,
+    USB_CLASS_AUDIO_VIDEO = 0x10,
 
     USB_CLASS_DIAGNOSTIC = 0xDC,
     USB_CLASS_WIRELESS_CONTROLLER = 0xE0,
     USB_CLASS_MISC = 0xEF,
     USB_CLASS_APPLICATION_SPECIFIC = 0xFE,
     USB_CLASS_VENDOR_SPECIFIC = 0xFF,
-} usb_class_code_t;
+} usb_class_t;
+
+typedef enum
+{
+    MISC_SUBCLASS_COMMON = 0x02,
+} misc_subclass_t;
+
+typedef enum
+{
+    MISC_PROTOCOL_IAD = 0x01,
+} misc_protocol_t;
 
 typedef enum
 {
@@ -202,16 +212,16 @@ typedef enum
 
 typedef enum
 {
-    USB_TEST_SELECT_RESERVED,
-    USB_TEST_SELECT_J,
-    USB_TEST_SELECT_K,
-    USB_TEST_SELECT_SE0_NAK,
-    USB_TEST_SELECT_PACKET,
-    USB_TEST_SELECT_FORCE_ENABLE,
+    USB_TEST_SELECT_RESERVED = 0x00,
+    USB_TEST_SELECT_J = 0x01,
+    USB_TEST_SELECT_K = 0x02,
+    USB_TEST_SELECT_SE0_NAK = 0x03,
+    USB_TEST_SELECT_PACKET = 0x04,
+    USB_TEST_SELECT_FORCE_ENABLE = 0x05,
 } usb_test_select_t;
 
 /* @struct */
-typedef struct __attribute__((packed))
+typedef struct
 {
     uint8_t bmRequestType;
     uint8_t bRequest;
@@ -220,7 +230,7 @@ typedef struct __attribute__((packed))
     uint16_t wLength;
 } usb_setup_t;
 
-typedef struct __attribute__((packed))
+typedef struct
 {
     uint8_t bLength;
     uint8_t bDescriptorType;
@@ -238,7 +248,7 @@ typedef struct __attribute__((packed))
     uint8_t bNumConfigurations;
 } usb_desc_device_t;
 
-typedef struct __attribute__((packed))
+typedef struct
 {
     uint8_t bLength;
     uint8_t bDescriptorType;
@@ -297,6 +307,18 @@ typedef struct __attribute__((packed))
     uint8_t bRefresh;
     uint8_t bSynchAddress;
 } usb_desc_iso_endpoint_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bFirstInterface;
+    uint8_t bInterfaceCount;
+    uint8_t bFunctionClass;
+    uint8_t bFunctionSubClass;
+    uint8_t bFunctionProtocol;
+    uint8_t iFunction;
+} usb_desc_iad_t;
 
 #ifdef __cplusplus
 }

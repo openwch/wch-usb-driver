@@ -25,15 +25,15 @@ typedef enum
 
 typedef enum
 {
-    HUB_REQ_GET_STATUS = 0,
-    HUB_REQ_CLEAR_FEATURE = 1,
-    HUB_REQ_SET_FEATURE = 3,
-    HUB_REQ_GET_DESCRIPTOR = 6,
-    HUB_REQ_SET_DESCRIPTOR = 7,
-    HUB_REQ_CLEAR_TT_BUFFER = 8,
-    HUB_REQ_RESET_TT = 9,
-    HUB_REQ_GET_TT_STATE = 10,
-    HUB_REQ_STOP_TT = 11,
+    HUB_REQ_GET_STATUS = 0x00,
+    HUB_REQ_CLEAR_FEATURE = 0x01,
+    HUB_REQ_SET_FEATURE = 0x03,
+    HUB_REQ_GET_DESCRIPTOR = 0x06,
+    HUB_REQ_SET_DESCRIPTOR = 0x07,
+    HUB_REQ_CLEAR_TT_BUFFER = 0x08,
+    HUB_REQ_RESET_TT = 0x09,
+    HUB_REQ_GET_TT_STATE = 0x0A,
+    HUB_REQ_STOP_TT = 0x0B,
 } hub_request_t;
 
 typedef enum
@@ -59,9 +59,9 @@ typedef enum
 
 typedef enum
 {
-    HUB_PROTOCOL_FULL_SPEED = 0,
-    HUB_PROTOCOL_HIGH_SPEED_STT = 1,
-    HUB_PROTOCOL_HIGH_SPEED_MTT = 2,
+    HUB_PROTOCOL_FULL_SPEED = 0x00,
+    HUB_PROTOCOL_HIGH_SPEED_STT = 0x01,
+    HUB_PROTOCOL_HIGH_SPEED_MTT = 0x02,
 } hub_protocol_t;
 
 /* @struct */

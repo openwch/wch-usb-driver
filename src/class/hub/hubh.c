@@ -16,10 +16,6 @@
 
 #ifdef USB_CLASS_HUBH_DRIVER_EN
 
-#if HUBH_MAX_PORT_NUM >= 31
-#error "HUBH_MAX_PORT_NUM must be less than 31"
-#endif
-
 /* @define */
 #ifndef HUBH_HANDLE_POOL_SIZE
 #define HUBH_HANDLE_POOL_SIZE 1
@@ -27,6 +23,10 @@
 
 #ifndef HUBH_MAX_PORT_NUM
 #define HUBH_MAX_PORT_NUM 4
+#endif
+
+#if HUBH_MAX_PORT_NUM >= 31
+#error "HUBH_MAX_PORT_NUM must be less than 31"
 #endif
 
 #define CTRL_XFER_TIMEOUT 100

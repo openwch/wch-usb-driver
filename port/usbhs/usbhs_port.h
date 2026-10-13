@@ -574,10 +574,36 @@ typedef struct
     usbh_xfer_unit_t *xfer_list;
 } usbhsh_ctx_t;
 
-/* @function declaration */
+/* @function declarations */
+
+/**
+ * @brief Initialize the usbhsd controller handle
+ * 
+ * @param h usbhsd controller handle
+ * @param ctx usbhsd controller context
+ */
 void usbhsd_handle_init(usbd_handle_t *h, usbhsd_ctx_t *ctx);
+
+/**
+ * @brief Initialize the usbhsh controller handle
+ * 
+ * @param h usbhsh controller handle
+ * @param ctx usbhsh controller context
+ */
 void usbhsh_handle_init(usbh_handle_t *h, usbhsh_ctx_t *ctx);
+
+/**
+ * @brief Handle usbhsd interrupt events
+ * 
+ * @param h usbhsd controller handle
+ */
 void usbhsd_event_handle(usbd_handle_t *h);
+
+/**
+ * @brief Handle usbhsh interrupt events
+ * 
+ * @param h usbhsh controller handle
+ */
 void usbhsh_event_handle(usbh_handle_t *h);
 
 #ifdef __cplusplus

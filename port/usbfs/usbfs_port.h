@@ -393,10 +393,36 @@ typedef struct
     void (*delay_ms)(uint32_t ms);
 } usbfsh_ctx_t;
 
-/* @function declaration */
+/* @function declarations */
+
+/**
+ * @brief Initialize the usbfsd controller handle
+ * 
+ * @param h usbfsd controller handle
+ * @param ctx usbfsd controller context
+ */
 void usbfsd_handle_init(usbd_handle_t *h, usbfsd_ctx_t *ctx);
+
+/**
+ * @brief Initialize the usbfsh controller handle
+ * 
+ * @param h usbfsh controller handle
+ * @param ctx usbfsh controller context
+ */
 void usbfsh_handle_init(usbh_handle_t *h, usbfsh_ctx_t *ctx);
+
+/**
+ * @brief Handle usbfsd interrupt events
+ * 
+ * @param h usbfsd controller handle
+ */
 void usbfsd_event_handle(usbd_handle_t *h);
+
+/**
+ * @brief Handle usbfsh interrupt events
+ * 
+ * @param h usbfsh controller handle
+ */
 void usbfsh_event_handle(usbh_handle_t *h);
 
 #ifdef __cplusplus

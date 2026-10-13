@@ -21,11 +21,11 @@ extern "C" {
 typedef struct usbh_device usbh_device_t;
 typedef struct usbh_handle usbh_handle_t;
 
-/* @function declaration */
+/* @function declarations */
 
 /**
  * @brief USB host driver tasks process
- *
+ * 
  * @param h USB host driver handle
  */
 void usbh_drv_task(usbh_handle_t *h);
@@ -34,6 +34,8 @@ void usbh_drv_task(usbh_handle_t *h);
  * @brief Open the USB host driver
  * 
  * @param h USB host driver handle
+ * 
+ * @return Operation result
  */
 bool usbh_drv_open(usbh_handle_t *h);
 
@@ -41,6 +43,8 @@ bool usbh_drv_open(usbh_handle_t *h);
  * @brief Close the USB host driver
  * 
  * @param h USB host driver handle
+ * 
+ * @return Operation result
  */
 bool usbh_drv_close(usbh_handle_t *h);
 

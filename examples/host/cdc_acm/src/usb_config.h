@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* USB driver log output enable macros */
-#define USB_DRIVER_LOG_INFO_EN
-#define USB_DRIVER_LOG_WARNING_EN
-#define USB_DRIVER_LOG_ERROR_EN
+// #define USB_DRIVER_LOG_INFO_EN
+// #define USB_DRIVER_LOG_WARNING_EN
+// #define USB_DRIVER_LOG_ERROR_EN
 
 /* USB driver log output interface macros */
 #ifndef USB_LOG_OUTPUT

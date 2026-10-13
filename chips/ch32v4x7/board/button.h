@@ -27,7 +27,7 @@ extern "C" {
 #define BUTTON_6 (1 << 6)
 #define BUTTON_7 (1 << 7)
 
-/* @function declaration */
+/* @function declarations */
 void button_init(void);
 uint8_t button_read(void);
 

@@ -47,7 +47,7 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
         case HID_REQ_GET_IDLE:
         case HID_REQ_GET_PROTOCOL:
             h->ctrl_req_buf = setup->bRequest == HID_REQ_GET_IDLE ? h->idle_rate[USB_U16_LOW(setup->wValue)]
-                                                                        : h->protocol;
+                                                                  : h->protocol;
             *buf = &h->ctrl_req_buf;
             *len = 1;
             return true;
@@ -198,11 +198,13 @@ unregister_interface:
 
 bool hidd_drv_read(hidd_handle_t *hidd, void *buf, size_t len)
 {
+    if (!hidd || !hidd->usbd_handle || !hidd->out_ep) return false;
     return usbd_endp_read(hidd->usbd_handle, hidd->out_ep->bEndpointAddress, buf, len);
 }
 
 bool hidd_drv_write(hidd_handle_t *hidd, const void *buf, size_t len)
 {
+    if (!hidd || !hidd->usbd_handle || !hidd->in_ep) return false;
     return usbd_endp_write(hidd->usbd_handle, hidd->in_ep->bEndpointAddress, buf, len);
 }
 

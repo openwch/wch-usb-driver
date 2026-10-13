@@ -85,10 +85,55 @@ typedef enum
 } usbh_toggle_t;
 
 /* @function pointer */
+
+/**
+ * @brief USB host control transfer callback function
+ * 
+ * @param handle USB host driver handle
+ * @param rst Transfer result
+ * @param setup USB setup packet
+ * @param buf Data buffer
+ * @param length Actual Transfer length
+ */
 typedef void (*usbh_ctrl_xfer_cb)(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length);
+
+/**
+ * @brief USB host data transfer callback function
+ * 
+ * @param handle USB host driver handle
+ * @param rst Transfer result
+ * @param endp Endpoint number
+ * @param buf Data buffer
+ * @param len Actual Transfer length
+ */
 typedef void (*usbh_data_xfer_cb)(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
+
+/**
+ * @brief USB host driver bind callback function
+ * 
+ * @param dev USB host driver device handle
+ * @param desc Descriptor buffer
+ * @param length Length of the descriptor buffer
+ * 
+ * @return Bind result
+ */
 typedef bool (*usbh_drv_bind_cb)(usbh_device_t *dev, const void *desc, uint16_t length);
+
+/**
+ * @brief USB host driver unbind callback function
+ * 
+ * @param dev USB host driver device handle
+ * @param itf_num Interface number
+ * 
+ * @return Unbind result
+ */
 typedef bool (*usbh_drv_unbind_cb)(usbh_device_t *dev, uint8_t itf_num);
+
+/**
+ * @brief USB host driver device wakeup callback function
+ * 
+ * @param dev USB host driver device handle
+ */
 typedef void (*usbh_drv_dev_wakeup_cb)(usbh_device_t *dev);
 
 /* @typedef */
@@ -281,22 +326,156 @@ typedef struct usbh_handle
     void (*port_set_feature)(usbh_device_t *dev, usbh_port_feature_t feature);
 } usbh_handle_t;
 
-/* @function declaration */
+/* @function declarations */
+
+/**
+ * @brief Handle the insertion of a USB device into the host
+ * 
+ * @param h USB host driver handle
+ * @param hub_addr Address of the hub to which the device is connected
+ * @param hub_port Port number of the hub to which the device is connected
+ */
 void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
+
+/**
+ * @brief Handle the removal of a USB device from the host
+ * 
+ * @param h USB host driver handle
+ * @param hub_addr Address of the hub from which the device is removed
+ * @param hub_port Port number of the hub from which the device is removed
+ */
 void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
+
+/**
+ * @brief Reset a USB device
+ * 
+ * @param dev USB host driver device handle
+ */
 void usbh_device_reset(usbh_device_t *dev);
+
+/**
+ * @brief Suspend a USB device
+ * 
+ * @param dev USB host driver device handle
+ * @param wakeup_cb Callback function for device wakeup
+ */
 void usbh_device_suspend(usbh_device_t *dev, usbh_drv_dev_wakeup_cb wakeup_cb);
+
+/**
+ * @brief Resume a suspended USB device
+ * 
+ * @param h USB host driver handle
+ * @param hub_addr Address of the hub to which the device is connected
+ * @param hub_port Port number of the hub to which the device is connected
+ */
 void usbh_device_resume(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port);
+
+/**
+ * @brief Register a USB host driver
+ * 
+ * @param h USB host driver handle
+ * @param drv_info USB class host driver information
+ * 
+ * @return Operation result
+ */
 bool usbh_register_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
+
+/**
+ * @brief Unregister a USB host driver
+ * 
+ * @param h USB host driver handle
+ * @param drv_info USB class host driver information
+ * 
+ * @return Operation result
+ */
 bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info);
+
+/**
+ * @brief Open a USB endpoint for data transfer
+ * 
+ * @param dev USB host driver device handle
+ * @param handle Class driver handle
+ * @param ep_desc Endpoint descriptor
+ * @param cb Callback function for data transfer
+ * 
+ * @return Operation result
+ */
 bool usbh_endp_open(usbh_device_t *dev, void *handle, const usb_desc_endpoint_t *ep_desc, usbh_data_xfer_cb cb);
+
+/**
+ * @brief Close a USB endpoint
+ * 
+ * @param dev USB host driver device handle
+ * @param endp Endpoint to be closed
+ * 
+ * @return Operation result
+ */
 bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp);
+
+/**
+ * @brief Read data from a USB endpoint
+ * 
+ * @param dev USB host driver device handle
+ * @param endp Endpoint to read from
+ * @param buf Buffer to store the read data
+ * @param len Length of the data to read
+ * @param timeout Timeout for the read operation, in milliseconds (0 means forever)
+ * 
+ * @return Operation result
+ */
 bool usbh_endp_read(usbh_device_t *dev, usb_endp_t endp, void *buf, size_t len, uint32_t timeout);
+
+/**
+ * @brief Write data to a USB endpoint
+ * 
+ * @param dev USB host driver device handle
+ * @param endp Endpoint to write to
+ * @param buf Buffer containing the data to write
+ * @param len Length of the data to write
+ * @param timeout Timeout for the write operation, in milliseconds (0 means forever)
+ * 
+ * @return Operation result
+ */
 bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_t len, uint32_t timeout);
+
+/**
+ * @brief Perform a control transfer on a USB device
+ * 
+ * @param dev USB host driver device handle
+ * @param handle Class driver handle
+ * @param setup Setup packet for the control transfer
+ * @param buf Buffer for data stage
+ * @param timeout Timeout for the control transfer, in milliseconds (0 means forever)
+ * @param cb Callback function for the control transfer
+ * 
+ * @return Operation result
+ */
 bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, void *buf, uint32_t timeout,
                     usbh_ctrl_xfer_cb cb);
+
+/**
+ * @brief Check if a control transfer is in progress on a USB device
+ * 
+ * @param dev USB host driver device handle
+ * @return true if a control transfer is in progress, false otherwise
+ */
 bool usbh_is_ctrl_xfering(usbh_device_t *dev);
+
+/**
+ * @brief Check if a data transfer is in progress on a USB endpoint
+ * 
+ * @param dev USB host driver device handle
+ * @param endp Endpoint to check
+ * @return true if a data transfer is in progress, false otherwise
+ */
 bool usbh_is_endp_xfering(usbh_device_t *dev, usb_endp_t endp);
+
+/**
+ * @brief Get the current timestamp from the USB host driver
+ * 
+ * @param h USB host driver handle
+ * @return Current timestamp in milliseconds
+ */
 uint32_t usbh_drv_get_timestamp(usbh_handle_t *h);
 
 /* @inline functions */

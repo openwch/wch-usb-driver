@@ -22,7 +22,7 @@ extern "C" {
 #define LED_1 (1 << 1)
 #define LED_2 (1 << 2)
 
-/* @function declaration */
+/* @function declarations */
 void led_init(void);
 void led_write(uint8_t data);
 

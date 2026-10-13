@@ -141,7 +141,7 @@ typedef struct usbd_handle
     bool (*endp_transfer)(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
 } usbd_handle_t;
 
-/* @function declaration */
+/* @function declarations */
 
 /**
  * @brief Handle a USB device port event
@@ -158,6 +158,8 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
  * @param bmRequestType bmRequestType of the USB setup request
  * @param bRequest bRequest of the USB setup request
  * @param cbs Callback structure for handling the request
+ * 
+ * @return Operation result
  */
 bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cbs_t *cbs);
 
@@ -168,6 +170,8 @@ bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t b
  * @param itf_handle Interface handle
  * @param itf_num Interface number
  * @param cbs Callback structure for handling the interface
+ * 
+ * @return Operation result
  */
 bool usbd_register_interface_cb(usbd_handle_t *h, void *itf_handle, uint8_t itf_num, usbd_ctrl_xfer_cbs_t *cbs);
 
@@ -177,6 +181,8 @@ bool usbd_register_interface_cb(usbd_handle_t *h, void *itf_handle, uint8_t itf_
  * @param h USB device driver handle
  * @param bmRequestType bmRequestType of the USB setup request
  * @param bRequest bRequest of the USB setup request
+ * 
+ * @return Operation result
  */
 bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
 
@@ -185,6 +191,8 @@ bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t
  * 
  * @param h USB device driver handle
  * @param itf_num Interface number
+ * 
+ * @return Operation result
  */
 bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t itf_num);
 
@@ -195,6 +203,8 @@ bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t itf_num);
  * @param class Class handle associated with the endpoint
  * @param ep_desc Endpoint descriptor
  * @param cb Callback function for handling data transfer on the endpoint
+ * 
+ * @return Operation result
  */
 bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint_t *ep_desc, usbd_data_xfer_cb cb);
 
@@ -203,6 +213,8 @@ bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint
  * 
  * @param h USB device driver handle
  * @param endp Endpoint to be closed
+ * 
+ * @return Operation result
  */
 bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp);
 
@@ -213,6 +225,8 @@ bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp);
  * @param endp Endpoint to read data from
  * @param buf Buffer to store the read data
  * @param len Length of the data to read
+ * 
+ * @return Operation result
  */
 
 bool usbd_endp_read(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
@@ -224,6 +238,8 @@ bool usbd_endp_read(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
  * @param endp Endpoint to write data to
  * @param buf Buffer containing the data to write
  * @param len Length of the data to write
+ * 
+ * @return Operation result
  */
 bool usbd_endp_write(usbd_handle_t *h, usb_endp_t endp, const void *buf, size_t len);
 

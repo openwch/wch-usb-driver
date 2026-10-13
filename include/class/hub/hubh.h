@@ -18,9 +18,30 @@
 extern "C" {
 #endif
 
-/* @function declaration */
+/* @function declarations */
+
+/**
+ * @brief USB hub host class driver task function
+ * 
+ */
 void hubh_drv_task(void);
+
+/**
+ * @brief Open the USB hub host class driver
+ * 
+ * @param h USB host driver handle
+ * 
+ * @return Operation result
+ */
 bool hubh_drv_open(usbh_handle_t *h);
+
+/**
+ * @brief Close the USB hub host class driver
+ * 
+ * @param h USB host driver handle
+ * 
+ * @return Operation result
+ */
 bool hubh_drv_close(usbh_handle_t *h);
 
 #ifdef __cplusplus

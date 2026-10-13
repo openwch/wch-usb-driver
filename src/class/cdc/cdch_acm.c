@@ -68,7 +68,7 @@ typedef struct acm_handle
 static acmh_handle_t *acm_list = NULL;
 static acmh_handle_t handle_pool[CDCH_ACM_HANDLE_POOL_SIZE] = {0};
 
-/* @function declaration */
+/* @function declarations */
 static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
 static bool acm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
 static void acm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);

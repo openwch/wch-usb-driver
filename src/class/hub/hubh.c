@@ -70,7 +70,7 @@ typedef struct hubh_handle
 static hubh_handle_t *hub_list = {0};
 static hubh_handle_t handle_pool[HUBH_HANDLE_POOL_SIZE] = {0};
 
-/* @function declaration */
+/* @function declarations */
 static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
 static bool hub_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
 

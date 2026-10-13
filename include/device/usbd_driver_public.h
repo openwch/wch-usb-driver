@@ -73,7 +73,7 @@ typedef void (*usbd_event_cb)(usbd_handle_t *h, usbd_event_ctx_t *ctx);
  */
 typedef const void *(*usbd_get_desc_cb)(usbd_handle_t *h, uint8_t type, uint8_t index, usb_speed_t speed, size_t *len);
 
-/* @function declaration */
+/* @function declarations */
 
 /**
  * @brief Open the USB device driver
@@ -82,6 +82,8 @@ typedef const void *(*usbd_get_desc_cb)(usbd_handle_t *h, uint8_t type, uint8_t 
  * @param speed USB device speed
  * @param sof_en Enable or disable SOF (Start of Frame) events
  * @param get_desc_cb Callback function to get USB descriptors
+ * 
+ * @return Operation result
  */
 bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, usbd_get_desc_cb get_desc_cb);
 
@@ -89,6 +91,8 @@ bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, usbd_get_de
  * @brief Close the USB device driver
  * 
  * @param h USB device driver handle
+ * 
+ * @return Operation result
  */
 bool usbd_drv_close(usbd_handle_t *h);
 
@@ -96,6 +100,8 @@ bool usbd_drv_close(usbd_handle_t *h);
  * @brief Send a resume signal
  * 
  * @param h USB device driver handle
+ * 
+ * @return Operation result
  */
 bool usbd_drv_resume(usbd_handle_t *h);
 
@@ -105,6 +111,8 @@ bool usbd_drv_resume(usbd_handle_t *h);
  * @param h USB device driver handle
  * @param event USB device event to register the callback for
  * @param cb Callback function to handle the event
+ * 
+ * @return Operation result
  */
 bool usbd_register_event_callback(usbd_handle_t *h, usbd_event_t event, usbd_event_cb cb);
 
@@ -113,6 +121,8 @@ bool usbd_register_event_callback(usbd_handle_t *h, usbd_event_t event, usbd_eve
  * 
  * @param h USB device driver handle
  * @param event USB device event to unregister the callback for
+ * 
+ * @return Operation result
  */
 bool usbd_unregister_event_callback(usbd_handle_t *h, usbd_event_t event);
 

@@ -1,6 +1,6 @@
-########################################
-# Makefile for CDC-ACM Bridge Example
-########################################
+##################################################
+# Makefile for Dual Device CDC-ACM Bridge Example
+##################################################
 
 # --- Supported chips ---
 SUPPORTED_CHIPS := \

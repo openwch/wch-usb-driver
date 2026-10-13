@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 /* USB driver log output enable macros */
-// #define USB_DRIVER_LOG_INFO_EN
-// #define USB_DRIVER_LOG_WARNING_EN
-// #define USB_DRIVER_LOG_ERROR_EN
+#define USB_DRIVER_LOG_INFO_EN
+#define USB_DRIVER_LOG_WARNING_EN
+#define USB_DRIVER_LOG_ERROR_EN
 
 /* USB driver log output interface macros */
 #ifndef USB_LOG_OUTPUT
@@ -45,14 +45,18 @@ extern "C" {
 #endif
 
 /* USB device driver parameter macros */
+#ifdef USB_DEVICE_DRIVER_EN
 #define USBD_REQUEST_CB_COUNT   12
 #define USBD_INTERFACE_CB_COUNT 2
+#endif
 
 /* USB host driver parameters macros */
+#ifdef USB_HOST_DRIVER_EN
 #define USBH_DRIVER_MAX_COUNT   4
 #define USBH_DEVICE_POOL_SIZE   4
 #define USBH_ENDPOINT_POOL_SIZE 12
 #define USBH_DESC_BUF_SIZE      512
+#endif
 
 /* USB HUB host class driver configuration macros */
 #ifdef USB_CLASS_HUBH_DRIVER_EN

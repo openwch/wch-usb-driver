@@ -1,5 +1,5 @@
 ########################################
-# Makefile for HID KM Example
+# Makefile for Device HID KM Example
 ########################################
 
 # --- Supported chips ---

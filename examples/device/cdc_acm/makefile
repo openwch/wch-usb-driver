@@ -1,5 +1,5 @@
 ########################################
-# Makefile for CDC-ACM Example
+# Makefile for Device CDC-ACM Example
 ########################################
 
 # --- Supported chips ---

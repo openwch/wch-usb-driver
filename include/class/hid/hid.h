@@ -278,8 +278,12 @@ typedef struct __attribute__((packed))
     uint16_t bcdHID;
     uint8_t bCountryCode;
     uint8_t bNumDescriptors;
-    uint8_t bReportType;
-    uint16_t wReportLength;
+
+    struct __attribute__((packed))
+    {
+        uint8_t bReportType;
+        uint16_t wReportLength;
+    } descriptor[];
 } usb_desc_hid_t;
 
 #ifdef __cplusplus

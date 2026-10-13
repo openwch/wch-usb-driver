@@ -18,8 +18,14 @@ extern "C" {
 #endif
 
 /* @define */
-#define CDC_LINE_STATE_DTR_MASK 0x01
-#define CDC_LINE_STATE_RTS_MASK 0x02
+#define CDC_LINE_STATE_DTR_MASK           0x01
+#define CDC_LINE_STATE_RTS_MASK           0x02
+
+/* @define */
+#define CDC_ACM_CAPBIT_COMM_FEATURE       0x01
+#define CDC_ACM_CAPBIT_LINE_CODING        0x02
+#define CDC_ACM_CAPBIT_SEND_BREAK         0x04
+#define CDC_ACM_CAPBIT_NETWORK_CONNECTION 0x08
 
 /* @enum */
 typedef enum
@@ -129,6 +135,74 @@ typedef enum
 } cdc_request_t;
 
 /* @struct */
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint16_t bcdCDC;
+} cdc_desc_header_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bmCapabilities;
+    uint8_t bDataInterface;
+} cdc_desc_call_management_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bmCapabilities;
+} cdc_desc_abstract_control_management_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bmCapabilities;
+} cdc_desc_direct_line_management_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bRingerVolSteps;
+    uint8_t bNumRingerPatterns;
+} cdc_desc_telephone_ringer_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bmCapabilities;
+} cdc_desc_telephone_operational_modes_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bControlInterface;
+    uint8_t bSubordinateInterface[];
+} cdc_desc_union_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t iCountryCodeRelDate;
+    uint16_t wCountryCode[];
+} cdc_desc_country_selection_t;
+
 typedef struct __attribute__((packed))
 {
     uint32_t bit_rate;

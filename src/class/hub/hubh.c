@@ -518,7 +518,7 @@ static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
         {
         case USB_DESC_INTERFACE:
         {
-            usb_desc_interface_t *curr_itf = (usb_desc_interface_t *)curr;
+            const usb_desc_interface_t *curr_itf = (const usb_desc_interface_t *)curr;
             /* Check if the interface protocol and number of endpoints are supported */
             if (curr_itf->bInterfaceProtocol > HUB_PROTOCOL_HIGH_SPEED_MTT || curr_itf->bNumEndpoints > 1) return false;
 
@@ -534,26 +534,21 @@ static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
         case USB_DESC_ENDPOINT:
         {
-            usb_desc_endpoint_t *curr_endp = (usb_desc_endpoint_t *)curr;
-
-            /* Check endpoint direction and type */
-            if (!USB_ENDP_DIR(curr_endp->bEndpointAddress) ||
-                USB_ENDP_GET_TYPE(curr_endp->bmAttributes) != USB_ENDP_TYPE_INTR)
-            {
-                return false;
-            }
-
-            if (endp_count > 0)
-            {
-                endp_count--;
-                in_ep = curr_endp;
-            }
+            const usb_desc_endpoint_t *curr_endp = (const usb_desc_endpoint_t *)curr;
+            uint8_t endp_dir = USB_ENDP_DIR(curr_endp->bEndpointAddress);
+            uint8_t endp_type = USB_ENDP_GET_TYPE(curr_endp->bmAttributes);
+            if (!endp_dir || endp_type != USB_ENDP_TYPE_INTR) return false;
+            if (!endp_count > 0) break;
+            endp_count--;
+            in_ep = curr_endp;
             break;
         }
         }
 
         curr += len;
     }
+
+    if (!itf_desc || !in_ep) return false;
 
     /* Allocate and initialize a new hub handle */
     hubh_handle_t *hub = handle_alloc();

@@ -140,7 +140,7 @@ typedef struct __attribute__((packed))
     uint8_t bPwrOn2PwrGood;
     uint8_t bHubContrCurrent;
     uint8_t DeviceRemovable;
-    uint8_t PortPwrCtrlMask;
+    uint8_t PortPwrCtrlMask[];
 } usb_desc_hub_t;
 
 #ifdef __cplusplus

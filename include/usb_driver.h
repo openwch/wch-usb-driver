@@ -28,7 +28,6 @@
 #include "class/hub/hub.h"
 #include "class/hid/hid.h"
 #include "class/cdc/cdc.h"
-#include "class/cdc/cdc_acm.h"
 
 /* USB device class driver includes */
 #include "class/hid/hidd.h"
@@ -36,6 +35,7 @@
 
 /* USB host class driver includes */
 #include "class/hub/hubh.h"
+#include "class/cdc/cdch_acm.h"
 
 #ifdef __cplusplus
 extern "C" {

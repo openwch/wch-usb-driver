@@ -389,6 +389,7 @@ typedef struct
 typedef struct
 {
     uint32_t base_addr;
+    usbh_xfer_unit_t *xfer_list;
     void (*delay_us)(uint32_t us);
     void (*delay_ms)(uint32_t ms);
 } usbfsh_ctx_t;

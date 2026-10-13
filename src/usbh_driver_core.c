@@ -920,7 +920,7 @@ static void xfer_completed_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit
         }
     }
     /* Process STALL response */
-    else if (xfer_unit->rx_pid == USBH_PID_STALL)
+    else if (xfer_unit->rx_pid == USBH_PID_STALL && xfer_ctx->ctrl_stage != USB_CTRL_STAGE_SETUP)
     {
         xfer_ctx->is_busy = false;
         xfer_ctx->is_stalled = true;

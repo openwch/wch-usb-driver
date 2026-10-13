@@ -103,7 +103,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     case ENUM_STAGE_GET_LINE_CODING:
     {
         acm->enum_stage = ENUM_STAGE_SET_CONTROL_LINE_STATE;
-        USB_LOGI("Handle: %p GET_LINE_CODING: Bit_Rate %d, Stop_Bits %d, Parity %d, Data_Bits %d", acm,
+        USB_LOGI("Handle: %p GET_LINE_CODING: Bit_Rate %u, Stop_Bits %d, Parity %d, Data_Bits %d", acm,
                  acm->line_coding.bit_rate, acm->line_coding.stop_bits, acm->line_coding.parity,
                  acm->line_coding.data_bits);
 
@@ -276,8 +276,11 @@ acmh_handle_t *cdch_acm_get_handle(size_t index)
     acmh_handle_t *acm = acm_list;
     while (acm)
     {
-        if (i == index) return acm;
-        i++;
+        if (acm->enum_stage >= ENUM_STAGE_END)
+        {
+            if (i == index) return acm;
+            i++;
+        }
         acm = acm->next;
     }
     return NULL;
@@ -530,10 +533,10 @@ static bool acm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
 
 static void acm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
-    if (rst)
+    acmh_handle_t *acm = (acmh_handle_t *)handle;
+    if (rst && acm->is_open)
     {
-        acmh_handle_t *acm = (acmh_handle_t *)handle;
-        USB_LOGI("Handle: %p Read %d bytes", acm, len);
+        USB_LOGI("Handle: %p Read %u bytes", acm, len);
         if (acm->read_cb)
         {
             acm->read_cb(acm, buf, len);
@@ -543,10 +546,10 @@ static void acm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void 
 
 static void acm_drv_write_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
-    if (rst)
+    acmh_handle_t *acm = (acmh_handle_t *)handle;
+    if (rst && acm->is_open)
     {
-        acmh_handle_t *acm = (acmh_handle_t *)handle;
-        USB_LOGI("Handle: %p Write %d bytes", acm, len);
+        USB_LOGI("Handle: %p Write %u bytes", acm, len);
         if (acm->write_cb)
         {
             acm->write_cb(acm, buf, len);

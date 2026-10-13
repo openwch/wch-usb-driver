@@ -238,131 +238,6 @@ static void hub_enum_task(hubh_handle_t *hub)
     }
 }
 
-static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
-{
-    if (!rst) return;
-
-    hubh_handle_t *hub = (hubh_handle_t *)handle;
-    if (setup->wIndex == 0)
-    {
-        hub->status_change_bitmap &= ~0x01;
-        hub_status_t *hub_status = &hub->hub_status;
-        (void)hub_status; // TODO: Handle hub status change
-    }
-    else
-    {
-        hub->status_change_bitmap &= ~(1 << setup->wIndex);
-        hub_port_status_t *port_status = &hub->port_status[setup->wIndex - 1];
-
-        if (port_status->change)
-        {
-            if (port_status->status_bits.connect && port_status->status_bits.enable == 0)
-            {
-                usbh_device_insert(hub->dev->host, hub->dev->address, setup->wIndex);
-            }
-            else if (port_status->status_bits.connect == 0)
-            {
-                usbh_device_remove(hub->dev->host, hub->dev->address, setup->wIndex);
-            }
-
-            if (port_status->change_bits.suspend && port_status->status_bits.suspend == 0)
-            {
-                usbh_device_resume(hub->dev->host, hub->dev->address, setup->wIndex);
-            }
-        }
-    }
-}
-
-static void hub_device_handle(hubh_handle_t *hub)
-{
-    if (hub->status_change_bitmap & 0x01)
-    {
-        if (usbh_is_ctrl_xfering(hub->dev)) return;
-        usb_setup_t *request = &hub->ctrl_setup;
-        request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_DEVICE);
-        request->bRequest = USB_REQ_GET_STATUS;
-        request->wValue = 0;
-        request->wIndex = 0;
-        request->wLength = sizeof(hub->hub_status);
-        usbh_ctrl_xfer(hub->dev, hub, request, (void *)&hub->hub_status, CTRL_XFER_TIMEOUT, run_ctrl_xfer_cb);
-    }
-    else if (hub->hub_status.change)
-    {
-        if (usbh_is_ctrl_xfering(hub->dev)) return;
-        usb_setup_t *request = &hub->ctrl_setup;
-        request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_DEVICE);
-        request->bRequest = USB_REQ_CLEAR_FEATURE;
-        request->wIndex = 0;
-        request->wLength = 0;
-
-        hub_status_t *hub_status = &hub->hub_status;
-        if (hub_status->change_bits.local_power)
-            request->wValue = HUB_FEATURE_C_HUB_LOCAL_POWER;
-        else if (hub_status->change_bits.over_current)
-            request->wValue = HUB_FEATURE_C_HUB_OVER_CURRENT;
-        else
-            return;
-
-        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
-        hub->status_change_bitmap |= 0x01;
-    }
-}
-
-static void hub_port_handle(hubh_handle_t *hub, size_t port)
-{
-    if (hub->status_change_bitmap & (1 << port))
-    {
-        if (usbh_is_ctrl_xfering(hub->dev)) return;
-        usb_setup_t *request = &hub->ctrl_setup;
-        request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
-        request->bRequest = USB_REQ_GET_STATUS;
-        request->wValue = 0;
-        request->wIndex = port;
-        request->wLength = sizeof(hub->port_status[port - 1]);
-        usbh_ctrl_xfer(hub->dev, hub, request, (void *)&hub->port_status[port - 1], CTRL_XFER_TIMEOUT,
-                       run_ctrl_xfer_cb);
-    }
-    else if (hub->port_status[port - 1].change)
-    {
-        if (usbh_is_ctrl_xfering(hub->dev)) return;
-        usb_setup_t *request = &hub->ctrl_setup;
-        request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
-        request->bRequest = USB_REQ_CLEAR_FEATURE;
-        request->wIndex = port;
-        request->wLength = 0;
-
-        hub_port_status_t *port_status = &hub->port_status[port - 1];
-        if (port_status->change_bits.connect)
-            request->wValue = HUB_FEATURE_C_PORT_CONNECTION;
-        else if (port_status->change_bits.enable)
-            request->wValue = HUB_FEATURE_C_PORT_ENABLE;
-        else if (port_status->change_bits.suspend)
-            request->wValue = HUB_FEATURE_C_PORT_SUSPEND;
-        else if (port_status->change_bits.over_current)
-            request->wValue = HUB_FEATURE_C_PORT_OVER_CURRENT;
-        else if (port_status->change_bits.reset)
-            request->wValue = HUB_FEATURE_C_PORT_RESET;
-        else
-            return;
-
-        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
-        hub->status_change_bitmap |= 1 << port;
-    }
-    else if (hub->port_feature[port - 1])
-    {
-        if (usbh_is_ctrl_xfering(hub->dev)) return;
-        usb_setup_t *request = &hub->ctrl_setup;
-        request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
-        request->bRequest = USB_REQ_SET_FEATURE;
-        request->wIndex = port;
-        request->wLength = 0;
-        request->wValue = hub->port_feature[port - 1];
-        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
-        hub->port_feature[port - 1] = 0;
-        hub->status_change_bitmap |= 1 << port;
-    }
-}
-
 static void hub_wakeup_cb(usbh_device_t *dev)
 {
     hubh_handle_t *hub = hub_list;
@@ -377,39 +252,157 @@ static void hub_wakeup_cb(usbh_device_t *dev)
     }
 }
 
+static void hub_run_get_status(hubh_handle_t *hub, uint8_t index)
+{
+    if (index == 0)
+    {
+        usb_setup_t *request = &hub->ctrl_setup;
+        request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_DEVICE);
+        request->bRequest = USB_REQ_GET_STATUS;
+        request->wValue = 0;
+        request->wIndex = 0;
+        request->wLength = sizeof(hub->hub_status);
+        usbh_ctrl_xfer(hub->dev, hub, request, (void *)&hub->hub_status, CTRL_XFER_TIMEOUT, NULL);
+    }
+    else
+    {
+        usb_setup_t *request = &hub->ctrl_setup;
+        request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
+        request->bRequest = USB_REQ_GET_STATUS;
+        request->wValue = 0;
+        request->wIndex = index;
+        request->wLength = sizeof(hub->port_status[index - 1]);
+        usbh_ctrl_xfer(hub->dev, hub, request, (void *)&hub->port_status[index - 1], CTRL_XFER_TIMEOUT, NULL);
+    }
+}
+
+static void hub_run_set_feature(hubh_handle_t *hub, uint8_t index)
+{
+    if (index)
+    {
+        usb_setup_t *request = &hub->ctrl_setup;
+        request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
+        request->bRequest = USB_REQ_SET_FEATURE;
+        request->wIndex = index;
+        request->wLength = 0;
+        request->wValue = hub->port_feature[index - 1];
+        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
+        hub->port_feature[index - 1] = 0;
+        hub->status_change_bitmap |= 1 << index;
+    }
+}
+
+static void hub_run_clear_feature(hubh_handle_t *hub, uint8_t index)
+{
+    if (index == 0)
+    {
+        usb_setup_t *request = &hub->ctrl_setup;
+        request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_DEVICE);
+        request->bRequest = USB_REQ_CLEAR_FEATURE;
+        request->wIndex = 0;
+        request->wLength = 0;
+
+        hub_status_t *hub_status = &hub->hub_status;
+        if (hub_status->change_bits.local_power)
+            request->wValue = HUB_FEATURE_C_HUB_LOCAL_POWER;
+        else if (hub_status->change_bits.over_current)
+            request->wValue = HUB_FEATURE_C_HUB_OVER_CURRENT;
+        else
+            return;
+
+        hub->status_change_bitmap |= 0x01;
+        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
+    }
+    else
+    {
+        hub_port_status_t *port_status = &hub->port_status[index - 1];
+        usb_setup_t *request = &hub->ctrl_setup;
+        request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
+        request->bRequest = USB_REQ_CLEAR_FEATURE;
+        request->wIndex = index;
+        request->wLength = 0;
+
+        if (port_status->change_bits.connect)
+            request->wValue = HUB_FEATURE_C_PORT_CONNECTION;
+        else if (port_status->change_bits.enable)
+            request->wValue = HUB_FEATURE_C_PORT_ENABLE;
+        else if (port_status->change_bits.suspend)
+            request->wValue = HUB_FEATURE_C_PORT_SUSPEND;
+        else if (port_status->change_bits.over_current)
+            request->wValue = HUB_FEATURE_C_PORT_OVER_CURRENT;
+        else if (port_status->change_bits.reset)
+            request->wValue = HUB_FEATURE_C_PORT_RESET;
+        else
+            return;
+
+        hub->status_change_bitmap |= 1 << index;
+        usbh_ctrl_xfer(hub->dev, hub, request, NULL, CTRL_XFER_TIMEOUT, NULL);
+    }
+}
+
 static void hub_run_task(hubh_handle_t *hub)
 {
-    bool is_has_device = false;
+    bool has_device = false;
     hub->status_change_bitmap &= (1 << (hub->port_num + 1)) - 1;
     for (size_t i = 0; i <= hub->port_num; i++)
     {
+        if (hub->status_change_bitmap & (1 << i))
+        {
+            hub->status_change_bitmap &= ~(1 << i);
+            hub_run_get_status(hub, i);
+            return;
+        }
+
         if (i == 0)
         {
-            hub_device_handle(hub);
-        }
-        else
-        {
-            hub_port_handle(hub, i);
-            hub_port_status_t *port_status = &hub->port_status[i - 1];
-            if (port_status->status_bits.connect && port_status->status_bits.suspend == 0)
+            if (hub->hub_status.change)
             {
-                is_has_device = true;
+                hub_run_clear_feature(hub, 0);
+                return;
             }
+        }
+        else if (hub->port_status[i - 1].change)
+        {
+            hub_port_status_t *port_status = &hub->port_status[i - 1];
+            if (port_status->change_bits.connect && port_status->status_bits.connect &&
+                port_status->status_bits.enable == 0)
+            {
+                usbh_device_insert(hub->dev->host, hub->dev->address, i);
+            }
+            if ((port_status->change_bits.connect && port_status->status_bits.connect == 0) ||
+                (port_status->change_bits.enable && port_status->status_bits.enable == 0))
+            {
+                usbh_device_remove(hub->dev->host, hub->dev->address, i);
+            }
+            if (port_status->change_bits.suspend && port_status->status_bits.suspend == 0)
+            {
+                usbh_device_resume(hub->dev->host, hub->dev->address, i);
+            }
+
+            hub_run_clear_feature(hub, i);
+            return;
+        }
+        else if (i != 0 && hub->port_feature[i - 1])
+        {
+            hub_run_set_feature(hub, i);
+            return;
+        }
+        else if (hub->port_status[i - 1].status_bits.connect && hub->port_status[i - 1].status_bits.suspend == 0)
+        {
+            has_device = true;
         }
     }
 
-    if (hub->status_change_bitmap == 0)
+    if (has_device)
     {
-        if (is_has_device)
-        {
-            usbh_endp_read(hub->dev, hub->in_ep->bEndpointAddress, &hub->status_change_bitmap,
-                           sizeof(hub->status_change_bitmap), 0);
-        }
-        else
-        {
-            /* Suspend the HUB if no active ports have connected HUB */
-            usbh_device_suspend(hub->dev, hub_wakeup_cb);
-        }
+        /* Read the status change bitmap from the hub's interrupt endpoint */
+        usbh_endp_read(hub->dev, hub->in_ep->bEndpointAddress, &hub->status_change_bitmap,
+                       sizeof(hub->status_change_bitmap), 0);
+    }
+    else
+    {
+        /* Suspend the HUB if no active ports have connected HUB */
+        usbh_device_suspend(hub->dev, hub_wakeup_cb);
     }
 }
 
@@ -419,16 +412,13 @@ void hubh_drv_task(void)
     while (hub)
     {
         hubh_handle_t *next = hub->next;
-        if (!hub->dev->suspended)
+        if (hub->enum_stage < ENUM_STAGE_END)
         {
-            if (hub->enum_stage < ENUM_STAGE_END)
-            {
-                hub_enum_task(hub);
-            }
-            else
-            {
-                hub_run_task(hub);
-            }
+            hub_enum_task(hub);
+        }
+        else if (!hub->dev->suspended && !usbh_is_ctrl_xfering(hub->dev))
+        {
+            hub_run_task(hub);
         }
         hub = next;
     }

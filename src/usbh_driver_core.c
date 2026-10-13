@@ -57,8 +57,8 @@ typedef enum
 } suspend_stage_t;
 
 /* @global */
-static usbh_device_t device_pool[USBH_DEVICE_POOL_SIZE];
-static usbh_endpoint_t endpoint_pool[USBH_ENDPOINT_POOL_SIZE];
+static usbh_device_t device_pool[USBH_DEVICE_POOL_SIZE] = {0};
+static usbh_endpoint_t endpoint_pool[USBH_ENDPOINT_POOL_SIZE] = {0};
 
 static usbh_device_t *device_handle_alloc(void)
 {
@@ -212,11 +212,11 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
         switch (prev_type)
         {
         case USB_DESC_CONFIGURATION:
-            if (type != USB_DESC_INTERFACE && type != USB_DESC_INTERFACE_ASSOCIATION) return 7;
+            if (type != USB_DESC_INTERFACE && type != USB_DESC_INTERFACE_ASSOCIATION) return 8;
             break;
 
         case USB_DESC_INTERFACE_ASSOCIATION:
-            if (type != USB_DESC_INTERFACE) return 7;
+            if (type != USB_DESC_INTERFACE) return 9;
             break;
         }
         prev_type = type;
@@ -226,7 +226,7 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
         case USB_DESC_INTERFACE:
         {
             const usb_desc_interface_t *itf_desc = (usb_desc_interface_t *)curr;
-            if (itf_desc->bLength != sizeof(usb_desc_interface_t)) return 8;
+            if (itf_desc->bLength != sizeof(usb_desc_interface_t)) return 10;
             itf_used_bitmap[0] |= alt_used_bitmap[0];
             itf_used_bitmap[1] |= alt_used_bitmap[1];
             memset(alt_used_bitmap, 0, sizeof(alt_used_bitmap));
@@ -234,8 +234,8 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
             if (itf_desc->bAlternateSetting == 0)
             {
                 itf_index++;
-                if (itf_index >= itf_count) return 9;
-                if (endp_used_bitmap[0] & itf_used_bitmap[0] || endp_used_bitmap[1] & itf_used_bitmap[1]) return 10;
+                if (itf_index >= itf_count) return 11;
+                if (endp_used_bitmap[0] & itf_used_bitmap[0] || endp_used_bitmap[1] & itf_used_bitmap[1]) return 12;
                 endp_used_bitmap[0] |= itf_used_bitmap[0];
                 endp_used_bitmap[1] |= itf_used_bitmap[1];
                 memset(itf_used_bitmap, 0, sizeof(itf_used_bitmap));
@@ -244,9 +244,9 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
                 if (iad) iad_itf_count--;
                 if (iad_itf_count == 0) iad = false;
             }
-            if (itf_desc->bInterfaceNumber != itf_index) return 11;
-            if (itf_desc->bNumEndpoints > USB_MAX_ENDP_NUM * 2 - 2) return 12;
-            if (endp_count) return 13;
+            if (itf_desc->bInterfaceNumber != itf_index) return 13;
+            if (itf_desc->bNumEndpoints > USB_MAX_ENDP_NUM * 2 - 2) return 14;
+            if (endp_count) return 15;
             endp_count = itf_desc->bNumEndpoints;
             break;
         }
@@ -260,28 +260,28 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
                 {0x0040, 0x0400, 0x0200, 0x0400}, // HIGH
             };
 
-            if (len != sizeof(usb_desc_endpoint_t) && len != sizeof(usb_desc_iso_endpoint_t)) return 14;
+            if (len != sizeof(usb_desc_endpoint_t) && len != sizeof(usb_desc_iso_endpoint_t)) return 16;
             const usb_desc_endpoint_t *endp_desc = (usb_desc_endpoint_t *)curr;
             uint8_t endp_dir = USB_ENDP_DIR(endp_desc->bEndpointAddress);
             uint8_t endp_num = USB_ENDP_NUM(endp_desc->bEndpointAddress);
             uint8_t endp_type = USB_ENDP_GET_TYPE(endp_desc->bmAttributes);
-            if (endp_num == 0 || endp_type == USB_ENDP_TYPE_CTRL) return 15;
+            if (endp_num == 0 || endp_type == USB_ENDP_TYPE_CTRL) return 17;
             uint8_t additional = USB_ENDP_GET_ADDITIONAL(endp_desc->wMaxPacketSize);
             uint16_t mps = USB_ENDP_GET_MPS(endp_desc->wMaxPacketSize);
-            if (endp_desc->wMaxPacketSize & 0xE000) return 16;
-            if (additional == 0x03 || mps == 0 || mps > valid_mps_table[dev->speed - 1][endp_type]) return 17;
-            if (endp_type != USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_LOW) return 18;
-            if (endp_type == USB_ENDP_TYPE_ISOC && (endp_desc->bInterval == 0 || endp_desc->bInterval > 16)) return 19;
-            if (endp_type == USB_ENDP_TYPE_INTR && endp_desc->bInterval == 0) return 20;
-            if (endp_type == USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_HIGH && endp_desc->bInterval > 16) return 21;
-            if (endp_type == USB_ENDP_TYPE_BULK && dev->speed == USB_SPEED_HIGH && mps != 512) return 22;
+            if (endp_desc->wMaxPacketSize & 0xE000) return 18;
+            if (additional == 0x03 || mps == 0 || mps > valid_mps_table[dev->speed - 1][endp_type]) return 19;
+            if (endp_type != USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_LOW) return 20;
+            if (endp_type == USB_ENDP_TYPE_ISOC && (endp_desc->bInterval == 0 || endp_desc->bInterval > 16)) return 21;
+            if (endp_type == USB_ENDP_TYPE_INTR && endp_desc->bInterval == 0) return 22;
+            if (endp_type == USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_HIGH && endp_desc->bInterval > 16) return 23;
+            if (endp_type == USB_ENDP_TYPE_BULK && dev->speed == USB_SPEED_HIGH && mps != 512) return 24;
             if (endp_type == USB_ENDP_TYPE_BULK && dev->speed == USB_SPEED_FULL && mps != 8 && mps != 16 && mps != 32 &&
                 mps != 64)
-                return 23;
+                return 25;
             if ((endp_used_bitmap[endp_dir ? 1 : 0] & (1 << endp_num)) ||
                 (alt_used_bitmap[endp_dir ? 1 : 0] & (1 << endp_num)))
-                return 24;
-            if (endp_count == 0) return 25;
+                return 26;
+            if (endp_count == 0) return 27;
             alt_used_bitmap[endp_dir ? 1 : 0] |= (1 << endp_num);
             endp_count--;
             break;
@@ -291,11 +291,11 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
         {
             if (dev->dev_desc.bDeviceClass != USB_CLASS_MISC || dev->dev_desc.bDeviceSubClass != MISC_SUBCLASS_COMMON ||
                 dev->dev_desc.bDeviceProtocol != MISC_PROTOCOL_IAD || iad)
-                return 7;
+                return 28;
             const usb_desc_iad_t *iad_desc = (usb_desc_iad_t *)curr;
-            if (iad_desc->bLength != sizeof(usb_desc_iad_t)) return 8;
-            if (iad_desc->bFirstInterface != itf_index + 1) return 9;
-            if (iad_desc->bInterfaceCount == 0 || itf_index + 1 + iad_desc->bInterfaceCount > itf_count) return 10;
+            if (iad_desc->bLength != sizeof(usb_desc_iad_t)) return 29;
+            if (iad_desc->bFirstInterface != itf_index + 1) return 30;
+            if (iad_desc->bInterfaceCount == 0 || itf_index + 1 + iad_desc->bInterfaceCount > itf_count) return 31;
             iad_itf_count = iad_desc->bInterfaceCount;
             iad = true;
             break;
@@ -305,16 +305,16 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
             /* Ignore unknown descriptor types except for class-specific descriptors */
             if (type < 0x21 || type > 0x2F)
             {
-                return 26;
+                return 32;
             }
         }
         curr += len;
     }
     itf_used_bitmap[0] |= alt_used_bitmap[0];
     itf_used_bitmap[1] |= alt_used_bitmap[1];
-    if (itf_index + 1 != itf_count) return 27;
-    if (endp_count != 0) return 28;
-    if (endp_used_bitmap[0] & itf_used_bitmap[0] || endp_used_bitmap[1] & itf_used_bitmap[1]) return 29;
+    if (itf_index + 1 != itf_count) return 33;
+    if (endp_count != 0) return 34;
+    if (endp_used_bitmap[0] & itf_used_bitmap[0] || endp_used_bitmap[1] & itf_used_bitmap[1]) return 35;
     return 0;
 }
 
@@ -333,7 +333,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     {
     case ENUM_STAGE_GET_EP0_SIZE:
     {
-        uint8_t ep0_mps = ((usb_desc_device_t *)buf)->bMaxPacketSize0;
+        uint8_t ep0_mps = dev->dev_desc.bMaxPacketSize0;
         if (ep0_mps >= 8 && ep0_mps <= 64)
         {
             dev->enum_stage = ENUM_STAGE_SET_ADDR;
@@ -346,7 +346,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->wValue = dev->address;
             request->wIndex = 0;
             request->wLength = 0;
-            usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, NULL, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -368,17 +368,16 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         request->wValue = USB_DESC_DEVICE << 8;
         request->wIndex = 0;
         request->wLength = sizeof(usb_desc_device_t);
-        usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+        usbh_ctrl_xfer(dev, dev, request, &dev->dev_desc, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         break;
     }
 
     case ENUM_STAGE_GET_DEVICE_DESC:
     {
-        uint8_t check_rst = check_device_desc(dev, (usb_desc_device_t *)buf);
+        uint8_t check_rst = check_device_desc(dev, &dev->dev_desc);
         if (check_rst == 0)
         {
             dev->enum_stage = ENUM_STAGE_GET_STRING_DESC;
-            memcpy(&dev->dev_desc, buf, sizeof(usb_desc_device_t));
             USB_LOGI("Device handle: %p Get device descriptor VID: 0x%04X PID: 0x%04X", dev, dev->dev_desc.idVendor,
                      dev->dev_desc.idProduct);
 
@@ -388,7 +387,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->wValue = USB_DESC_STRING << 8;
             request->wIndex = 0;
             request->wLength = 4;
-            usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, dev->config_desc, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -413,7 +412,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->wValue = USB_DESC_CONFIGURATION << 8;
             request->wIndex = 0;
             request->wLength = 4;
-            usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, dev->config_desc, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -425,8 +424,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
 
     case ENUM_STAGE_GET_CONFIG_DESC_SIZE:
     {
-        usb_desc_config_t *config_desc = (usb_desc_config_t *)buf;
-
+        usb_desc_config_t *config_desc = (usb_desc_config_t *)dev->config_desc;
         /* Check if the configuration descriptor fits within the buffer */
         if (config_desc->wTotalLength <= USBH_DESC_BUF_SIZE)
         {
@@ -439,7 +437,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->bRequest = USB_REQ_GET_DESCRIPTOR;
             request->wIndex = 0;
             request->wLength = config_desc->wTotalLength;
-            usbh_ctrl_xfer(dev, dev, request, (void *)buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, dev->config_desc, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -452,8 +450,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
 
     case ENUM_STAGE_GET_CONFIG_DESC:
     {
-        usb_desc_config_t *config_desc = (usb_desc_config_t *)buf;
-
+        usb_desc_config_t *config_desc = (usb_desc_config_t *)dev->config_desc;
         /* Check if the configuration descriptor size matches the expected length */
         if (config_desc->wTotalLength != length)
         {
@@ -464,7 +461,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         }
 
         /* Validate the configuration descriptor */
-        uint8_t check_rst = check_config_desc(dev, buf, length);
+        uint8_t check_rst = check_config_desc(dev, dev->config_desc, length);
         if (check_rst == 0)
         {
             dev->enum_stage = ENUM_STAGE_BIND_DRIVER;
@@ -667,15 +664,15 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             request->wValue = USB_DESC_DEVICE << 8;
             request->wIndex = 0;
             request->wLength = 8;
-            usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, &dev->dev_desc, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         break;
 
     case ENUM_STAGE_BIND_DRIVER:
-        if (bind_class_driver(h, dev, h->enum_desc_buf))
+        if (bind_class_driver(h, dev, dev->config_desc))
         {
             dev->enum_stage = ENUM_STAGE_SET_CONFIG;
-            usb_desc_config_t *config_desc = (usb_desc_config_t *)h->enum_desc_buf;
+            usb_desc_config_t *config_desc = (usb_desc_config_t *)dev->config_desc;
             dev->self_powered = config_desc->bmAttributes & 0x40 ? true : false;
             dev->remote_wakeup = config_desc->bmAttributes & 0x20 ? true : false;
             USB_LOGI("Device handle: %p Binding driver for configuration %d", dev, config_desc->bConfigurationValue);
@@ -686,7 +683,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             request->wValue = config_desc->bConfigurationValue;
             request->wIndex = 0;
             request->wLength = 0;
-            usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(dev, dev, request, NULL, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -703,7 +700,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
                 request->wValue = (USB_DESC_CONFIGURATION << 8) | (config_index + 1);
                 request->wIndex = 0;
                 request->wLength = 4;
-                usbh_ctrl_xfer(dev, dev, request, h->enum_desc_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+                usbh_ctrl_xfer(dev, dev, request, dev->config_desc, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
             }
             else
             {

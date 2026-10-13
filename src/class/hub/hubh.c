@@ -50,12 +50,10 @@ typedef struct hubh_handle
     usbh_device_t *dev;
 
     /* Hub interface information */
-    uint8_t itf_num;
-    uint8_t alt_setting;
-    uint8_t protocol;
-    uint8_t port_num;
+    const usb_desc_interface_t *itf_desc;
+    const usb_desc_endpoint_t *in_ep;
     uint16_t power_delayms;
-    usb_desc_endpoint_t in_ep;
+    uint8_t port_num;
 
     /* Run-time context */
     uint8_t enum_stage;
@@ -69,14 +67,14 @@ typedef struct hubh_handle
 } hubh_handle_t;
 
 /* @global */
-static hubh_handle_t *hub_list;
-static hubh_handle_t handle_pool[HUBH_HANDLE_POOL_SIZE];
+static hubh_handle_t *hub_list = {0};
+static hubh_handle_t handle_pool[HUBH_HANDLE_POOL_SIZE] = {0};
 
 /* @function declaration */
-static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
-static bool hubh_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
+static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
+static bool hub_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
 
-static const usbh_drv_info_t hubh_drv_info = {
+static const usbh_drv_info_t hub_drv_info = {
     .vid = 0x0000,
     .pid = 0x0000,
     .dev_class = USB_CLASS_HUB,
@@ -86,8 +84,8 @@ static const usbh_drv_info_t hubh_drv_info = {
     .itf_subclass = 0x00,
     .itf_protocol = 0x00,
     .match_bitmap = (USBH_DRV_MATCH_DEV_CLASS | USBH_DRV_MATCH_ITF_CLASS),
-    .bind = hubh_drv_bind_cb,
-    .unbind = hubh_drv_unbind_cb,
+    .bind = hub_drv_bind_cb,
+    .unbind = hub_drv_unbind_cb,
 };
 
 static uint8_t check_hub_desc(const usb_desc_hub_t *hub_desc)
@@ -119,17 +117,17 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             hub->port_num = hub_desc->bNbrPorts;
             hub->power_delayms = hub_desc->bPwrOn2PwrGood * 2;
             USB_LOGI("Handle: %p Hub has %d ports, power delay %d ms", hub, hub->port_num, hub->power_delayms);
-            if (hub->alt_setting > 0)
+            if (hub->itf_desc->bAlternateSetting > 0)
             {
                 hub->enum_stage = ENUM_STAGE_SET_INTERFACE;
-                USB_LOGI("Handle: %p Setting alternate setting %d for interface %d", hub, hub->alt_setting,
-                         hub->itf_num);
+                USB_LOGI("Handle: %p Setting alternate setting %d for interface %d", hub,
+                         hub->itf_desc->bAlternateSetting, hub->itf_desc->bInterfaceNumber);
 
                 usb_setup_t *request = &hub->ctrl_setup;
                 request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
                 request->bRequest = USB_REQ_SET_INTERFACE;
-                request->wValue = hub->alt_setting;
-                request->wIndex = hub->itf_num;
+                request->wValue = hub->itf_desc->bAlternateSetting;
+                request->wIndex = hub->itf_desc->bInterfaceNumber;
                 request->wLength = 0;
                 usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
             }
@@ -217,7 +215,7 @@ static void hub_enum_task(hubh_handle_t *hub)
         uint32_t timestamp = usbh_drv_get_timestamp(hub->dev->host);
         if (timestamp - hub->start_wait_timestamp >= hub->power_delayms)
         {
-            if (usbh_endp_open(hub->dev, hub, &hub->in_ep, NULL))
+            if (usbh_endp_open(hub->dev, hub, hub->in_ep, NULL))
             {
                 hub->enum_stage = ENUM_STAGE_END;
                 hub->status_change_bitmap = 0xFFFFFFFF;
@@ -235,7 +233,7 @@ static void hub_enum_task(hubh_handle_t *hub)
     case ENUM_STAGE_ENUM_FAILED:
         hub->enum_stage = ENUM_STAGE_END;
         usbh_device_suspend(hub->dev, NULL);
-        hubh_drv_unbind_cb(hub->dev, hub->itf_num);
+        hub_drv_unbind_cb(hub->dev, hub->itf_desc->bInterfaceNumber);
         break;
     }
 }
@@ -404,7 +402,7 @@ static void hub_run_task(hubh_handle_t *hub)
     {
         if (is_has_device)
         {
-            usbh_endp_read(hub->dev, hub->in_ep.bEndpointAddress, &hub->status_change_bitmap,
+            usbh_endp_read(hub->dev, hub->in_ep->bEndpointAddress, &hub->status_change_bitmap,
                            sizeof(hub->status_change_bitmap), 0);
         }
         else
@@ -471,7 +469,7 @@ static void hub_set_feature(usbh_device_t *dev, usbh_port_feature_t feature)
 bool hubh_drv_open(usbh_handle_t *h)
 {
     if (!h) return false;
-    if (!usbh_register_driver(h, &hubh_drv_info)) return false;
+    if (!usbh_register_driver(h, &hub_drv_info)) return false;
     h->port_get_status = hub_get_status;
     h->port_set_feature = hub_set_feature;
     return true;
@@ -480,7 +478,10 @@ bool hubh_drv_open(usbh_handle_t *h)
 bool hubh_drv_close(usbh_handle_t *h)
 {
     if (!h) return false;
-    return usbh_unregister_driver(h, &hubh_drv_info);
+    if (!usbh_unregister_driver(h, &hub_drv_info)) return false;
+    h->port_get_status = NULL;
+    h->port_set_feature = NULL;
+    return true;
 }
 
 static hubh_handle_t *handle_alloc(void)
@@ -497,15 +498,14 @@ static hubh_handle_t *handle_alloc(void)
     return NULL;
 }
 
-static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length)
+static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length)
 {
     if (!dev || dev->speed == USB_SPEED_LOW || !desc || length == 0) return false;
 
-    uint8_t itf_num = 0;
-    uint8_t alt_setting = 0;
-    uint8_t protocol = 0;
-    usb_desc_endpoint_t in_ep = {0};
-    uint8_t get_endp_count = 0;
+    const usb_desc_interface_t *itf_desc = NULL;
+    const usb_desc_endpoint_t *in_ep = NULL;
+
+    uint8_t endp_count = 0;
     const uint8_t *curr = (const uint8_t *)desc;
     const uint8_t *end = curr + length;
 
@@ -518,39 +518,35 @@ static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t leng
         {
         case USB_DESC_INTERFACE:
         {
-            usb_desc_interface_t *itf_desc = (usb_desc_interface_t *)curr;
+            usb_desc_interface_t *curr_itf = (usb_desc_interface_t *)curr;
             /* Check if the interface protocol and number of endpoints are supported */
-            if (itf_desc->bInterfaceProtocol > HUB_PROTOCOL_HIGH_SPEED_MTT || itf_desc->bNumEndpoints > 1)
-            {
-                return false;
-            }
+            if (curr_itf->bInterfaceProtocol > HUB_PROTOCOL_HIGH_SPEED_MTT || curr_itf->bNumEndpoints > 1) return false;
 
             /* Update the hub protocol if protocol is higher */
-            if (itf_desc->bAlternateSetting == 0 || itf_desc->bInterfaceProtocol > protocol)
+            if (curr_itf->bAlternateSetting == 0 || itf_desc == NULL ||
+                curr_itf->bInterfaceProtocol > itf_desc->bInterfaceProtocol)
             {
-                itf_num = itf_desc->bInterfaceNumber;
-                alt_setting = itf_desc->bAlternateSetting;
-                protocol = itf_desc->bInterfaceProtocol;
-                get_endp_count = itf_desc->bNumEndpoints;
+                itf_desc = curr_itf;
+                endp_count = curr_itf->bNumEndpoints;
             }
             break;
         }
 
         case USB_DESC_ENDPOINT:
         {
-            usb_desc_endpoint_t *endp_desc = (usb_desc_endpoint_t *)curr;
+            usb_desc_endpoint_t *curr_endp = (usb_desc_endpoint_t *)curr;
 
             /* Check endpoint direction and type */
-            if (!USB_ENDP_DIR(endp_desc->bEndpointAddress) ||
-                USB_ENDP_GET_TYPE(endp_desc->bmAttributes) != USB_ENDP_TYPE_INTR)
+            if (!USB_ENDP_DIR(curr_endp->bEndpointAddress) ||
+                USB_ENDP_GET_TYPE(curr_endp->bmAttributes) != USB_ENDP_TYPE_INTR)
             {
                 return false;
             }
 
-            if (get_endp_count > 0)
+            if (endp_count > 0)
             {
-                get_endp_count--;
-                memcpy(&in_ep, endp_desc, sizeof(usb_desc_endpoint_t));
+                endp_count--;
+                in_ep = curr_endp;
             }
             break;
         }
@@ -568,21 +564,19 @@ static bool hubh_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t leng
     }
 
     hub->dev = dev;
-    hub->itf_num = itf_num;
-    hub->alt_setting = alt_setting;
-    hub->protocol = protocol;
-    memcpy(&hub->in_ep, &in_ep, sizeof(usb_desc_endpoint_t));
+    hub->itf_desc = itf_desc;
+    hub->in_ep = in_ep;
     usbh_list_append((void **)&hub_list, hub);
     return true;
 }
 
-static bool hubh_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
+static bool hub_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
 {
     hubh_handle_t *hub = hub_list;
     while (hub)
     {
         hubh_handle_t *next = hub->next;
-        if (hub->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || hub->itf_num == itf_num))
+        if (hub->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || hub->itf_desc->bInterfaceNumber == itf_num))
         {
             usbh_list_remove((void **)&hub_list, hub);
             memset(hub, 0, sizeof(hubh_handle_t));

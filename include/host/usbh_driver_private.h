@@ -217,7 +217,8 @@ typedef struct usbh_device
     usbh_endpoint_t *data_endp[2][USB_MAX_ENDP_NUM - 1];
 
     /* Device descriptor */
-    usb_desc_device_t dev_desc;
+    __attribute__((aligned(4))) usb_desc_device_t dev_desc;
+    __attribute__((aligned(4))) uint8_t config_desc[USBH_DESC_BUF_SIZE];
 } usbh_device_t;
 
 typedef struct
@@ -266,7 +267,6 @@ typedef struct usbh_handle
 
     /* Enumeration descriptor buffer */
     __attribute__((aligned(4))) usb_setup_t ctrl_setup;
-    __attribute__((aligned(4))) uint8_t enum_desc_buf[USBH_DESC_BUF_SIZE];
 
     /* USB host port operations */
     bool (*open)(usbh_handle_t *h);

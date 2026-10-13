@@ -38,6 +38,15 @@ typedef enum
 } usbd_port_event_t;
 
 /* @function pointer */
+
+/**
+ * @brief USB device data transfer callback function
+ * 
+ * @param handle USB device driver handle
+ * @param endp Endpoint number
+ * @param buf Data buffer
+ * @param len Length of the data buffer
+ */
 typedef void (*usbd_data_xfer_cb)(void *handle, usb_endp_t endp, void *buf, size_t len);
 
 /* @struct */
@@ -133,14 +142,89 @@ typedef struct usbd_handle
 } usbd_handle_t;
 
 /* @function declaration */
+
+/**
+ * @brief Handle a USB device port event
+ * 
+ * @param h USB device driver handle
+ * @param ctx Context of the USB device port event
+ */
 void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
+
+/**
+ * @brief Register a request callback for the USB device driver
+ * 
+ * @param h USB device driver handle
+ * @param bmRequestType bmRequestType of the USB setup request
+ * @param bRequest bRequest of the USB setup request
+ * @param cbs Callback structure for handling the request
+ */
 bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cbs_t *cbs);
+
+/**
+ * @brief Register an interface callback for the USB device driver
+ * 
+ * @param h USB device driver handle
+ * @param itf_handle Interface handle
+ * @param itf_num Interface number
+ * @param cbs Callback structure for handling the interface
+ */
 bool usbd_register_interface_cb(usbd_handle_t *h, void *itf_handle, uint8_t itf_num, usbd_ctrl_xfer_cbs_t *cbs);
+
+/**
+ * @brief Unregister a request callback for the USB device driver
+ * 
+ * @param h USB device driver handle
+ * @param bmRequestType bmRequestType of the USB setup request
+ * @param bRequest bRequest of the USB setup request
+ */
 bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
+
+/**
+ * @brief Unregister an interface callback for the USB device driver
+ * 
+ * @param h USB device driver handle
+ * @param itf_num Interface number
+ */
 bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t itf_num);
+
+/**
+ * @brief Open a USB endpoint for data transfer
+ * 
+ * @param h USB device driver handle
+ * @param class Class handle associated with the endpoint
+ * @param ep_desc Endpoint descriptor
+ * @param cb Callback function for handling data transfer on the endpoint
+ */
 bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint_t *ep_desc, usbd_data_xfer_cb cb);
+
+/**
+ * @brief Close a USB endpoint
+ * 
+ * @param h USB device driver handle
+ * @param endp Endpoint to be closed
+ */
 bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp);
+
+/**
+ * @brief Read data from a USB endpoint
+ * 
+ * @param h USB device driver handle
+ * @param endp Endpoint to read data from
+ * @param buf Buffer to store the read data
+ * @param len Length of the data to read
+ */
+
 bool usbd_endp_read(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
+
+/**
+ * @brief Write data to a USB endpoint
+ * 
+ * @param h USB device driver handle
+ * @param endp Endpoint to write data to
+ * @param buf Buffer containing the data to write
+ * @param len Length of the data to write
+ */
 bool usbd_endp_write(usbd_handle_t *h, usb_endp_t endp, const void *buf, size_t len);
 
 #ifdef __cplusplus

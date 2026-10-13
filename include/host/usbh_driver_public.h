@@ -22,8 +22,26 @@ typedef struct usbh_device usbh_device_t;
 typedef struct usbh_handle usbh_handle_t;
 
 /* @function declaration */
+
+/**
+ * @brief USB host driver tasks process
+ *
+ * @param h USB host driver handle
+ */
 void usbh_drv_task(usbh_handle_t *h);
+
+/**
+ * @brief Open the USB host driver
+ * 
+ * @param h USB host driver handle
+ */
 bool usbh_drv_open(usbh_handle_t *h);
+
+/**
+ * @brief Close the USB host driver
+ * 
+ * @param h USB host driver handle
+ */
 bool usbh_drv_close(usbh_handle_t *h);
 
 #ifdef __cplusplus

@@ -85,9 +85,9 @@ static const void *get_string_desc_cb(uint8_t string_index, size_t *len)
     return NULL;
 }
 
-static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t desc_type, uint8_t desc_info, size_t *len)
+static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t type, uint8_t index, usb_speed_t speed, size_t *len)
 {
-    switch (desc_type)
+    switch (type)
     {
     case USB_DESC_DEVICE:
         *len = sizeof(device_desc);
@@ -98,7 +98,7 @@ static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t desc_type, uint8_
         return (const void *)&config_desc;
 
     case USB_DESC_STRING:
-        return get_string_desc_cb(desc_info, len);
+        return get_string_desc_cb(index, len);
 
     case USB_DESC_DEVICE_QUALIFIER:
         *len = sizeof(qua_desc);

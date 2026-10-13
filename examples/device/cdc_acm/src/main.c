@@ -63,11 +63,11 @@ static const void *get_string_desc_cb(uint8_t string_index, size_t *len)
     return NULL;
 }
 
-static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t desc_type, uint8_t desc_info, size_t *len)
+static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t type, uint8_t index, usb_speed_t speed, size_t *len)
 {
     static uint8_t other_speed_desc[sizeof(config_desc_hs)];
 
-    switch (desc_type)
+    switch (type)
     {
     case USB_DESC_DEVICE:
         *len = sizeof(device_desc);
@@ -75,17 +75,17 @@ static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t desc_type, uint8_
 
     case USB_DESC_CONFIGURATION:
         *len = sizeof(config_desc_hs);
-        return desc_info == USB_SPEED_HIGH ? (const void *)&config_desc_hs : (const void *)&config_desc_fs;
+        return speed == USB_SPEED_HIGH ? (const void *)&config_desc_hs : (const void *)&config_desc_fs;
 
     case USB_DESC_STRING:
-        return get_string_desc_cb(desc_info, len);
+        return get_string_desc_cb(index, len);
 
     case USB_DESC_DEVICE_QUALIFIER:
         *len = sizeof(qua_desc);
         return (const void *)&qua_desc;
 
     case USB_DESC_OTHER_SPEED_CONFIG:
-        memcpy(other_speed_desc, desc_info == USB_SPEED_HIGH ? config_desc_fs : config_desc_hs, sizeof(config_desc_hs));
+        memcpy(other_speed_desc, speed == USB_SPEED_HIGH ? config_desc_fs : config_desc_hs, sizeof(config_desc_hs));
         other_speed_desc[1] = USB_DESC_OTHER_SPEED_CONFIG;
         *len = sizeof(other_speed_desc);
         return (const void *)other_speed_desc;

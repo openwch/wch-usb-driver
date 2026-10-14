@@ -166,7 +166,6 @@ static void acm_enum_task(acmh_handle_t *acm)
 
     case ENUM_STAGE_ENUM_FAILED:
         acm->enum_stage = ENUM_STAGE_END;
-        usbh_device_suspend(acm->dev, NULL);
         acm_drv_unbind_cb(acm->dev, acm->ctrl_itf->bInterfaceNumber);
         break;
     }

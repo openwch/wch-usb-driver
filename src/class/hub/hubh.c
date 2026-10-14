@@ -21,15 +21,8 @@
 #define HUBH_HANDLE_POOL_SIZE 1
 #endif
 
-#ifndef HUBH_MAX_PORT_NUM
-#define HUBH_MAX_PORT_NUM 4
-#endif
-
-#if HUBH_MAX_PORT_NUM >= 31
-#error "HUBH_MAX_PORT_NUM must be less than 31"
-#endif
-
 #define CTRL_XFER_TIMEOUT 100
+#define HUBH_MAX_PORT_NUM 31
 
 /* @enum */
 typedef enum
@@ -232,7 +225,6 @@ static void hub_enum_task(hubh_handle_t *hub)
 
     case ENUM_STAGE_ENUM_FAILED:
         hub->enum_stage = ENUM_STAGE_END;
-        usbh_device_suspend(hub->dev, NULL);
         hub_drv_unbind_cb(hub->dev, hub->itf_desc->bInterfaceNumber);
         break;
     }

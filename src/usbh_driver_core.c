@@ -1064,7 +1064,7 @@ static usbh_xfer_unit_t **isoc_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
             usbh_xfer_ctx_t *xfer_ctx = &ep->xfer_ctx;
             usbh_xfer_unit_t *xfer_unit = &ep->xfer_unit;
 
-            if (h->tick - xfer_ctx->tick > ep->interval)
+            if (h->tick - xfer_ctx->tick >= ep->interval)
             {
                 /* Update interval tick */
                 xfer_ctx->tick = h->tick;
@@ -1134,7 +1134,7 @@ static usbh_xfer_unit_t **intr_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
             usbh_xfer_ctx_t *xfer_ctx = &ep->xfer_ctx;
             usbh_xfer_unit_t *xfer_unit = &ep->xfer_unit;
 
-            if (h->tick - xfer_ctx->tick > ep->interval)
+            if (h->tick - xfer_ctx->tick >= ep->interval)
             {
                 /* Update interval tick */
                 xfer_ctx->tick = h->tick;

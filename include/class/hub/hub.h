@@ -20,6 +20,13 @@ extern "C" {
 /* @enum */
 typedef enum
 {
+    HUB_PROTOCOL_FULL_SPEED = 0x00,
+    HUB_PROTOCOL_HIGH_SPEED_STT = 0x01,
+    HUB_PROTOCOL_HIGH_SPEED_MTT = 0x02,
+} hub_protocol_t;
+
+typedef enum
+{
     HUB_DESC_HUB = 0x29,
 } hub_desc_t;
 
@@ -56,13 +63,6 @@ typedef enum
     HUB_FEATURE_PORT_TEST = 0x15,
     HUB_FEATURE_PORT_INDICATOR = 0x16,
 } hub_feature_t;
-
-typedef enum
-{
-    HUB_PROTOCOL_FULL_SPEED = 0x00,
-    HUB_PROTOCOL_HIGH_SPEED_STT = 0x01,
-    HUB_PROTOCOL_HIGH_SPEED_MTT = 0x02,
-} hub_protocol_t;
 
 /* @struct */
 typedef struct

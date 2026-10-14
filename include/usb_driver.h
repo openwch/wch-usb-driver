@@ -35,6 +35,7 @@
 
 /* USB host class driver includes */
 #include "class/hub/hubh.h"
+#include "class/hid/hidh.h"
 #include "class/cdc/cdch_acm.h"
 
 #ifdef __cplusplus

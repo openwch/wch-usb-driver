@@ -1383,6 +1383,7 @@ void usbh_device_resume(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     {
         if (dev->hub_addr == hub_addr && dev->hub_port == hub_port)
         {
+            if (!dev->suspended) return;
             dev->suspend_stage = dev->remote_wakeup ? SUSPEND_STAGE_CLEAR_REMOTE_WAKEUP : SUSPEND_STAGE_WAKEUP;
             return;
         }

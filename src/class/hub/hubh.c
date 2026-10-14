@@ -59,11 +59,11 @@ typedef struct hubh_handle
     uint8_t enum_stage;
     uint32_t start_wait_timestamp;
     uint8_t port_feature[HUBH_MAX_PORT_NUM];
-    __attribute__((aligned(4))) uint8_t enum_buf[16];
     __attribute__((aligned(4))) hub_status_t hub_status;
     __attribute__((aligned(4))) hub_port_status_t port_status[HUBH_MAX_PORT_NUM];
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) uint32_t status_change_bitmap;
+    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
+    __attribute__((aligned(4))) uint8_t ctrl_buf[16];
 } hubh_handle_t;
 
 /* @global */
@@ -110,7 +110,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     {
     case ENUM_STAGE_GET_HUB_DESC:
     {
-        usb_desc_hub_t *hub_desc = (usb_desc_hub_t *)hub->enum_buf;
+        usb_desc_hub_t *hub_desc = (usb_desc_hub_t *)hub->ctrl_buf;
         uint8_t check_rst = check_hub_desc(hub_desc);
         if (check_rst == 0)
         {
@@ -129,7 +129,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                 request->wValue = hub->itf_desc->bAlternateSetting;
                 request->wIndex = hub->itf_desc->bInterfaceNumber;
                 request->wLength = 0;
-                usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+                usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->ctrl_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
             }
             else
             {
@@ -142,7 +142,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                 request->wValue = HUB_FEATURE_PORT_POWER;
                 request->wIndex = 1;
                 request->wLength = 0;
-                usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+                usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->ctrl_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
             }
         }
         else
@@ -163,7 +163,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         request->wValue = HUB_FEATURE_PORT_POWER;
         request->wIndex = 1;
         request->wLength = 0;
-        usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+        usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->ctrl_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         break;
     }
     case ENUM_STAGE_SET_PORT_POWER:
@@ -179,7 +179,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             request->wValue = HUB_FEATURE_PORT_POWER;
             request->wIndex = setup->wIndex + 1;
             request->wLength = 0;
-            usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+            usbh_ctrl_xfer(hub->dev, hub, request, (void *)hub->ctrl_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
         else
         {
@@ -202,8 +202,8 @@ static void hub_enum_task(hubh_handle_t *hub)
         request->bRequest = USB_REQ_GET_DESCRIPTOR;
         request->wValue = HUB_DESC_HUB << 8;
         request->wIndex = 0;
-        request->wLength = sizeof(hub->enum_buf);
-        if (usbh_ctrl_xfer(hub->dev, hub, request, hub->enum_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb))
+        request->wLength = sizeof(hub->ctrl_buf);
+        if (usbh_ctrl_xfer(hub->dev, hub, request, hub->ctrl_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb))
         {
             hub->enum_stage = ENUM_STAGE_GET_HUB_DESC;
         }
@@ -524,13 +524,13 @@ static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
         case USB_DESC_ENDPOINT:
         {
-            const usb_desc_endpoint_t *curr_endp = (const usb_desc_endpoint_t *)curr;
-            uint8_t endp_dir = USB_ENDP_DIR(curr_endp->bEndpointAddress);
-            uint8_t endp_type = USB_ENDP_GET_TYPE(curr_endp->bmAttributes);
+            const usb_desc_endpoint_t *endp_desc = (const usb_desc_endpoint_t *)curr;
+            uint8_t endp_dir = USB_ENDP_DIR(endp_desc->bEndpointAddress);
+            uint8_t endp_type = USB_ENDP_GET_TYPE(endp_desc->bmAttributes);
             if (!endp_dir || endp_type != USB_ENDP_TYPE_INTR) return false;
             if (!endp_count > 0) break;
             endp_count--;
-            in_ep = curr_endp;
+            in_ep = endp_desc;
             break;
         }
         }

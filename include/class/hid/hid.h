@@ -20,23 +20,23 @@ extern "C" {
 /* @enum */
 typedef enum
 {
+    HID_SUBCLASS_NONE = 0x00,
+    HID_SUBCLASS_BOOT = 0x01,
+} hid_subclass_t;
+
+typedef enum
+{
+    HID_PROTOCOL_NONE = 0x00,
+    HID_PROTOCOL_KEYBOARD = 0x01,
+    HID_PROTOCOL_MOUSE = 0x02,
+} hid_protocol_t;
+
+typedef enum
+{
     HID_DESC_HID = 0x21,
     HID_DESC_REPORT = 0x22,
     HID_DESC_PHYSICAL = 0x23,
 } hid_desc_t;
-
-typedef enum
-{
-    HID_REPORT_TYPE_INPUT = 0x01,
-    HID_REPORT_TYPE_OUTPUT = 0x02,
-    HID_REPORT_TYPE_FEATURE = 0x03,
-} hid_report_type_t;
-
-typedef enum
-{
-    HID_PROTOCOL_BOOT = 0x00,
-    HID_PROTOCOL_REPORT = 0x01,
-} hid_protocol_t;
 
 typedef enum
 {
@@ -47,6 +47,13 @@ typedef enum
     HID_REQ_SET_IDLE = 0x0A,
     HID_REQ_SET_PROTOCOL = 0x0B,
 } hid_request_t;
+
+typedef enum
+{
+    HID_REPORT_TYPE_INPUT = 0x01,
+    HID_REPORT_TYPE_OUTPUT = 0x02,
+    HID_REPORT_TYPE_FEATURE = 0x03,
+} hid_report_type_t;
 
 typedef enum
 {

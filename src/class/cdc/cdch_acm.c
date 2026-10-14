@@ -35,9 +35,9 @@ typedef enum
 } enum_stage_t;
 
 /* @struct */
-typedef struct acm_handle
+typedef struct acmh_handle
 {
-    struct acm_handle *next;
+    struct acmh_handle *next;
     usbh_device_t *dev;
 
     /* CDC_ACM interface information */
@@ -59,7 +59,6 @@ typedef struct acm_handle
     cdch_acm_open_cb open_cb;
     cdch_acm_read_cb read_cb;
     cdch_acm_write_cb write_cb;
-    __attribute__((aligned(4))) uint8_t enum_buf[16];
     __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) cdc_line_coding_t line_coding;
 } acmh_handle_t;
@@ -141,7 +140,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             break;
         }
         acm->enum_stage = ENUM_STAGE_END;
-        USB_LOGI("Handle: %p Enumeration completed successfully", acm);
+        USB_LOGI("Handle: %p Enumeration completed", acm);
     }
     }
 }

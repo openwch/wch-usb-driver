@@ -20,7 +20,7 @@ extern "C" {
 #endif
 
 /* @typedef */
-typedef struct acm_handle acmh_handle_t;
+typedef struct acmh_handle acmh_handle_t;
 
 /* @function pointer */
 typedef void (*cdch_acm_open_cb)(acmh_handle_t *acm, bool rst);

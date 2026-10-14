@@ -78,76 +78,6 @@ typedef uint8_t usb_endp_t;
 /* @enum */
 typedef enum
 {
-    USB_SPEED_UNKNOWN = 0x00,
-    USB_SPEED_FULL = 0x01,
-    USB_SPEED_LOW = 0x02,
-    USB_SPEED_HIGH = 0x03,
-    USB_SPEED_SUPER = 0x04,
-} usb_speed_t;
-
-typedef enum
-{
-    USB_ENDP_TYPE_CTRL = 0x00,
-    USB_ENDP_TYPE_ISOC = 0x01,
-    USB_ENDP_TYPE_BULK = 0x02,
-    USB_ENDP_TYPE_INTR = 0x03,
-} usb_endp_type_t;
-
-typedef enum
-{
-    USB_CTRL_STAGE_SETUP = 0x00,
-    USB_CTRL_STAGE_DATA = 0x01,
-    USB_CTRL_STAGE_STATUS = 0x02,
-} usb_ctrl_stage_t;
-
-typedef enum
-{
-    USB_DIR_OUT = 0x00,
-    USB_DIR_IN = 0x01,
-} usb_dir_t;
-
-typedef enum
-{
-    USB_REQ_TYPE_STANDARD = 0x00,
-    USB_REQ_TYPE_CLASS = 0x01,
-    USB_REQ_TYPE_VENDOR = 0x02,
-    USB_REQ_TYPE_RESERVED = 0x03,
-} usb_req_type_t;
-
-typedef enum
-{
-    USB_REQ_RCPT_DEVICE = 0x00,
-    USB_REQ_RCPT_INTERFACE = 0x01,
-    USB_REQ_RCPT_ENDPOINT = 0x02,
-    USB_REQ_RCPT_OTHER = 0x03,
-} usb_req_rcpt_t;
-
-typedef enum
-{
-    USB_REQ_GET_STATUS = 0x00,
-    USB_REQ_CLEAR_FEATURE = 0x01,
-    USB_REQ_RESERVED = 0x02,
-    USB_REQ_SET_FEATURE = 0x03,
-    USB_REQ_RESERVED2 = 0x04,
-    USB_REQ_SET_ADDRESS = 0x05,
-    USB_REQ_GET_DESCRIPTOR = 0x06,
-    USB_REQ_SET_DESCRIPTOR = 0x07,
-    USB_REQ_GET_CONFIGURATION = 0x08,
-    USB_REQ_SET_CONFIGURATION = 0x09,
-    USB_REQ_GET_INTERFACE = 0x0A,
-    USB_REQ_SET_INTERFACE = 0x0B,
-    USB_REQ_SYNCH_FRAME = 0x0C,
-} usb_request_t;
-
-typedef enum
-{
-    USB_FEATURE_EDPT_HALT = 0x00,
-    USB_FEATURE_REMOTE_WAKEUP = 0x01,
-    USB_FEATURE_TEST_MODE = 0x02,
-} usb_feature_t;
-
-typedef enum
-{
     USB_CLASS_UNSPECIFIED = 0x00,
     USB_CLASS_AUDIO = 0x01,
     USB_CLASS_CDC = 0x02,
@@ -172,16 +102,6 @@ typedef enum
     USB_CLASS_APPLICATION_SPECIFIC = 0xFE,
     USB_CLASS_VENDOR_SPECIFIC = 0xFF,
 } usb_class_t;
-
-typedef enum
-{
-    MISC_SUBCLASS_COMMON = 0x02,
-} misc_subclass_t;
-
-typedef enum
-{
-    MISC_PROTOCOL_IAD = 0x01,
-} misc_protocol_t;
 
 typedef enum
 {
@@ -212,6 +132,30 @@ typedef enum
 
 typedef enum
 {
+    USB_REQ_GET_STATUS = 0x00,
+    USB_REQ_CLEAR_FEATURE = 0x01,
+    USB_REQ_RESERVED = 0x02,
+    USB_REQ_SET_FEATURE = 0x03,
+    USB_REQ_RESERVED2 = 0x04,
+    USB_REQ_SET_ADDRESS = 0x05,
+    USB_REQ_GET_DESCRIPTOR = 0x06,
+    USB_REQ_SET_DESCRIPTOR = 0x07,
+    USB_REQ_GET_CONFIGURATION = 0x08,
+    USB_REQ_SET_CONFIGURATION = 0x09,
+    USB_REQ_GET_INTERFACE = 0x0A,
+    USB_REQ_SET_INTERFACE = 0x0B,
+    USB_REQ_SYNCH_FRAME = 0x0C,
+} usb_request_t;
+
+typedef enum
+{
+    USB_FEATURE_EDPT_HALT = 0x00,
+    USB_FEATURE_REMOTE_WAKEUP = 0x01,
+    USB_FEATURE_TEST_MODE = 0x02,
+} usb_feature_t;
+
+typedef enum
+{
     USB_TEST_SELECT_RESERVED = 0x00,
     USB_TEST_SELECT_J = 0x01,
     USB_TEST_SELECT_K = 0x02,
@@ -219,6 +163,62 @@ typedef enum
     USB_TEST_SELECT_PACKET = 0x04,
     USB_TEST_SELECT_FORCE_ENABLE = 0x05,
 } usb_test_select_t;
+
+typedef enum
+{
+    USB_DIR_OUT = 0x00,
+    USB_DIR_IN = 0x01,
+} usb_dir_t;
+
+typedef enum
+{
+    USB_REQ_TYPE_STANDARD = 0x00,
+    USB_REQ_TYPE_CLASS = 0x01,
+    USB_REQ_TYPE_VENDOR = 0x02,
+    USB_REQ_TYPE_RESERVED = 0x03,
+} usb_req_type_t;
+
+typedef enum
+{
+    USB_REQ_RCPT_DEVICE = 0x00,
+    USB_REQ_RCPT_INTERFACE = 0x01,
+    USB_REQ_RCPT_ENDPOINT = 0x02,
+    USB_REQ_RCPT_OTHER = 0x03,
+} usb_req_rcpt_t;
+
+typedef enum
+{
+    USB_SPEED_UNKNOWN = 0x00,
+    USB_SPEED_FULL = 0x01,
+    USB_SPEED_LOW = 0x02,
+    USB_SPEED_HIGH = 0x03,
+    USB_SPEED_SUPER = 0x04,
+} usb_speed_t;
+
+typedef enum
+{
+    USB_ENDP_TYPE_CTRL = 0x00,
+    USB_ENDP_TYPE_ISOC = 0x01,
+    USB_ENDP_TYPE_BULK = 0x02,
+    USB_ENDP_TYPE_INTR = 0x03,
+} usb_endp_type_t;
+
+typedef enum
+{
+    USB_CTRL_STAGE_SETUP = 0x00,
+    USB_CTRL_STAGE_DATA = 0x01,
+    USB_CTRL_STAGE_STATUS = 0x02,
+} usb_ctrl_stage_t;
+
+typedef enum
+{
+    MISC_SUBCLASS_COMMON = 0x02,
+} misc_subclass_t;
+
+typedef enum
+{
+    MISC_PROTOCOL_IAD = 0x01,
+} misc_protocol_t;
 
 /* @struct */
 typedef struct

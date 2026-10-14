@@ -885,7 +885,8 @@ static void xfer_completed_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit
         /* Process non-control transfer transactions */
         if (ep->type != USB_ENDP_TYPE_CTRL)
         {
-            if (xfer_ctx->offset >= xfer_ctx->length || xfer_unit->xfer_len < ep->mps)
+            if (xfer_ctx->offset >= xfer_ctx->length || xfer_unit->xfer_len < ep->mps ||
+                ep->type == USB_ENDP_TYPE_ISOC || ep->type == USB_ENDP_TYPE_INTR)
             {
                 rst = true;
                 xfer_ctx->is_busy = false;

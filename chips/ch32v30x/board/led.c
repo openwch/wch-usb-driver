@@ -1,11 +1,14 @@
-/**
- * @file led.c
- * @author Links (lhd@wch.cn)
- * @brief LED driver board support package
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : led.c
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : LED driver board support package
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 /* @include */
 #include <stdint.h>

@@ -1,11 +1,14 @@
-/**
- * @file cdc.h
- * @author Links (lhd@wch.cn)
- * @brief USB CDC class definition header file
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : cdc.h
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : USB CDC class definition header file
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 #ifndef CDC_H
 #define CDC_H

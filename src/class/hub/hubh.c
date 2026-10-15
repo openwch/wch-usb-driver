@@ -1,11 +1,14 @@
-/**
- * @file hubh.c
- * @author Links (lhd@wch.cn)
- * @brief USB HUB host class driver
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : hubh.c
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : USB HUB host class driver
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 /* @define */
 #define USB_LOG_TAG "HUBH"

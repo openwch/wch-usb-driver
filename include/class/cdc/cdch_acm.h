@@ -1,11 +1,14 @@
-/**
- * @file cdch_acm.h
- * @author Links (lhd@wch.cn)
- * @brief USB CDC-ACM host class driver
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : cdch_acm.h
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : USB CDC-ACM host class driver
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 #ifndef CDCH_ACM_H
 #define CDCH_ACM_H

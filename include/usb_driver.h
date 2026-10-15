@@ -1,11 +1,14 @@
-/**
- * @file usb_driver.h
- * @author Links (lhd@wch.cn)
- * @brief USB driver header file
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : usb_driver.h
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : USB driver header file
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 #ifndef USB_DRIVER_H
 #define USB_DRIVER_H

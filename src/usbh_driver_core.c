@@ -1,11 +1,14 @@
-/**
- * @file usbh_driver_core.c
- * @author Links (lhd@wch.cn)
- * @brief USB host driver core source file
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : usbh_driver_core.c
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : USB host driver core source file
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 /* @define */
 #define USB_LOG_TAG "USBH"

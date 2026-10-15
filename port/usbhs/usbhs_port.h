@@ -1,11 +1,14 @@
-/**
- * @file usbhs_port.h
- * @author Links (lhd@wch.cn)
- * @brief USB High-Speed port header file
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : usbhs_port.h
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : USB High-Speed port header file
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 #ifndef USBHS_PORT_H
 #define USBHS_PORT_H

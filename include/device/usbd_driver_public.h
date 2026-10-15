@@ -1,11 +1,14 @@
-/**
- * @file usbd_driver_public.h
- * @author Links (lhd@wch.cn)
- * @brief USB device core public header file
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : usbd_driver_public.h
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : USB device core public header file
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 #ifndef USBD_DRIVER_PUBLIC_H
 #define USBD_DRIVER_PUBLIC_H

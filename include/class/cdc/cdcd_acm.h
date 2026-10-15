@@ -1,11 +1,14 @@
-/**
- * @file cdcd_acm.h
- * @author Links (lhd@wch.cn)
- * @brief USB CDC-ACM device class driver
- *
- * @copyright Copyright (c) 2026
- *
- */
+/********************************** (C) COPYRIGHT *******************************
+* File Name          : cdcd_acm.h
+* Author             : WCH
+* Version            : V1.0.0
+* Date               : 2026/10/15
+* Description        : USB CDC-ACM device class driver
+*********************************************************************************
+* Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
 
 #ifndef CDCD_ACM_H
 #define CDCD_ACM_H

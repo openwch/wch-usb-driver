@@ -32,8 +32,21 @@
 #define HIDH_MAX_REPORT_ID_COUNT 5
 #endif
 
+#ifndef HIDH_REPORT_DESC_BUF_SIZE
+#define HIDH_REPORT_DESC_BUF_SIZE 512
+#endif
+
+#ifndef HIDH_IN_DATA_BUF_SIZE
+#define HIDH_IN_DATA_BUF_SIZE 128
+#endif
+
+#ifndef HIDH_OUT_DATA_BUF_SIZE
+#define HIDH_OUT_DATA_BUF_SIZE 128
+#endif
+
 #define CTRL_XFER_TIMEOUT          100
 #define SUPPORTED_PROTOCOL_VERSION 0x0111
+#define STACK_MAX_DEPTH            8
 
 /* @enum */
 typedef enum
@@ -54,61 +67,52 @@ typedef enum
 } report_type_t;
 
 /* @struct */
+typedef struct
+{
+    uint8_t report_id;     // Report ID
+    uint16_t usage_page;   // Usage page
+
+    uint32_t size;         // Size of the report item in bits
+    uint32_t count;        // Number of report items
+
+    int32_t logical_min;   // Logical minimum
+    int32_t logical_max;   // Logical maximum
+    int32_t physical_min;  // Physical minimum
+    int32_t physical_max;  // Physical maximum
+    int32_t unit_exponent; // Unit exponent
+    uint32_t unit;         // Unit
+} report_global_info_t;
+
 typedef struct hid_report_item
 {
-    struct hid_report_item *next; // Pointer to the next report item in the list
-    bool used;                    // Indicates if the report item is used
-
-    uint16_t usage_page;          // Usage page
-    uint16_t usage_min;           // Minimum usage
-    uint16_t usage_max;           // Maximum usage
-
-    uint32_t size;                // Size of the report item in bits
-    uint32_t count;               // Number of report items
-    uint32_t offset;              // Bit offset within the report
-
-    int32_t logical_min;          // Logical minimum
-    int32_t logical_max;          // Logical maximum
-    int32_t physical_min;         // Physical minimum
-    int32_t physical_max;         // Physical maximum
-    int32_t unit_exponent;        // Unit exponent
-    uint32_t unit;                // Unit
-
-    union
-    {
-        uint16_t flags;
-
-        struct
-        {
-            uint16_t constant : 1;       // Constant value
-            uint16_t variable : 1;       // Variable value
-            uint16_t relative : 1;       // Relative value
-            uint16_t wrap : 1;           // Wrap value
-            uint16_t non_linear : 1;     // Non-linear value
-            uint16_t no_preferred : 1;   // No preferred value
-            uint16_t null_state : 1;     // Null state value
-            uint16_t volatile_ : 1;      // Volatile value
-            uint16_t buffered_bytes : 1; // Buffered bytes value
-        } io_feat_flags_bits;
-
-        struct
-        {
-            uint16_t physical : 1;       // Physical collection
-            uint16_t application : 1;    // Application collection
-            uint16_t logical : 1;        // Logical collection
-            uint16_t report : 1;         // Report collection
-            uint16_t named_array : 1;    // Named array collection
-            uint16_t usage_switch : 1;   // Usage switch collection
-            uint16_t usage_modifier : 1; // Usage modifier collection
-        } collection_flags_bits;
-    };
-} hid_report_item_t;
+    struct hid_report_item *next;
+    bool used;
+    uint16_t flags;
+    uint16_t top_usage;
+    uint16_t top_usage_page;
+    uint16_t local_report_size;
+    const uint8_t *local_report_buf;
+    report_global_info_t global_info;
+} report_item_t;
 
 typedef struct
 {
     uint8_t report_id;
-    hid_report_item_t *item_list[REPORT_TYPE_COUNT];
-} hid_item_list_t;
+    report_item_t *type_item_list[REPORT_TYPE_COUNT];
+} item_list_t;
+
+typedef struct
+{
+    uint8_t stack_depth;
+    uint16_t top_usage;
+    uint16_t top_usage_page;
+    uint16_t local_usage_page;
+    item_list_t *item_list;
+    const uint8_t *last_local_buf;
+    const uint8_t *local_report_buf;
+    report_global_info_t global_info;
+    report_global_info_t global_info_stack[STACK_MAX_DEPTH];
+} parse_ctx_t;
 
 typedef struct hidh_handle
 {
@@ -120,14 +124,16 @@ typedef struct hidh_handle
     const usb_desc_hid_t *hid_desc;
     const usb_desc_endpoint_t *in_ep;
     const usb_desc_endpoint_t *out_ep;
+    __attribute__((aligned(4))) uint8_t report_desc_buf[HIDH_REPORT_DESC_BUF_SIZE];
 
     /* Run-time context */
     bool has_report_id;
     uint8_t enum_stage;
-    hid_item_list_t report_item_list[HIDH_MAX_REPORT_ID_COUNT];
+    uint16_t list_count;
+    item_list_t report_item_list[HIDH_MAX_REPORT_ID_COUNT];
     __attribute__((aligned(4))) usb_setup_t ctrl_setup;
-    __attribute__((aligned(4))) uint8_t read_buf[1024];
-    __attribute__((aligned(4))) uint8_t write_buf[1024];
+    __attribute__((aligned(4))) uint8_t read_buf[HIDH_IN_DATA_BUF_SIZE];
+    __attribute__((aligned(4))) uint8_t write_buf[HIDH_OUT_DATA_BUF_SIZE];
 } hidh_handle_t;
 
 /* @global */
@@ -137,8 +143,7 @@ hidh_keyboard_changed_cb keyboard_changed_cb = NULL;
 hidh_mouse_changed_cb mouse_changed_cb = NULL;
 static hidh_handle_t *hid_list = NULL;
 static hidh_handle_t handle_pool[HIDH_HANDLE_POOL_SIZE] = {0};
-static hid_report_item_t report_item_pool[HIDH_REPORT_ITEM_POOL_SIZE] = {0};
-static __attribute__((aligned(4))) uint8_t public_ctrl_buf[1024];
+static report_item_t report_item_pool[HIDH_REPORT_ITEM_POOL_SIZE] = {0};
 
 /* @function declarations */
 static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
@@ -160,14 +165,14 @@ static const usbh_drv_info_t hid_drv_info = {
     .unbind = hid_drv_unbind_cb,
 };
 
-static hid_report_item_t *report_item_alloc(void)
+static report_item_t *report_item_alloc(void)
 {
     for (size_t i = 0; i < USB_ARRAY_SIZE(report_item_pool); i++)
     {
-        hid_report_item_t *item = &report_item_pool[i];
+        report_item_t *item = &report_item_pool[i];
         if (!item->used)
         {
-            memset(item, 0, sizeof(hid_report_item_t));
+            memset(item, 0, sizeof(report_item_t));
             item->used = true;
             return item;
         }
@@ -175,61 +180,190 @@ static hid_report_item_t *report_item_alloc(void)
     return NULL;
 }
 
-static void printf_report_item(const hidh_handle_t *hid)
+static bool report_main_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8_t tag, uint8_t size, uint32_t value)
 {
-    for (size_t i = 0; i < USB_ARRAY_SIZE(hid->report_item_list); i++)
+    static const uint8_t item_type_to_index[] = {
+        [HID_MAIN_ITEM_INPUT] = REPORT_TYPE_INPUT,
+        [HID_MAIN_ITEM_OUTPUT] = REPORT_TYPE_OUTPUT,
+        [HID_MAIN_ITEM_FEATURE] = REPORT_TYPE_FEATURE,
+    };
+
+    switch (tag)
     {
-        const hid_item_list_t *item_list = &hid->report_item_list[i];
-        if (i && !item_list->report_id) break;
+    case HID_MAIN_ITEM_INPUT:
+    case HID_MAIN_ITEM_OUTPUT:
+    case HID_MAIN_ITEM_FEATURE:
+    {
+        report_item_t *new_item = report_item_alloc();
+        if (!new_item) return false;
+        new_item->flags = value;
+        new_item->top_usage = ctx->top_usage;
+        new_item->top_usage_page = ctx->local_usage_page ? ctx->local_usage_page : ctx->top_usage_page;
+        new_item->local_report_buf = ctx->last_local_buf;
+        new_item->local_report_size = ctx->local_report_buf - ctx->last_local_buf;
+        memcpy(&new_item->global_info, &ctx->global_info, sizeof(report_global_info_t));
+        usbh_list_append((void **)&ctx->item_list->type_item_list[item_type_to_index[tag]], new_item);
+        break;
+    }
 
-        for (uint8_t j = 0; j < USB_ARRAY_SIZE(item_list->item_list); j++)
+    case HID_MAIN_ITEM_COLLECTION:
+        if (ctx->stack_depth >= USB_ARRAY_SIZE(ctx->global_info_stack)) return false;
+        memcpy(&ctx->global_info_stack[ctx->stack_depth++], &ctx->global_info, sizeof(report_global_info_t));
+        break;
+
+    case HID_MAIN_ITEM_END_COLLECTION:
+        if (ctx->stack_depth == 0) return false;
+        memcpy(&ctx->global_info, &ctx->global_info_stack[--ctx->stack_depth], sizeof(report_global_info_t));
+        break;
+
+    default:
+        return false;
+    }
+
+    /* Reset local information */
+    ctx->last_local_buf = ctx->local_report_buf;
+    ctx->local_usage_page = 0;
+    return true;
+}
+
+static bool report_global_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8_t tag, uint8_t size, uint32_t value)
+{
+    int32_t signed_value = 0;
+    if (size == 1)
+        signed_value = (int8_t)value;
+    else if (size == 2)
+        signed_value = (int16_t)value;
+    else
+        signed_value = (int32_t)value;
+
+    report_global_info_t *global_info = &ctx->global_info;
+    switch (tag)
+    {
+    case HID_GLOBAL_ITEM_USAGE_PAGE:
+        global_info->usage_page = value;
+        if (ctx->stack_depth == 0)
         {
-            if (!item_list->item_list[j]) continue;
-            USB_LOGI("====== Handle %p: Report ID %3d %s Structure ======", hid, item_list->report_id,
-                     j == 0   ? "Input"
-                     : j == 1 ? "Output"
-                              : "Feature");
+            ctx->top_usage_page = value;
+        }
+        break;
 
-            const hid_report_item_t *item = item_list->item_list[j];
-            while (item)
+    case HID_GLOBAL_ITEM_LOGICAL_MINIMUM:
+        global_info->logical_min = signed_value;
+        break;
+
+    case HID_GLOBAL_ITEM_LOGICAL_MAXIMUM:
+        global_info->logical_max = signed_value;
+        break;
+
+    case HID_GLOBAL_ITEM_PHYSICAL_MINIMUM:
+        global_info->physical_min = signed_value;
+        break;
+
+    case HID_GLOBAL_ITEM_PHYSICAL_MAXIMUM:
+        global_info->physical_max = signed_value;
+        break;
+
+    case HID_GLOBAL_ITEM_UNIT_EXPONENT:
+        global_info->unit_exponent = signed_value;
+        break;
+
+    case HID_GLOBAL_ITEM_UNIT:
+        global_info->unit = value;
+        break;
+
+    case HID_GLOBAL_ITEM_REPORT_SIZE:
+        global_info->size = value;
+        break;
+
+    case HID_GLOBAL_ITEM_REPORT_ID:
+        global_info->report_id = value;
+        if (!global_info->report_id) return false;
+        if (hid->list_count >= USB_ARRAY_SIZE(hid->report_item_list)) return false;
+        if (hid->has_report_id) ctx->item_list = &hid->report_item_list[hid->list_count++];
+        hid->has_report_id = true;
+        ctx->item_list->report_id = value;
+        break;
+
+    case HID_GLOBAL_ITEM_REPORT_COUNT:
+        global_info->count = value;
+        break;
+
+    case HID_GLOBAL_ITEM_PUSH:
+        if (ctx->stack_depth >= USB_ARRAY_SIZE(ctx->global_info_stack)) return false;
+        memcpy(&ctx->global_info_stack[ctx->stack_depth++], &ctx->global_info, sizeof(report_global_info_t));
+        break;
+
+    case HID_GLOBAL_ITEM_POP:
+        if (ctx->stack_depth == 0) return false;
+        memcpy(&ctx->global_info, &ctx->global_info_stack[--ctx->stack_depth], sizeof(report_global_info_t));
+        break;
+
+    default:
+        return false;
+    }
+    return true;
+}
+
+static bool report_local_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8_t tag, uint8_t size, uint32_t value)
+{
+    switch (tag)
+    {
+    case HID_LOCAL_ITEM_USAGE:
+        ctx->local_usage_page = (value >> 16) & 0xFFFF;
+        if (ctx->stack_depth == 0)
+        {
+            ctx->top_usage = value & 0xFFFF;
+            if (size >= 4)
             {
-                USB_LOGI("Usage Page: 0x%04X Usage Min: 0x%04X Usage Max: 0x%04X Size: %u Count: %u Offset: %u",
-                         item->usage_page, item->usage_min, item->usage_max, item->size, item->count, item->offset);
-                item = item->next;
+                ctx->top_usage_page = (value >> 16) & 0xFFFF;
             }
         }
+        break;
+
+    case HID_LOCAL_ITEM_USAGE_MINIMUM:
+        ctx->local_usage_page = (value >> 16) & 0xFFFF;
+        break;
+
+    case HID_LOCAL_ITEM_USAGE_MAXIMUM:
+        ctx->local_usage_page = (value >> 16) & 0xFFFF;
+        break;
+
+    case HID_LOCAL_ITEM_DESIGNATOR_INDEX:
+    case HID_LOCAL_ITEM_DESIGNATOR_MINIMUM:
+    case HID_LOCAL_ITEM_DESIGNATOR_MAXIMUM:
+    case HID_LOCAL_ITEM_STRING_INDEX:
+    case HID_LOCAL_ITEM_STRING_MINIMUM:
+    case HID_LOCAL_ITEM_STRING_MAXIMUM:
+    case HID_LOCAL_ITEM_DELIMITER:
+        break;
+
+    default:
+        return false;
     }
+    return true;
 }
 
 static bool hid_report_desc_parse(hidh_handle_t *hid, const void *buf, size_t len)
 {
     if (!hid || !buf || len == 0) return false;
 
-    bool has_item = false;
-    uint8_t last_report_id = 0;
-    uint8_t report_id_index = 0;
-    uint16_t nesting_depth = 0;
-    uint8_t stack_depth = 0;
-    uint16_t local_usage_page = 0;
-    hid_report_item_t item = {0};
-    hid_report_item_t stack_item[4];
-    hid_report_item_t *item_list[REPORT_TYPE_COUNT] = {0};
-    uint32_t report_bit_offset[REPORT_TYPE_COUNT] = {0};
+    parse_ctx_t ctx = {0};
+    hid->list_count = 1;
+    ctx.item_list = &hid->report_item_list[0];
+    ctx.last_local_buf = (const uint8_t *)buf;
 
     const uint8_t *curr = (const uint8_t *)buf;
     const uint8_t *end = (const uint8_t *)buf + len;
 
-    item.used = true;
-    item.usage_min = 0xFFFF;
     while (curr < end)
     {
         /* Not supported long item */
-        if (*curr == HID_LONG_ITEM_VALUE) goto free_items;
+        if (*curr == HID_LONG_ITEM_VALUE) return false;
 
         uint8_t item_type = HID_GET_ITEM_TYPE(*curr);
         uint8_t item_tag = HID_GET_ITEM_TAG(*curr);
         uint8_t item_size = HID_GET_ITEM_SIZE(*curr) == 3 ? 4 : HID_GET_ITEM_SIZE(*curr);
-        if (curr + item_size >= end) goto free_items;
+        if (curr + item_size >= end) return false;
 
         /* Convert the item data to a 32-bit value */
         uint32_t value = 0;
@@ -238,224 +372,30 @@ static bool hid_report_desc_parse(hidh_handle_t *hid, const void *buf, size_t le
             value |= ((uint32_t)curr[i + 1] << (8 * i));
         }
 
-        if (item_type == HID_ITEM_TYPE_MAIN)
+        switch (item_type)
         {
-            switch (item_tag)
-            {
-            case HID_MAIN_ITEM_INPUT:
-            case HID_MAIN_ITEM_OUTPUT:
-            case HID_MAIN_ITEM_FEATURE:
-            {
-                static const uint8_t item_type_to_index[] = {
-                    [HID_MAIN_ITEM_INPUT] = REPORT_TYPE_INPUT,
-                    [HID_MAIN_ITEM_OUTPUT] = REPORT_TYPE_OUTPUT,
-                    [HID_MAIN_ITEM_FEATURE] = REPORT_TYPE_FEATURE,
-                };
-                hid_report_item_t *new_item = report_item_alloc();
-                if (!new_item) goto free_items;
-                has_item = true;
-                uint8_t index = item_type_to_index[item_tag];
-                item.flags = value;
-                item.offset = report_bit_offset[index];
-                report_bit_offset[index] += item.size * item.count;
-                memcpy(new_item, &item, sizeof(hid_report_item_t));
-                usbh_list_append((void **)&item_list[index], new_item);
-                if (local_usage_page) new_item->usage_page = local_usage_page;
-                break;
-            }
+        case HID_ITEM_TYPE_MAIN:
+            ctx.local_report_buf = curr;
+            if (!report_main_item_parse(hid, &ctx, item_tag, item_size, value)) return false;
+            break;
 
-            case HID_MAIN_ITEM_COLLECTION:
-                nesting_depth++;
-                break;
+        case HID_ITEM_TYPE_GLOBAL:
+            if (!report_global_item_parse(hid, &ctx, item_tag, item_size, value)) return false;
+            break;
 
-            case HID_MAIN_ITEM_END_COLLECTION:
-                if (nesting_depth == 0) goto free_items;
-                nesting_depth--;
-                break;
+        case HID_ITEM_TYPE_LOCAL:
+            if (!report_local_item_parse(hid, &ctx, item_tag, item_size, value)) return false;
+            break;
 
-            default:
-                goto free_items;
-            }
-
-            /* Reset usage range and local usage page */
-            item.usage_min = 0xFFFF;
-            item.usage_max = 0;
-            local_usage_page = 0;
-        }
-        else if (item_type == HID_ITEM_TYPE_GLOBAL)
-        {
-            int32_t signed_value = 0;
-            if (item_size == 1)
-                signed_value = (int8_t)value;
-            else if (item_size == 2)
-                signed_value = (int16_t)value;
-            else
-                signed_value = (int32_t)value;
-
-            switch (item_tag)
-            {
-            case HID_GLOBAL_ITEM_USAGE_PAGE:
-                item.usage_page = value;
-                break;
-
-            case HID_GLOBAL_ITEM_LOGICAL_MINIMUM:
-                item.logical_min = signed_value;
-                break;
-
-            case HID_GLOBAL_ITEM_LOGICAL_MAXIMUM:
-                item.logical_max = signed_value;
-                break;
-
-            case HID_GLOBAL_ITEM_PHYSICAL_MINIMUM:
-                item.physical_min = signed_value;
-                break;
-
-            case HID_GLOBAL_ITEM_PHYSICAL_MAXIMUM:
-                item.physical_max = signed_value;
-                break;
-
-            case HID_GLOBAL_ITEM_UNIT_EXPONENT:
-                item.unit_exponent = signed_value;
-                break;
-
-            case HID_GLOBAL_ITEM_UNIT:
-                item.unit = value;
-                break;
-
-            case HID_GLOBAL_ITEM_REPORT_SIZE:
-                item.size = value;
-                break;
-
-            case HID_GLOBAL_ITEM_REPORT_ID:
-            {
-                uint8_t report_id = value & 0xFF;
-                hid->has_report_id = true;
-                if (report_id == 0) goto free_items;
-                if (report_id_index >= USB_ARRAY_SIZE(hid->report_item_list)) goto free_items;
-                if (!last_report_id && has_item) goto free_items;
-                hid_item_list_t *report_item_list = &hid->report_item_list[report_id_index];
-                report_item_list->report_id = last_report_id;
-                if (last_report_id) report_id_index++;
-                memcpy(report_item_list->item_list, item_list, sizeof(item_list));
-                memset(item_list, 0, sizeof(item_list));
-                memset(report_bit_offset, 0, sizeof(report_bit_offset));
-                last_report_id = report_id;
-                break;
-            }
-
-            case HID_GLOBAL_ITEM_REPORT_COUNT:
-                item.count = value;
-                break;
-
-            case HID_GLOBAL_ITEM_PUSH:
-            {
-                if (stack_depth >= USB_ARRAY_SIZE(stack_item)) goto free_items;
-                hid_report_item_t *stack_item_ptr = &stack_item[stack_depth];
-                stack_item_ptr->usage_page = item.usage_page;
-                stack_item_ptr->logical_min = item.logical_min;
-                stack_item_ptr->logical_max = item.logical_max;
-                stack_item_ptr->physical_min = item.physical_min;
-                stack_item_ptr->physical_max = item.physical_max;
-                stack_item_ptr->unit_exponent = item.unit_exponent;
-                stack_item_ptr->unit = item.unit;
-                stack_item_ptr->size = item.size;
-                stack_item_ptr->count = item.count;
-                stack_depth++;
-                break;
-            }
-
-            case HID_GLOBAL_ITEM_POP:
-            {
-                if (stack_depth == 0) goto free_items;
-                stack_depth--;
-                hid_report_item_t *stack_item_ptr = &stack_item[stack_depth];
-                item.usage_page = stack_item_ptr->usage_page;
-                item.logical_min = stack_item_ptr->logical_min;
-                item.logical_max = stack_item_ptr->logical_max;
-                item.physical_min = stack_item_ptr->physical_min;
-                item.physical_max = stack_item_ptr->physical_max;
-                item.unit_exponent = stack_item_ptr->unit_exponent;
-                item.unit = stack_item_ptr->unit;
-                item.size = stack_item_ptr->size;
-                item.count = stack_item_ptr->count;
-                break;
-            }
-
-            default:
-                goto free_items;
-            }
-        }
-        else if (item_type == HID_ITEM_TYPE_LOCAL)
-        {
-            switch (item_tag)
-            {
-            case HID_LOCAL_ITEM_USAGE:
-            {
-                uint16_t usage = value & 0xFFFF;
-                if (item_size >= 4) local_usage_page = value >> 16;
-                item.usage_min = USB_MIN(item.usage_min, usage);
-                item.usage_max = USB_MAX(item.usage_max, usage);
-                break;
-            }
-
-            case HID_LOCAL_ITEM_USAGE_MINIMUM:
-            {
-                uint16_t usage = value & 0xFFFF;
-                if (item_size >= 4) local_usage_page = value >> 16;
-                item.usage_min = usage;
-                break;
-            }
-
-            case HID_LOCAL_ITEM_USAGE_MAXIMUM:
-            {
-                uint16_t usage = value & 0xFFFF;
-                if (item_size >= 4) local_usage_page = value >> 16;
-                item.usage_max = usage;
-                break;
-            }
-
-            case HID_LOCAL_ITEM_DESIGNATOR_INDEX:
-            case HID_LOCAL_ITEM_DESIGNATOR_MINIMUM:
-            case HID_LOCAL_ITEM_DESIGNATOR_MAXIMUM:
-            case HID_LOCAL_ITEM_STRING_INDEX:
-            case HID_LOCAL_ITEM_STRING_MINIMUM:
-            case HID_LOCAL_ITEM_STRING_MAXIMUM:
-            case HID_LOCAL_ITEM_DELIMITER:
-                break;
-
-            default:
-                goto free_items;
-            }
-        }
-        else
-        {
-            goto free_items;
+        default:
+            return false;
         }
 
         curr += item_size + 1;
     }
 
-    if (!has_item) goto free_items;
-    if (nesting_depth != 0) goto free_items;
-    if (report_id_index >= USB_ARRAY_SIZE(hid->report_item_list)) goto free_items;
-    hid_item_list_t *report_item_list = &hid->report_item_list[report_id_index++];
-    report_item_list->report_id = last_report_id;
-    memcpy(report_item_list->item_list, item_list, sizeof(item_list));
-    printf_report_item(hid);
+    if (ctx.stack_depth != 0) return false;
     return true;
-
-free_items:
-    for (size_t i = 0; i < USB_ARRAY_SIZE(item_list); i++)
-    {
-        hid_report_item_t *item = item_list[i];
-        while (item)
-        {
-            hid_report_item_t *next = item->next;
-            item->used = false;
-            item = next;
-        }
-    }
-    return false;
 }
 
 static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
@@ -478,7 +418,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         {
             if (hid->hid_desc->descriptor[i].bReportType == HID_DESC_REPORT)
             {
-                if (hid->hid_desc->descriptor[i].wReportLength > sizeof(public_ctrl_buf)) break;
+                if (hid->hid_desc->descriptor[i].wReportLength > sizeof(hid->report_desc_buf)) break;
 
                 /* Get only the first report descriptor */
                 usb_setup_t *request = &hid->ctrl_setup;
@@ -487,7 +427,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                 request->wValue = hid->hid_desc->descriptor[i].bReportType << 8;
                 request->wIndex = hid->itf_desc->bInterfaceNumber;
                 request->wLength = hid->hid_desc->descriptor[i].wReportLength;
-                usbh_ctrl_xfer(hid->dev, hid, request, &public_ctrl_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+                usbh_ctrl_xfer(hid->dev, hid, request, &hid->report_desc_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
                 return;
             }
         }
@@ -502,7 +442,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             USB_LOGE("Handle: %p Get descriptor failed: expected length %d, got %d", hid, setup->wLength, length);
             break;
         }
-        if (!hid_report_desc_parse(hid, &public_ctrl_buf, length))
+        if (!hid_report_desc_parse(hid, &hid->report_desc_buf, length))
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
             USB_LOGE("Handle: %p Failed to parse HID report descriptor", hid);
@@ -620,20 +560,19 @@ static hidh_handle_t *handle_alloc(void)
     return NULL;
 }
 
-static void handle_free(hidh_handle_t *hid)
+static void handle_item_free(hidh_handle_t *hid)
 {
-    for (size_t i = 0; i < USB_ARRAY_SIZE(hid->report_item_list); i++)
+    for (size_t i = 0; i < hid->list_count; i++)
     {
-        hid_item_list_t *item_list = &hid->report_item_list[i];
-
-        for (uint8_t j = 0; j < USB_ARRAY_SIZE(item_list->item_list); j++)
+        item_list_t *item_list = &hid->report_item_list[i];
+        for (size_t i = 0; i < USB_ARRAY_SIZE(item_list->type_item_list); i++)
         {
-            if (!item_list->item_list[j]) continue;
-            hid_report_item_t *item = item_list->item_list[j];
+            report_item_t *item = item_list->type_item_list[i];
             while (item)
             {
+                report_item_t *next = item->next;
                 item->used = false;
-                item = item->next;
+                item = next;
             }
         }
     }
@@ -728,7 +667,7 @@ static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
         if (hid->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || hid->itf_desc->bInterfaceNumber == itf_num))
         {
             usbh_list_remove((void **)&hid_list, hid);
-            handle_free(hid);
+            handle_item_free(hid);
             memset(hid, 0, sizeof(hidh_handle_t));
         }
         hid = next;
@@ -736,8 +675,9 @@ static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
     return true;
 }
 
-static void hid_report_data_parse(hidh_handle_t *hid, const uint8_t *data, size_t len, hid_report_item_t *item_list)
+static void hid_report_data_parse(hidh_handle_t *hid, const uint8_t *data, size_t len, const item_list_t *item_list)
 {
+    if (!len) return;
 }
 
 static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
@@ -750,16 +690,16 @@ static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void 
     {
         for (size_t i = 0; i < USB_ARRAY_SIZE(hid->report_item_list); i++)
         {
-            const hid_item_list_t *item_list = &hid->report_item_list[i];
+            const item_list_t *item_list = &hid->report_item_list[i];
             if (i && !item_list->report_id) break;
             if (item_list->report_id != data[0]) continue;
-            hid_report_data_parse(hid, data, len, item_list->item_list[REPORT_TYPE_INPUT]);
+            hid_report_data_parse(hid, data, len, item_list);
             break;
         }
     }
     else
     {
-        hid_report_data_parse(hid, data, len, hid->report_item_list[0].item_list[REPORT_TYPE_INPUT]);
+        hid_report_data_parse(hid, data, len, &hid->report_item_list[0]);
     }
 }
 

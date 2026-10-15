@@ -21,10 +21,48 @@ extern "C" {
 #endif
 
 /* @define */
-#define HID_LONG_ITEM_VALUE     (0xFE)
-#define HID_GET_ITEM_TAG(item)  (((item) & 0xF0) >> 4)
-#define HID_GET_ITEM_TYPE(item) (((item) & 0x0C) >> 2)
-#define HID_GET_ITEM_SIZE(item) (((item) & 0x03) >> 0)
+#define HID_LONG_ITEM_VALUE                     (0xFE)
+#define HID_GET_ITEM_TAG(item)                  (((item) & 0xF0) >> 4)
+#define HID_GET_ITEM_TYPE(item)                 (((item) & 0x0C) >> 2)
+#define HID_GET_ITEM_SIZE(item)                 (((item) & 0x03) >> 0)
+
+#define HID_ITEM_INPUT_FLAG_CONSTANT            (1 << 0)
+#define HID_ITEM_INPUT_FLAG_VARIABLE            (1 << 1)
+#define HID_ITEM_INPUT_FLAG_RELATIVE            (1 << 2)
+#define HID_ITEM_INPUT_FLAG_WRAP                (1 << 3)
+#define HID_ITEM_INPUT_FLAG_NON_LINEAR          (1 << 4)
+#define HID_ITEM_INPUT_FLAG_NO_PREFERRED        (1 << 5)
+#define HID_ITEM_INPUT_FLAG_NULL_STATE          (1 << 6)
+#define HID_ITEM_INPUT_FLAG_VOLATILE            (1 << 7)
+#define HID_ITEM_INPUT_FLAG_BUFFERED_BYTES      (1 << 8)
+
+#define HID_ITEM_OUTPUT_FLAG_CONSTANT           (1 << 0)
+#define HID_ITEM_OUTPUT_FLAG_VARIABLE           (1 << 1)
+#define HID_ITEM_OUTPUT_FLAG_RELATIVE           (1 << 2)
+#define HID_ITEM_OUTPUT_FLAG_WRAP               (1 << 3)
+#define HID_ITEM_OUTPUT_FLAG_NON_LINEAR         (1 << 4)
+#define HID_ITEM_OUTPUT_FLAG_NO_PREFERRED       (1 << 5)
+#define HID_ITEM_OUTPUT_FLAG_NULL_STATE         (1 << 6)
+#define HID_ITEM_OUTPUT_FLAG_VOLATILE           (1 << 7)
+#define HID_ITEM_OUTPUT_FLAG_BUFFERED_BYTES     (1 << 8)
+
+#define HID_ITEM_FEATURE_FLAG_CONSTANT          (1 << 0)
+#define HID_ITEM_FEATURE_FLAG_VARIABLE          (1 << 1)
+#define HID_ITEM_FEATURE_FLAG_RELATIVE          (1 << 2)
+#define HID_ITEM_FEATURE_FLAG_WRAP              (1 << 3)
+#define HID_ITEM_FEATURE_FLAG_NON_LINEAR        (1 << 4)
+#define HID_ITEM_FEATURE_FLAG_NO_PREFERRED      (1 << 5)
+#define HID_ITEM_FEATURE_FLAG_NULL_STATE        (1 << 6)
+#define HID_ITEM_FEATURE_FLAG_VOLATILE          (1 << 7)
+#define HID_ITEM_FEATURE_FLAG_BUFFERED_BYTES    (1 << 8)
+
+#define HID_ITEM_COLLECTION_FLAG_PHYSICAL       (1 << 0)
+#define HID_ITEM_COLLECTION_FLAG_APPLICATION    (1 << 1)
+#define HID_ITEM_COLLECTION_FLAG_LOGICAL        (1 << 2)
+#define HID_ITEM_COLLECTION_FLAG_REPORT         (1 << 3)
+#define HID_ITEM_COLLECTION_FLAG_NAMED_ARRAY    (1 << 4)
+#define HID_ITEM_COLLECTION_FLAG_USAGE_SWITCH   (1 << 5)
+#define HID_ITEM_COLLECTION_FLAG_USAGE_MODIFIER (1 << 6)
 
 /* @enum */
 typedef enum

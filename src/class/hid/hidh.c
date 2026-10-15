@@ -128,6 +128,10 @@ typedef struct hidh_handle
 } hidh_handle_t;
 
 /* @global */
+hidh_keyboard_t hidh_keyboard = {0};
+hidh_mouse_t hidh_mouse = {0};
+hidh_keyboard_changed_cb keyboard_changed_cb = NULL;
+hidh_mouse_changed_cb mouse_changed_cb = NULL;
 static hidh_handle_t *hid_list = NULL;
 static hidh_handle_t handle_pool[HIDH_HANDLE_POOL_SIZE] = {0};
 static hid_report_item_t report_item_pool[HIDH_REPORT_ITEM_POOL_SIZE] = {0};
@@ -454,7 +458,7 @@ free_items:
 static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
 {
     hidh_handle_t *hid = (hidh_handle_t *)handle;
-    if (!rst)
+    if (!rst && hid->enum_stage != ENUM_STAGE_SET_IDLE)
     {
         USB_LOGE("Handle: %p Enumeration control transfer failed at stage %d", hid, hid->enum_stage);
         hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
@@ -589,6 +593,16 @@ bool hidh_drv_close(usbh_handle_t *h)
     return usbh_unregister_driver(h, &hid_drv_info);
 }
 
+void hidh_drv_register_keyboard_changed_cb(hidh_keyboard_changed_cb cb)
+{
+    keyboard_changed_cb = cb;
+}
+
+void hidh_drv_register_mouse_changed_cb(hidh_mouse_changed_cb cb)
+{
+    mouse_changed_cb = cb;
+}
+
 static hidh_handle_t *handle_alloc(void)
 {
     for (size_t i = 0; i < USB_ARRAY_SIZE(handle_pool); i++)
@@ -719,8 +733,31 @@ static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
     return true;
 }
 
+static void hid_report_data_parse(hidh_handle_t *hid, const uint8_t *data, size_t len, hid_report_item_t *item_list)
+{
+}
+
 static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
+    if (!rst || !len) return;
+    hidh_handle_t *hid = (hidh_handle_t *)handle;
+    const uint8_t *data = (const uint8_t *)buf;
+
+    if (hid->has_report_id)
+    {
+        for (size_t i = 0; i < USB_ARRAY_SIZE(hid->report_item_list); i++)
+        {
+            const hid_item_list_t *item_list = &hid->report_item_list[i];
+            if (i && !item_list->report_id) break;
+            if (item_list->report_id != data[0]) continue;
+            hid_report_data_parse(hid, data, len, item_list->item_list[REPORT_TYPE_INPUT]);
+            break;
+        }
+    }
+    else
+    {
+        hid_report_data_parse(hid, data, len, hid->report_item_list[0].item_list[REPORT_TYPE_INPUT]);
+    }
 }
 
 static void hid_drv_write_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)

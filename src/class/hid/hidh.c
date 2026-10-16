@@ -16,6 +16,7 @@
 /* @include */
 #include "usb_driver.h"
 #include "host/usbh_driver_private.h"
+#include "class/hid/hidh_private.h"
 
 #ifdef USB_CLASS_HIDH_DRIVER_EN
 
@@ -69,35 +70,10 @@ typedef enum
 /* @struct */
 typedef struct
 {
-    uint8_t report_id;     // Report ID
-    uint16_t usage_page;   // Usage page
-
-    uint32_t size;         // Size of the report item in bits
-    uint32_t count;        // Number of report items
-
-    int32_t logical_min;   // Logical minimum
-    int32_t logical_max;   // Logical maximum
-    int32_t physical_min;  // Physical minimum
-    int32_t physical_max;  // Physical maximum
-    int32_t unit_exponent; // Unit exponent
-    uint32_t unit;         // Unit
-} report_global_info_t;
-
-typedef struct hid_report_item
-{
-    struct hid_report_item *next;
-    bool used;
-    uint16_t flags;
+    uint8_t report_id;
     uint16_t top_usage;
     uint16_t top_usage_page;
-    uint16_t local_report_size;
-    const uint8_t *local_report_buf;
-    report_global_info_t global_info;
-} report_item_t;
-
-typedef struct
-{
-    uint8_t report_id;
+    void *handle;
     report_item_t *type_item_list[REPORT_TYPE_COUNT];
 } item_list_t;
 
@@ -137,10 +113,6 @@ typedef struct hidh_handle
 } hidh_handle_t;
 
 /* @global */
-hidh_keyboard_t hidh_keyboard = {0};
-hidh_mouse_t hidh_mouse = {0};
-hidh_keyboard_changed_cb keyboard_changed_cb = NULL;
-hidh_mouse_changed_cb mouse_changed_cb = NULL;
 static hidh_handle_t *hid_list = NULL;
 static hidh_handle_t handle_pool[HIDH_HANDLE_POOL_SIZE] = {0};
 static report_item_t report_item_pool[HIDH_REPORT_ITEM_POOL_SIZE] = {0};
@@ -197,8 +169,6 @@ static bool report_main_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8_t
         report_item_t *new_item = report_item_alloc();
         if (!new_item) return false;
         new_item->flags = value;
-        new_item->top_usage = ctx->top_usage;
-        new_item->top_usage_page = ctx->local_usage_page ? ctx->local_usage_page : ctx->top_usage_page;
         new_item->local_report_buf = ctx->last_local_buf;
         new_item->local_report_size = ctx->local_report_buf - ctx->last_local_buf;
         memcpy(&new_item->global_info, &ctx->global_info, sizeof(report_global_info_t));
@@ -282,6 +252,8 @@ static bool report_global_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8
         if (hid->has_report_id) ctx->item_list = &hid->report_item_list[hid->list_count++];
         hid->has_report_id = true;
         ctx->item_list->report_id = value;
+        ctx->item_list->top_usage = ctx->top_usage;
+        ctx->item_list->top_usage_page = ctx->top_usage_page;
         break;
 
     case HID_GLOBAL_ITEM_REPORT_COUNT:
@@ -375,7 +347,7 @@ static bool hid_report_desc_parse(hidh_handle_t *hid, const void *buf, size_t le
         switch (item_type)
         {
         case HID_ITEM_TYPE_MAIN:
-            ctx.local_report_buf = curr;
+            ctx.local_report_buf = curr + item_size + 1;
             if (!report_main_item_parse(hid, &ctx, item_tag, item_size, value)) return false;
             break;
 
@@ -395,6 +367,37 @@ static bool hid_report_desc_parse(hidh_handle_t *hid, const void *buf, size_t le
     }
 
     if (ctx.stack_depth != 0) return false;
+    if (!hid->has_report_id)
+    {
+        ctx.item_list->top_usage = ctx.top_usage;
+        ctx.item_list->top_usage_page = ctx.top_usage_page;
+    }
+    return true;
+}
+
+static bool report_device_bind(hidh_handle_t *hid)
+{
+    for (size_t i = 0; i < hid->list_count; i++)
+    {
+        item_list_t *item_list = &hid->report_item_list[i];
+        if (item_list->top_usage_page == HID_USAGE_PAGE_DESKTOP)
+        {
+            switch (item_list->top_usage)
+            {
+#ifdef USB_CLASS_HIDH_KEYBOARD_EN
+            case HID_DESKTOP_USAGE_KEYBOARD:
+                item_list->handle = hidh_keyboard_create();
+                break;
+#endif
+
+#ifdef USB_CLASS_HIDH_MOUSE_EN
+            case HID_DESKTOP_USAGE_MOUSE:
+                item_list->handle = hidh_mouse_create();
+                break;
+#endif
+            }
+        }
+    }
     return true;
 }
 
@@ -442,10 +445,18 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             USB_LOGE("Handle: %p Get descriptor failed: expected length %d, got %d", hid, setup->wLength, length);
             break;
         }
+
         if (!hid_report_desc_parse(hid, &hid->report_desc_buf, length))
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
             USB_LOGE("Handle: %p Failed to parse HID report descriptor", hid);
+            break;
+        }
+
+        if (!report_device_bind(hid))
+        {
+            hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
+            USB_LOGE("Handle: %p Failed to bind report device", hid);
             break;
         }
 
@@ -455,6 +466,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             USB_LOGE("Handle: %p Failed to open IN endpoint", hid);
             break;
         }
+
         if (hid->out_ep && !usbh_endp_open(hid->dev, hid, hid->out_ep, hid_drv_write_cb))
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
@@ -462,6 +474,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             if (hid->in_ep) usbh_endp_close(hid->dev, hid->in_ep->bEndpointAddress);
             break;
         }
+
         hid->enum_stage = ENUM_STAGE_END;
         USB_LOGI("Handle: %p Enumeration completed", hid);
         break;
@@ -522,6 +535,14 @@ void hidh_drv_task(void)
         }
         hid = next;
     }
+
+#ifdef USB_CLASS_HIDH_KEYBOARD_EN
+    hidh_keyboard_task();
+#endif
+
+#ifdef USB_CLASS_HIDH_MOUSE_EN
+    hidh_mouse_task();
+#endif
 }
 
 bool hidh_drv_open(usbh_handle_t *h)
@@ -534,16 +555,6 @@ bool hidh_drv_close(usbh_handle_t *h)
 {
     if (!h) return false;
     return usbh_unregister_driver(h, &hid_drv_info);
-}
-
-void hidh_drv_register_keyboard_changed_cb(hidh_keyboard_changed_cb cb)
-{
-    keyboard_changed_cb = cb;
-}
-
-void hidh_drv_register_mouse_changed_cb(hidh_mouse_changed_cb cb)
-{
-    mouse_changed_cb = cb;
 }
 
 static hidh_handle_t *handle_alloc(void)
@@ -560,11 +571,29 @@ static hidh_handle_t *handle_alloc(void)
     return NULL;
 }
 
-static void handle_item_free(hidh_handle_t *hid)
+static void hid_handle_free(hidh_handle_t *hid)
 {
     for (size_t i = 0; i < hid->list_count; i++)
     {
         item_list_t *item_list = &hid->report_item_list[i];
+        if (item_list->handle && item_list->top_usage_page == HID_USAGE_PAGE_DESKTOP)
+        {
+            switch (item_list->top_usage)
+            {
+#ifdef USB_CLASS_HIDH_KEYBOARD_EN
+            case HID_DESKTOP_USAGE_KEYBOARD:
+                hidh_keyboard_delete(item_list->handle);
+                break;
+#endif
+
+#ifdef USB_CLASS_HIDH_MOUSE_EN
+            case HID_DESKTOP_USAGE_MOUSE:
+                hidh_mouse_delete(item_list->handle);
+                break;
+#endif
+            }
+        }
+
         for (size_t i = 0; i < USB_ARRAY_SIZE(item_list->type_item_list); i++)
         {
             report_item_t *item = item_list->type_item_list[i];
@@ -580,7 +609,7 @@ static void handle_item_free(hidh_handle_t *hid)
 
 static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length)
 {
-    if (!dev || dev->speed == USB_SPEED_LOW || !desc || length == 0) return false;
+    if (!dev || !desc || length == 0) return false;
 
     const usb_desc_interface_t *itf_desc = NULL;
     const usb_desc_hid_t *hid_desc = NULL;
@@ -614,7 +643,7 @@ static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
             uint8_t endp_dir = USB_ENDP_DIR(endp_desc->bEndpointAddress);
             uint8_t endp_type = USB_ENDP_GET_TYPE(endp_desc->bmAttributes);
             if (!endp_dir || endp_type != USB_ENDP_TYPE_INTR) return false;
-            if (!endp_count > 0) break;
+            if (!endp_count) break;
             endp_count--;
             const usb_desc_endpoint_t **target_ep = endp_dir ? &in_ep : &out_ep;
             *target_ep = endp_desc;
@@ -667,7 +696,7 @@ static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
         if (hid->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || hid->itf_desc->bInterfaceNumber == itf_num))
         {
             usbh_list_remove((void **)&hid_list, hid);
-            handle_item_free(hid);
+            hid_handle_free(hid);
             memset(hid, 0, sizeof(hidh_handle_t));
         }
         hid = next;
@@ -675,9 +704,140 @@ static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
     return true;
 }
 
-static void hid_report_data_parse(hidh_handle_t *hid, const uint8_t *data, size_t len, const item_list_t *item_list)
+uint16_t *hidh_variable_usage_parse(const report_item_t *item)
 {
-    if (!len) return;
+    static uint16_t usage_parse_list[256] = {0};
+    if (item->global_info.count > USB_ARRAY_SIZE(usage_parse_list)) return NULL;
+
+    uint16_t usage_min = 0xFFFF;
+    uint16_t usage_max = 0;
+    uint32_t usage_offset = 0;
+
+    const uint8_t *curr = (const uint8_t *)item->local_report_buf;
+    const uint8_t *end = (const uint8_t *)item->local_report_buf + item->local_report_size;
+    while (curr < end)
+    {
+        uint8_t item_type = HID_GET_ITEM_TYPE(*curr);
+        uint8_t item_tag = HID_GET_ITEM_TAG(*curr);
+        uint8_t item_size = HID_GET_ITEM_SIZE(*curr) == 3 ? 4 : HID_GET_ITEM_SIZE(*curr);
+
+        if (item_type != HID_ITEM_TYPE_LOCAL)
+        {
+            curr += item_size + 1;
+            continue;
+        }
+
+        uint32_t value = 0;
+        for (uint8_t i = 0; i < item_size; i++)
+        {
+            value |= ((uint32_t)curr[i + 1] << (8 * i));
+        }
+
+        switch (item_tag)
+        {
+        case HID_LOCAL_ITEM_USAGE:
+            if (usage_offset >= USB_ARRAY_SIZE(usage_parse_list)) break;
+            usage_parse_list[usage_offset++] = (uint16_t)value;
+            break;
+
+        case HID_LOCAL_ITEM_USAGE_MINIMUM:
+            usage_min = (uint16_t)value;
+            break;
+
+        case HID_LOCAL_ITEM_USAGE_MAXIMUM:
+            usage_max = (uint16_t)value;
+            if (usage_max < usage_min) break;
+            for (uint16_t usage = usage_min; usage <= usage_max; usage++)
+            {
+                if (usage_offset >= USB_ARRAY_SIZE(usage_parse_list)) break;
+                usage_parse_list[usage_offset++] = usage;
+            }
+            break;
+        }
+        curr += item_size + 1;
+    }
+
+    uint16_t last_usage = usage_offset ? usage_parse_list[usage_offset - 1] : 0;
+    for (uint32_t i = usage_offset; i < item->global_info.count; i++)
+    {
+        if (i >= USB_ARRAY_SIZE(usage_parse_list)) break;
+        usage_parse_list[i] = last_usage;
+    }
+
+    return usage_parse_list;
+}
+
+bool hidh_array_usage_parse(const report_item_t *item, uint16_t *usage_min, uint16_t *usage_max)
+{
+    uint16_t min = 0xFFFF;
+    uint16_t max = 0;
+
+    const uint8_t *curr = (const uint8_t *)item->local_report_buf;
+    const uint8_t *end = (const uint8_t *)item->local_report_buf + item->local_report_size;
+    while (curr < end)
+    {
+        uint8_t item_type = HID_GET_ITEM_TYPE(*curr);
+        uint8_t item_tag = HID_GET_ITEM_TAG(*curr);
+        uint8_t item_size = HID_GET_ITEM_SIZE(*curr) == 3 ? 4 : HID_GET_ITEM_SIZE(*curr);
+
+        if (item_type != HID_ITEM_TYPE_LOCAL)
+        {
+            curr += item_size + 1;
+            continue;
+        }
+
+        uint32_t value = 0;
+        for (uint8_t i = 0; i < item_size; i++)
+        {
+            value |= ((uint32_t)curr[i + 1] << (8 * i));
+        }
+
+        switch (item_tag)
+        {
+        case HID_LOCAL_ITEM_USAGE:
+            min = USB_MIN(min, (uint16_t)value);
+            max = USB_MAX(max, (uint16_t)value);
+            break;
+
+        case HID_LOCAL_ITEM_USAGE_MINIMUM:
+            min = (uint16_t)value;
+            break;
+
+        case HID_LOCAL_ITEM_USAGE_MAXIMUM:
+            max = (uint16_t)value;
+            break;
+        }
+        curr += item_size + 1;
+    }
+
+    if (min > max)
+    {
+        return false;
+    }
+
+    *usage_min = min;
+    *usage_max = max;
+    return true;
+}
+
+int32_t hidh_input_get_field(const uint8_t *data, uint32_t offset, uint8_t size, bool is_signed)
+{
+    uint32_t value = 0;
+    for (uint8_t i = 0; i < size && i < 32; i++)
+    {
+        uint32_t bit = offset + i;
+        value |= data[bit >> 3] & (1U << (bit & 0x07)) ? 1 << i : 0;
+    }
+
+    if (is_signed && 0 < size && size < 32)
+    {
+        uint32_t sign_bit = 1U << (size - 1);
+        if (value & sign_bit)
+        {
+            value |= ~((1U << size) - 1);
+        }
+    }
+    return (int32_t)value;
 }
 
 static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
@@ -685,21 +845,45 @@ static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void 
     if (!rst || !len) return;
     hidh_handle_t *hid = (hidh_handle_t *)handle;
     const uint8_t *data = (const uint8_t *)buf;
+    const item_list_t *item_list = NULL;
 
     if (hid->has_report_id)
     {
         for (size_t i = 0; i < USB_ARRAY_SIZE(hid->report_item_list); i++)
         {
-            const item_list_t *item_list = &hid->report_item_list[i];
-            if (i && !item_list->report_id) break;
-            if (item_list->report_id != data[0]) continue;
-            hid_report_data_parse(hid, data, len, item_list);
+            const item_list_t *curr_list = &hid->report_item_list[i];
+            if (i && !curr_list->report_id) break;
+            if (curr_list->report_id != data[0]) continue;
+            item_list = curr_list;
             break;
         }
     }
     else
     {
-        hid_report_data_parse(hid, data, len, &hid->report_item_list[0]);
+        item_list = &hid->report_item_list[0];
+    }
+
+    if (item_list)
+    {
+        if (item_list->handle && item_list->top_usage_page == HID_USAGE_PAGE_DESKTOP)
+        {
+            switch (item_list->top_usage)
+            {
+#ifdef USB_CLASS_HIDH_KEYBOARD_EN
+            case HID_DESKTOP_USAGE_KEYBOARD:
+                hidh_keyboard_input_parse(item_list->handle, item_list->type_item_list[REPORT_TYPE_INPUT],
+                                          hid->has_report_id ? &data[1] : data, hid->has_report_id ? len - 1 : len);
+                break;
+#endif
+
+#ifdef USB_CLASS_HIDH_MOUSE_EN
+            case HID_DESKTOP_USAGE_MOUSE:
+                hidh_mouse_input_parse(item_list->handle, item_list->type_item_list[REPORT_TYPE_INPUT],
+                                       hid->has_report_id ? &data[1] : data, hid->has_report_id ? len - 1 : len);
+                break;
+#endif
+            }
+        }
     }
 }
 

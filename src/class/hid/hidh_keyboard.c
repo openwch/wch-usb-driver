@@ -139,75 +139,24 @@ void hidh_keyboard_delete(void *handle)
     }
 }
 
-static void usage_input_parse(kb_handle_t *kb, uint16_t usage_page, uint16_t usage, int32_t value)
+void keyboard_input_start_parse(void *handle)
 {
-    if (usage_page == HID_USAGE_PAGE_KEYBOARD)
-    {
-        uint8_t index = usage >> 5;
-        uint8_t bit = usage & 0x1F;
-        if (index >= USB_ARRAY_SIZE(kb->button_status_bitmap)) return;
-        kb->button_status_bitmap[index] |= (value ? 1U : 0U) << bit;
-    }
-}
-
-static void variable_input_parse(kb_handle_t *kb, const report_item_t *item, const uint8_t *data, uint32_t offset)
-{
-    uint16_t *usage_list = hidh_variable_usage_parse(item);
-    if (!usage_list) return;
-
-    for (uint32_t i = 0; i < item->global_info.count; i++)
-    {
-        bool is_signed = item->global_info.logical_min < 0;
-        uint32_t curr_offset = offset + i * item->global_info.size;
-        int32_t value = hidh_input_get_field(data, curr_offset, item->global_info.size, is_signed);
-        uint16_t usage = usage_list[i];
-        usage_input_parse(kb, item->global_info.usage_page, usage, value);
-    }
-}
-
-static void array_input_parse(kb_handle_t *kb, const report_item_t *item, const uint8_t *data, uint32_t offset)
-{
-    uint16_t usage_min = 0;
-    uint16_t usage_max = 0;
-    if (!hidh_array_usage_parse(item, &usage_min, &usage_max)) return;
-
-    for (uint32_t i = 0; i < item->global_info.count; i++)
-    {
-        bool is_signed = item->global_info.logical_min < 0;
-        uint32_t curr_offset = offset + i * item->global_info.size;
-        uint16_t usage = usage_min + hidh_input_get_field(data, curr_offset, item->global_info.size, is_signed);
-        usage = USB_MIN(usage, usage_max);
-        if (usage)
-        {
-            usage_input_parse(kb, item->global_info.usage_page, usage, 1);
-        }
-    }
-}
-
-void hidh_keyboard_input_parse(void *handle, const report_item_t *item, const uint8_t *data, size_t len)
-{
-    uint32_t bit_offset = 0;
     kb_handle_t *kb = (kb_handle_t *)handle;
     memset(&kb->button_status_bitmap, 0, sizeof(kb->button_status_bitmap));
+}
 
-    while (item)
+void keyboard_input_usage_parse(void *handle, uint16_t usage_page, uint16_t usage, int32_t value)
+{
+    kb_handle_t *kb = (kb_handle_t *)handle;
+    if (usage_page == HID_USAGE_PAGE_KEYBOARD)
     {
-        if ((bit_offset + item->global_info.size * item->global_info.count) >> 3 > len) break;
-
-        if (!(item->flags & HID_ITEM_INPUT_FLAG_CONSTANT))
+        if (usage)
         {
-            if (item->flags & HID_ITEM_INPUT_FLAG_VARIABLE)
-            {
-                variable_input_parse(kb, item, data, bit_offset);
-            }
-            else
-            {
-                array_input_parse(kb, item, data, bit_offset);
-            }
+            uint8_t index = usage >> 5;
+            uint8_t bit = usage & 0x1F;
+            if (index >= USB_ARRAY_SIZE(kb->button_status_bitmap)) return;
+            kb->button_status_bitmap[index] |= (value ? 1U : 0U) << bit;
         }
-
-        bit_offset += item->global_info.size * item->global_info.count;
-        item = item->next;
     }
 }
 

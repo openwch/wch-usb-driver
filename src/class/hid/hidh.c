@@ -74,6 +74,8 @@ typedef struct
     uint16_t top_usage;
     uint16_t top_usage_page;
     void *handle;
+    input_start_parse_cb start_parse_cb;
+    input_usage_parse_cb usage_parse_cb;
     report_item_t *type_item_list[REPORT_TYPE_COUNT];
 } item_list_t;
 
@@ -82,7 +84,6 @@ typedef struct
     uint8_t stack_depth;
     uint16_t top_usage;
     uint16_t top_usage_page;
-    uint16_t local_usage_page;
     item_list_t *item_list;
     const uint8_t *last_local_buf;
     const uint8_t *local_report_buf;
@@ -192,7 +193,6 @@ static bool report_main_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8_t
 
     /* Reset local information */
     ctx->last_local_buf = ctx->local_report_buf;
-    ctx->local_usage_page = 0;
     return true;
 }
 
@@ -242,6 +242,7 @@ static bool report_global_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8
         break;
 
     case HID_GLOBAL_ITEM_REPORT_SIZE:
+        if (value > 32) return false;
         global_info->size = value;
         break;
 
@@ -257,6 +258,7 @@ static bool report_global_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8
         break;
 
     case HID_GLOBAL_ITEM_REPORT_COUNT:
+        if (value > 8192) return false;
         global_info->count = value;
         break;
 
@@ -281,7 +283,6 @@ static bool report_local_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8_
     switch (tag)
     {
     case HID_LOCAL_ITEM_USAGE:
-        ctx->local_usage_page = (value >> 16) & 0xFFFF;
         if (ctx->stack_depth == 0)
         {
             ctx->top_usage = value & 0xFFFF;
@@ -293,13 +294,7 @@ static bool report_local_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8_
         break;
 
     case HID_LOCAL_ITEM_USAGE_MINIMUM:
-        ctx->local_usage_page = (value >> 16) & 0xFFFF;
-        break;
-
     case HID_LOCAL_ITEM_USAGE_MAXIMUM:
-        ctx->local_usage_page = (value >> 16) & 0xFFFF;
-        break;
-
     case HID_LOCAL_ITEM_DESIGNATOR_INDEX:
     case HID_LOCAL_ITEM_DESIGNATOR_MINIMUM:
     case HID_LOCAL_ITEM_DESIGNATOR_MAXIMUM:
@@ -387,12 +382,16 @@ static bool report_device_bind(hidh_handle_t *hid)
 #ifdef USB_CLASS_HIDH_KEYBOARD_EN
             case HID_DESKTOP_USAGE_KEYBOARD:
                 item_list->handle = hidh_keyboard_create();
+                item_list->start_parse_cb = keyboard_input_start_parse;
+                item_list->usage_parse_cb = keyboard_input_usage_parse;
                 break;
 #endif
 
 #ifdef USB_CLASS_HIDH_MOUSE_EN
             case HID_DESKTOP_USAGE_MOUSE:
                 item_list->handle = hidh_mouse_create();
+                item_list->start_parse_cb = mouse_input_start_parse;
+                item_list->usage_parse_cb = mouse_input_usage_parse;
                 break;
 #endif
             }
@@ -642,7 +641,7 @@ static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
             const usb_desc_endpoint_t *endp_desc = (const usb_desc_endpoint_t *)curr;
             uint8_t endp_dir = USB_ENDP_DIR(endp_desc->bEndpointAddress);
             uint8_t endp_type = USB_ENDP_GET_TYPE(endp_desc->bmAttributes);
-            if (!endp_dir || endp_type != USB_ENDP_TYPE_INTR) return false;
+            if (endp_type != USB_ENDP_TYPE_INTR) return false;
             if (!endp_count) break;
             endp_count--;
             const usb_desc_endpoint_t **target_ep = endp_dir ? &in_ep : &out_ep;
@@ -704,7 +703,7 @@ static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
     return true;
 }
 
-uint16_t *hidh_variable_usage_parse(const report_item_t *item)
+static uint16_t *variable_usage_parse(const report_item_t *item)
 {
     static uint16_t usage_parse_list[256] = {0};
     if (item->global_info.count > USB_ARRAY_SIZE(usage_parse_list)) return NULL;
@@ -767,7 +766,7 @@ uint16_t *hidh_variable_usage_parse(const report_item_t *item)
     return usage_parse_list;
 }
 
-bool hidh_array_usage_parse(const report_item_t *item, uint16_t *usage_min, uint16_t *usage_max)
+static bool array_usage_parse(const report_item_t *item, uint16_t *usage_min, uint16_t *usage_max)
 {
     uint16_t min = 0xFFFF;
     uint16_t max = 0;
@@ -820,7 +819,7 @@ bool hidh_array_usage_parse(const report_item_t *item, uint16_t *usage_min, uint
     return true;
 }
 
-int32_t hidh_input_get_field(const uint8_t *data, uint32_t offset, uint8_t size, bool is_signed)
+static int32_t input_get_field(const uint8_t *data, uint32_t offset, uint8_t size, bool is_signed)
 {
     uint32_t value = 0;
     for (uint8_t i = 0; i < size && i < 32; i++)
@@ -838,6 +837,60 @@ int32_t hidh_input_get_field(const uint8_t *data, uint32_t offset, uint8_t size,
         }
     }
     return (int32_t)value;
+}
+
+static void input_data_parse(hidh_handle_t *hid, const item_list_t *item_list, const uint8_t *data, size_t len)
+{
+    if (item_list->start_parse_cb)
+    {
+        item_list->start_parse_cb(item_list->handle);
+    }
+
+    uint32_t bit_offset = 0;
+    report_item_t *item = item_list->type_item_list[REPORT_TYPE_INPUT];
+    while (item)
+    {
+        if ((bit_offset + item->global_info.size * item->global_info.count + 7) >> 3 > len) break;
+
+        if (item->flags & HID_ITEM_INPUT_FLAG_CONSTANT)
+        {
+            bit_offset += item->global_info.size * item->global_info.count;
+            item = item->next;
+            continue;
+        }
+
+        bool is_signed = item->global_info.logical_min < 0;
+        if (item->flags & HID_ITEM_INPUT_FLAG_VARIABLE)
+        {
+            uint16_t *usage_list = variable_usage_parse(item);
+            if (!usage_list) return;
+
+            for (uint32_t i = 0; i < item->global_info.count; i++)
+            {
+                uint32_t curr_offset = bit_offset + i * item->global_info.size;
+                int32_t value = input_get_field(data, curr_offset, item->global_info.size, is_signed);
+                uint16_t usage = usage_list[i];
+                item_list->usage_parse_cb(item_list->handle, item->global_info.usage_page, usage, value);
+            }
+        }
+        else
+        {
+            uint16_t usage_min = 0;
+            uint16_t usage_max = 0;
+            if (!array_usage_parse(item, &usage_min, &usage_max)) return;
+
+            for (uint32_t i = 0; i < item->global_info.count; i++)
+            {
+                uint32_t curr_offset = bit_offset + i * item->global_info.size;
+                uint16_t usage = usage_min + input_get_field(data, curr_offset, item->global_info.size, is_signed);
+                usage = USB_MIN(usage, usage_max);
+                item_list->usage_parse_cb(item_list->handle, item->global_info.usage_page, usage, 1);
+            }
+        }
+
+        bit_offset += item->global_info.size * item->global_info.count;
+        item = item->next;
+    }
 }
 
 static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
@@ -863,27 +916,9 @@ static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void 
         item_list = &hid->report_item_list[0];
     }
 
-    if (item_list)
+    if (item_list && item_list->handle && item_list->usage_parse_cb)
     {
-        if (item_list->handle && item_list->top_usage_page == HID_USAGE_PAGE_DESKTOP)
-        {
-            switch (item_list->top_usage)
-            {
-#ifdef USB_CLASS_HIDH_KEYBOARD_EN
-            case HID_DESKTOP_USAGE_KEYBOARD:
-                hidh_keyboard_input_parse(item_list->handle, item_list->type_item_list[REPORT_TYPE_INPUT],
-                                          hid->has_report_id ? &data[1] : data, hid->has_report_id ? len - 1 : len);
-                break;
-#endif
-
-#ifdef USB_CLASS_HIDH_MOUSE_EN
-            case HID_DESKTOP_USAGE_MOUSE:
-                hidh_mouse_input_parse(item_list->handle, item_list->type_item_list[REPORT_TYPE_INPUT],
-                                       hid->has_report_id ? &data[1] : data, hid->has_report_id ? len - 1 : len);
-                break;
-#endif
-            }
-        }
+        input_data_parse(hid, item_list, hid->has_report_id ? &data[1] : data, hid->has_report_id ? len - 1 : len);
     }
 }
 

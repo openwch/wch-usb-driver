@@ -47,35 +47,11 @@ typedef struct hid_report_item
     report_global_info_t global_info;
 } report_item_t;
 
+/* @function pointer */
+typedef void (*input_start_parse_cb)(void *handle);
+typedef void (*input_usage_parse_cb)(void *handle, uint16_t usage_page, uint16_t usage, int32_t value);
+
 /* @function declarations */
-
-/**
- * @brief Parse the variable usage for a given HID report item
- * 
- * @param item The HID report item to parse
- * @return uint16_t* A pointer to the parsed variable usage list
- */
-uint16_t *hidh_variable_usage_parse(const report_item_t *item);
-
-/**
- * @brief Parse the array usage for a given HID report item
- * 
- * @param item The HID report item to parse
- * @param usage_min Pointer to store the minimum usage value
- * @param usage_max Pointer to store the maximum usage value
- */
-bool hidh_array_usage_parse(const report_item_t *item, uint16_t *usage_min, uint16_t *usage_max);
-
-/**
- * @brief Get the value of a field from the input data of a HID report item
- * 
- * @param data The input data buffer of the HID report item
- * @param offset The bit offset of the field within the input data
- * @param size The size of the field in bits
- * @param is_signed Whether the field is signed
- * @return int32_t The value of the field
- */
-int32_t hidh_input_get_field(const uint8_t *data, uint32_t offset, uint8_t size, bool is_signed);
 
 /**
  * @brief Process the HID keyboard tasks
@@ -98,14 +74,21 @@ void *hidh_keyboard_create(void);
 void hidh_keyboard_delete(void *handle);
 
 /**
- * @brief Parse the input data for a given HID keyboard instance
+ * @brief Start parsing the HID keyboard input report
  * 
  * @param handle A handle to the HID keyboard instance
- * @param item The HID report item to parse
- * @param data The input data buffer of the HID report item
- * @param len The length of the input data buffer
  */
-void hidh_keyboard_input_parse(void *handle, const report_item_t *item, const uint8_t *data, size_t len);
+void keyboard_input_start_parse(void *handle);
+
+/**
+ * @brief Parse the HID keyboard input report usage
+ * 
+ * @param handle A handle to the HID keyboard instance
+ * @param usage_page The usage page of the input report
+ * @param usage The usage of the input report
+ * @param value The value of the input report
+ */
+void keyboard_input_usage_parse(void *handle, uint16_t usage_page, uint16_t usage, int32_t value);
 
 /**
  * @brief Process the HID mouse tasks
@@ -128,14 +111,21 @@ void *hidh_mouse_create(void);
 void hidh_mouse_delete(void *handle);
 
 /**
- * @brief Parse the input data for a given HID mouse instance
+ * @brief Start parsing the HID mouse input report
  * 
  * @param handle A handle to the HID mouse instance
- * @param item The HID report item to parse
- * @param data The input data buffer of the HID report item
- * @param len The length of the input data buffer
  */
-void hidh_mouse_input_parse(void *handle, const report_item_t *item, const uint8_t *data, size_t len);
+void mouse_input_start_parse(void *handle);
+
+/**
+ * @brief Parse the HID mouse input report usage
+ * 
+ * @param handle A handle to the HID mouse instance
+ * @param usage_page The usage page of the input report
+ * @param usage The usage of the input report
+ * @param value The value of the input report
+ */
+void mouse_input_usage_parse(void *handle, uint16_t usage_page, uint16_t usage, int32_t value);
 
 #ifdef __cplusplus
 }

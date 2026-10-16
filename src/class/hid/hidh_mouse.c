@@ -63,8 +63,8 @@ void hidh_mouse_task(void)
     while (mouse)
     {
         status.buttons |= mouse->button;
-        status.x += mouse->dx;
-        status.y += mouse->dy;
+        status.x = USB_MAX((int32_t)status.x + mouse->dx, 0);
+        status.y = USB_MAX((int32_t)status.y + mouse->dy, 0);
         mouse->dx = 0;
         mouse->dy = 0;
         wheel += mouse->wheel;
@@ -119,8 +119,18 @@ void hidh_mouse_delete(void *handle)
     }
 }
 
-static void usage_input_parse(mouse_handle_t *mouse, uint16_t usage_page, uint16_t usage, int32_t value)
+void mouse_input_start_parse(void *handle)
 {
+    mouse_handle_t *mouse = (mouse_handle_t *)handle;
+    mouse->button = 0;
+    mouse->dx = 0;
+    mouse->dy = 0;
+    mouse->wheel = 0;
+}
+
+void mouse_input_usage_parse(void *handle, uint16_t usage_page, uint16_t usage, int32_t value)
+{
+    mouse_handle_t *mouse = (mouse_handle_t *)handle;
     if (usage_page == HID_USAGE_PAGE_BUTTON)
     {
         if (0 < usage && usage <= 8)
@@ -142,67 +152,6 @@ static void usage_input_parse(mouse_handle_t *mouse, uint16_t usage_page, uint16
             mouse->wheel = value;
             break;
         }
-    }
-}
-
-static void variable_input_parse(mouse_handle_t *mouse, const report_item_t *item, const uint8_t *data, uint32_t offset)
-{
-    uint16_t *usage_list = hidh_variable_usage_parse(item);
-    if (!usage_list) return;
-
-    for (uint32_t i = 0; i < item->global_info.count; i++)
-    {
-        bool is_signed = item->global_info.logical_min < 0;
-        uint32_t curr_offset = offset + i * item->global_info.size;
-        int32_t value = hidh_input_get_field(data, curr_offset, item->global_info.size, is_signed);
-        uint16_t usage = usage_list[i];
-        usage_input_parse(mouse, item->global_info.usage_page, usage, value);
-    }
-}
-
-static void array_input_parse(mouse_handle_t *mouse, const report_item_t *item, const uint8_t *data, uint32_t offset)
-{
-    uint16_t usage_min = 0;
-    uint16_t usage_max = 0;
-    if (!hidh_array_usage_parse(item, &usage_min, &usage_max)) return;
-
-    for (uint32_t i = 0; i < item->global_info.count; i++)
-    {
-        bool is_signed = item->global_info.logical_min < 0;
-        uint32_t curr_offset = offset + i * item->global_info.size;
-        uint16_t usage = usage_min + hidh_input_get_field(data, curr_offset, item->global_info.size, is_signed);
-        usage = USB_MIN(usage, usage_max);
-        if (usage)
-        {
-            usage_input_parse(mouse, item->global_info.usage_page, usage, 1);
-        }
-    }
-}
-
-void hidh_mouse_input_parse(void *handle, const report_item_t *item, const uint8_t *data, size_t len)
-{
-    uint32_t bit_offset = 0;
-    mouse_handle_t *mouse = (mouse_handle_t *)handle;
-    mouse->button = 0;
-
-    while (item)
-    {
-        if ((bit_offset + item->global_info.size * item->global_info.count) >> 3 > len) break;
-
-        if (!(item->flags & HID_ITEM_INPUT_FLAG_CONSTANT))
-        {
-            if (item->flags & HID_ITEM_INPUT_FLAG_VARIABLE)
-            {
-                variable_input_parse(mouse, item, data, bit_offset);
-            }
-            else
-            {
-                array_input_parse(mouse, item, data, bit_offset);
-            }
-        }
-
-        bit_offset += item->global_info.size * item->global_info.count;
-        item = item->next;
     }
 }
 

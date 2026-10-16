@@ -76,7 +76,7 @@ extern "C" {
 
 #define HIDH_HANDLE_POOL_SIZE             16
 #define HIDH_REPORT_ITEM_POOL_SIZE        64
-#define HIDH_MAX_REPORT_ID_COUNT          10
+#define HIDH_MAX_REPORT_ID_COUNT          8
 #define HIDH_REPORT_DESC_BUF_SIZE         512
 #define HIDH_IN_DATA_BUF_SIZE             128
 #define HIDH_OUT_DATA_BUF_SIZE            128

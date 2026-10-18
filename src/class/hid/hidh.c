@@ -59,26 +59,7 @@ typedef enum
     ENUM_STAGE_END,
 } enum_stage_t;
 
-typedef enum
-{
-    REPORT_TYPE_INPUT,
-    REPORT_TYPE_OUTPUT,
-    REPORT_TYPE_FEATURE,
-    REPORT_TYPE_COUNT,
-} report_type_t;
-
 /* @struct */
-typedef struct
-{
-    uint8_t report_id;
-    uint16_t top_usage;
-    uint16_t top_usage_page;
-    void *handle;
-    input_start_parse_cb start_parse_cb;
-    input_usage_parse_cb usage_parse_cb;
-    report_item_t *type_item_list[REPORT_TYPE_COUNT];
-} item_list_t;
-
 typedef struct
 {
     uint8_t stack_depth;
@@ -90,28 +71,6 @@ typedef struct
     report_global_info_t global_info;
     report_global_info_t global_info_stack[STACK_MAX_DEPTH];
 } parse_ctx_t;
-
-typedef struct hidh_handle
-{
-    struct hidh_handle *next;
-    usbh_device_t *dev;
-
-    /* HID interface information */
-    const usb_desc_interface_t *itf_desc;
-    const usb_desc_hid_t *hid_desc;
-    const usb_desc_endpoint_t *in_ep;
-    const usb_desc_endpoint_t *out_ep;
-    __attribute__((aligned(4))) uint8_t report_desc_buf[HIDH_REPORT_DESC_BUF_SIZE];
-
-    /* Run-time context */
-    bool has_report_id;
-    uint8_t enum_stage;
-    uint16_t list_count;
-    item_list_t report_item_list[HIDH_MAX_REPORT_ID_COUNT];
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
-    __attribute__((aligned(4))) uint8_t read_buf[HIDH_IN_DATA_BUF_SIZE];
-    __attribute__((aligned(4))) uint8_t write_buf[HIDH_OUT_DATA_BUF_SIZE];
-} hidh_handle_t;
 
 /* @global */
 static hidh_handle_t *hid_list = NULL;
@@ -381,7 +340,7 @@ static bool report_device_bind(hidh_handle_t *hid)
             {
 #ifdef USB_CLASS_HIDH_KEYBOARD_EN
             case HID_DESKTOP_USAGE_KEYBOARD:
-                item_list->handle = hidh_keyboard_create();
+                item_list->handle = hidh_keyboard_create(hid);
                 item_list->start_parse_cb = keyboard_input_start_parse;
                 item_list->usage_parse_cb = keyboard_input_usage_parse;
                 break;
@@ -389,7 +348,7 @@ static bool report_device_bind(hidh_handle_t *hid)
 
 #ifdef USB_CLASS_HIDH_MOUSE_EN
             case HID_DESKTOP_USAGE_MOUSE:
-                item_list->handle = hidh_mouse_create();
+                item_list->handle = hidh_mouse_create(hid);
                 item_list->start_parse_cb = mouse_input_start_parse;
                 item_list->usage_parse_cb = mouse_input_usage_parse;
                 break;
@@ -918,7 +877,14 @@ static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void 
 
     if (item_list && item_list->handle && item_list->usage_parse_cb)
     {
-        input_data_parse(hid, item_list, hid->has_report_id ? &data[1] : data, hid->has_report_id ? len - 1 : len);
+        if (hid->has_report_id)
+        {
+            input_data_parse(hid, item_list, &data[1], len - 1);
+        }
+        else
+        {
+            input_data_parse(hid, item_list, data, len);
+        }
     }
 }
 

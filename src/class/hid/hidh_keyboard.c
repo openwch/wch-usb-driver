@@ -29,6 +29,7 @@ typedef struct kb_handle
 {
     struct kb_handle *next;
     bool used;
+    hidh_handle_t *parent;
 
     uint8_t led_status;
     uint32_t button_status_bitmap[256 / 32];
@@ -112,7 +113,7 @@ void hidh_keyboard_task(void)
     }
 }
 
-void *hidh_keyboard_create(void)
+void *hidh_keyboard_create(hidh_handle_t *parent)
 {
     for (size_t i = 0; i < USB_ARRAY_SIZE(handle_pool); i++)
     {
@@ -122,6 +123,7 @@ void *hidh_keyboard_create(void)
             memset(kb, 0, sizeof(kb_handle_t));
             usbh_list_append((void **)&kb_list, kb);
             kb->used = true;
+            kb->parent = parent;
             return kb;
         }
     }

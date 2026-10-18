@@ -29,6 +29,8 @@ typedef struct mouse_handle
 {
     struct mouse_handle *next;
     bool used;
+    hidh_handle_t *parent;
+
     uint8_t button;
     int32_t dx;
     int32_t dy;
@@ -92,7 +94,7 @@ void hidh_mouse_task(void)
     }
 }
 
-void *hidh_mouse_create(void)
+void *hidh_mouse_create(hidh_handle_t *parent)
 {
     for (size_t i = 0; i < USB_ARRAY_SIZE(handle_pool); i++)
     {
@@ -102,6 +104,7 @@ void *hidh_mouse_create(void)
             memset(mouse, 0, sizeof(mouse_handle_t));
             usbh_list_append((void **)&mouse_list, mouse);
             mouse->used = true;
+            mouse->parent = parent;
             return mouse;
         }
     }

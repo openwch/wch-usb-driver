@@ -29,7 +29,8 @@ typedef struct mouse_handle
 {
     struct mouse_handle *next;
     bool used;
-    hidh_handle_t *parent;
+    hidh_handle_t *hid;
+    hidh_instance_t instance;
 
     uint8_t button;
     int32_t dx;
@@ -94,54 +95,33 @@ void hidh_mouse_task(void)
     }
 }
 
-void *hidh_mouse_create(hidh_handle_t *parent)
+static void mouse_delete_cb(hidh_instance_t *instance)
 {
-    for (size_t i = 0; i < USB_ARRAY_SIZE(handle_pool); i++)
-    {
-        mouse_handle_t *mouse = &handle_pool[i];
-        if (!mouse->used)
-        {
-            memset(mouse, 0, sizeof(mouse_handle_t));
-            usbh_list_append((void **)&mouse_list, mouse);
-            mouse->used = true;
-            mouse->parent = parent;
-            return mouse;
-        }
-    }
-    return NULL;
+    mouse_handle_t *mouse = (mouse_handle_t *)instance->handle;
+    usbh_list_remove((void **)&mouse_list, mouse);
+    memset(mouse, 0, sizeof(mouse_handle_t));
 }
 
-void hidh_mouse_delete(void *handle)
+static void mouse_start_parse_cb(hidh_instance_t *instance)
 {
-    mouse_handle_t *mouse = (mouse_handle_t *)handle;
-    if (mouse)
-    {
-        mouse->used = false;
-        usbh_list_remove((void **)&mouse_list, mouse);
-        memset(mouse, 0, sizeof(mouse_handle_t));
-    }
-}
-
-void mouse_input_start_parse(void *handle)
-{
-    mouse_handle_t *mouse = (mouse_handle_t *)handle;
+    mouse_handle_t *mouse = (mouse_handle_t *)instance->handle;
     mouse->button = 0;
     mouse->dx = 0;
     mouse->dy = 0;
     mouse->wheel = 0;
 }
 
-void mouse_input_usage_parse(void *handle, uint16_t usage_page, uint16_t usage, int32_t value)
+static void mouse_get_report_cb(hidh_instance_t *instance, uint16_t page, uint16_t usage, int32_t value)
 {
-    mouse_handle_t *mouse = (mouse_handle_t *)handle;
-    if (usage_page == HID_USAGE_PAGE_BUTTON)
+    mouse_handle_t *mouse = (mouse_handle_t *)instance->handle;
+    if (page == HID_USAGE_PAGE_BUTTON)
     {
         if (0 < usage && usage <= 8)
         {
             mouse->button |= (value ? 1U : 0U) << (usage - 1);
         }
     }
-    else if (usage_page == HID_USAGE_PAGE_DESKTOP)
+    else if (page == HID_USAGE_PAGE_DESKTOP)
     {
         switch (usage)
         {
@@ -156,6 +136,33 @@ void mouse_input_usage_parse(void *handle, uint16_t usage_page, uint16_t usage, 
             break;
         }
     }
+}
+
+static uint32_t mouse_set_report_cb(hidh_instance_t *instance, uint16_t page, uint16_t usage)
+{
+    return 0;
+}
+
+hidh_instance_t *hidh_mouse_create_instance(hidh_handle_t *hid)
+{
+    for (size_t i = 0; i < USB_ARRAY_SIZE(handle_pool); i++)
+    {
+        mouse_handle_t *mouse = &handle_pool[i];
+        if (!mouse->used)
+        {
+            memset(mouse, 0, sizeof(mouse_handle_t));
+            usbh_list_append((void **)&mouse_list, mouse);
+            mouse->used = true;
+            mouse->hid = hid;
+            mouse->instance.handle = mouse;
+            mouse->instance.delete_cb = mouse_delete_cb;
+            mouse->instance.start_parse_cb = mouse_start_parse_cb;
+            mouse->instance.get_report_cb = mouse_get_report_cb;
+            mouse->instance.set_report_cb = mouse_set_report_cb;
+            return &mouse->instance;
+        }
+    }
+    return NULL;
 }
 
 #endif // USB_CLASS_HIDH_MOUSE_EN

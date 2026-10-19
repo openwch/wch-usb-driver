@@ -24,156 +24,69 @@ extern "C" {
 
 #ifdef USB_CLASS_HIDH_DRIVER_EN
 
-/* @enum */
-typedef enum
-{
-    REPORT_TYPE_INPUT,
-    REPORT_TYPE_OUTPUT,
-    REPORT_TYPE_FEATURE,
-    REPORT_TYPE_COUNT,
-} report_type_t;
+/* @typedef */
+typedef struct hidh_handle hidh_handle_t;
+typedef struct hidh_instance hidh_instance_t;
 
 /* @function pointer */
-typedef void (*input_start_parse_cb)(void *handle);
-typedef void (*input_usage_parse_cb)(void *handle, uint16_t usage_page, uint16_t usage, int32_t value);
+typedef void (*hidh_instance_delete_cb)(hidh_instance_t *instance);
+typedef void (*hidh_instance_start_parse_cb)(hidh_instance_t *instance);
+typedef void (*hidh_instance_get_report_cb)(hidh_instance_t *instance, uint16_t page, uint16_t usage, int32_t value);
+typedef uint32_t (*hidh_instance_set_report_cb)(hidh_instance_t *instance, uint16_t page, uint16_t usage);
 
 /* @struct */
-typedef struct
+typedef struct hidh_instance
 {
     uint8_t report_id;
-    uint16_t usage_page;
-
-    uint32_t size;
-    uint32_t count;
-
-    int32_t logical_min;
-    int32_t logical_max;
-    int32_t physical_min;
-    int32_t physical_max;
-    int32_t unit_exponent;
-    uint32_t unit;
-} report_global_info_t;
-
-typedef struct hid_report_item
-{
-    struct hid_report_item *next;
-    bool used;
-    uint16_t flags;
-    uint16_t local_report_size;
-    const uint8_t *local_report_buf;
-    report_global_info_t global_info;
-} report_item_t;
-
-typedef struct
-{
-    uint8_t report_id;
-    uint16_t top_usage;
-    uint16_t top_usage_page;
     void *handle;
-    input_start_parse_cb start_parse_cb;
-    input_usage_parse_cb usage_parse_cb;
-    report_item_t *type_item_list[REPORT_TYPE_COUNT];
-} item_list_t;
-
-typedef struct hidh_handle
-{
-    struct hidh_handle *next;
-    usbh_device_t *dev;
-
-    /* HID interface information */
-    const usb_desc_interface_t *itf_desc;
-    const usb_desc_hid_t *hid_desc;
-    const usb_desc_endpoint_t *in_ep;
-    const usb_desc_endpoint_t *out_ep;
-    __attribute__((aligned(4))) uint8_t report_desc_buf[HIDH_REPORT_DESC_BUF_SIZE];
-
-    /* Run-time context */
-    bool has_report_id;
-    uint8_t enum_stage;
-    uint16_t list_count;
-    item_list_t report_item_list[HIDH_MAX_REPORT_ID_COUNT];
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
-    __attribute__((aligned(4))) uint8_t read_buf[HIDH_IN_DATA_BUF_SIZE];
-    __attribute__((aligned(4))) uint8_t write_buf[HIDH_OUT_DATA_BUF_SIZE];
-} hidh_handle_t;
+    void *input_items;
+    void *output_items;
+    void *feature_items;
+    hidh_instance_delete_cb delete_cb;
+    hidh_instance_start_parse_cb start_parse_cb;
+    hidh_instance_get_report_cb get_report_cb;
+    hidh_instance_set_report_cb set_report_cb;
+} hidh_instance_t;
 
 /* @function declarations */
 
 /**
- * @brief Process the HID keyboard tasks
+ * @brief Set the report for the specified HID instance
+ * 
+ * @param hid The HID host handle
+ * @param instance The HID instance for which to set the report
+ * @return true if the report was successfully set
+ * @return false if setting the report failed
+ */
+bool hidh_set_report(hidh_handle_t *hid, hidh_instance_t *instance);
+
+/**
+ * @brief Perform the keyboard task for the HID host
  * 
  */
 void hidh_keyboard_task(void);
 
 /**
- * @brief Create a new HID keyboard instance
+ * @brief Create a new keyboard instance for the specified HID host
  * 
- * @param parent A handle to the parent HID device
- * @return void* A handle to the newly created HID keyboard instance
+ * @param hid The HID host handle
+ * @return hidh_instance_t* The newly created keyboard instance, or NULL if creation failed
  */
-void *hidh_keyboard_create(hidh_handle_t *parent);
+hidh_instance_t *hidh_keyboard_create_instance(hidh_handle_t *hid);
 
 /**
- * @brief Delete an existing HID keyboard instance
- * 
- * @param handle A handle to the HID keyboard instance to delete
- */
-void hidh_keyboard_delete(void *handle);
-
-/**
- * @brief Start parsing the HID keyboard input report
- * 
- * @param handle A handle to the HID keyboard instance
- */
-void keyboard_input_start_parse(void *handle);
-
-/**
- * @brief Parse the HID keyboard input report usage
- * 
- * @param handle A handle to the HID keyboard instance
- * @param usage_page The usage page of the input report
- * @param usage The usage of the input report
- * @param value The value of the input report
- */
-void keyboard_input_usage_parse(void *handle, uint16_t usage_page, uint16_t usage, int32_t value);
-
-/**
- * @brief Process the HID mouse tasks
+ * @brief Perform the mouse task for the HID host
  * 
  */
 void hidh_mouse_task(void);
 
 /**
- * @brief Create a new HID mouse instance
+ * @brief Create a new mouse instance for the specified HID host
  * 
- * @param parent A handle to the parent HID device
- * @return void* A handle to the newly created HID mouse instance
+ * @param hid The HID host handle
+ * @return hidh_instance_t* The newly created mouse instance, or NULL if creation failed
  */
-void *hidh_mouse_create(hidh_handle_t *parent);
-
-/**
- * @brief Delete an existing HID mouse instance
- * 
- * @param handle A handle to the HID mouse instance to delete
- */
-void hidh_mouse_delete(void *handle);
-
-/**
- * @brief Start parsing the HID mouse input report
- * 
- * @param handle A handle to the HID mouse instance
- */
-void mouse_input_start_parse(void *handle);
-
-/**
- * @brief Parse the HID mouse input report usage
- * 
- * @param handle A handle to the HID mouse instance
- * @param usage_page The usage page of the input report
- * @param usage The usage of the input report
- * @param value The value of the input report
- */
-void mouse_input_usage_parse(void *handle, uint16_t usage_page, uint16_t usage, int32_t value);
+hidh_instance_t *hidh_mouse_create_instance(hidh_handle_t *hid);
 
 #endif // USB_CLASS_HIDH_DRIVER_EN
 

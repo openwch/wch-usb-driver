@@ -54,7 +54,7 @@ void hidh_unregister_keyboard_changed_cb(void);
  * 
  * @param key_code The key code of the key to check
  */
-bool hidh_keyboard_get_status(uint8_t key_code);
+bool hidh_keyboard_get_key_status(uint8_t key_code);
 
 #ifdef __cplusplus
 }

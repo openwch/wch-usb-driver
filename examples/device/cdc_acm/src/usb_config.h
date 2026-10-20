@@ -64,7 +64,22 @@ extern "C" {
 /* USB HUB host class driver configuration macros */
 #ifdef USB_CLASS_HUBH_DRIVER_EN
 #define HUBH_HANDLE_POOL_SIZE 4
-#define HUBH_MAX_PORT_NUM     8
+#endif
+
+/* USB HID host class driver configuration macros */
+#ifdef USB_CLASS_HIDH_DRIVER_EN
+#define USB_CLASS_HIDH_KEYBOARD_EN
+#define USB_CLASS_HIDH_MOUSE_EN
+
+#define USB_CLASS_HIDH_KEYBOARD_MAX_COUNT 4
+#define USB_CLASS_HIDH_MOUSE_MAX_COUNT    4
+
+#define HIDH_HANDLE_POOL_SIZE             16
+#define HIDH_REPORT_ITEM_POOL_SIZE        64
+#define HIDH_MAX_INSTANCE_COUNT           8
+#define HIDH_REPORT_DESC_BUF_SIZE         512
+#define HIDH_GET_REPORT_BUF_SIZE          128
+#define HIDH_SET_REPORT_BUF_SIZE          128
 #endif
 
 /* USB CDC-ACM host class driver configuration macros */

@@ -2,7 +2,7 @@
 * File Name          : cdch_acm.h
 * Author             : WCH
 * Version            : V1.0.0
-* Date               : 2026/10/15
+* Date               : 2026/10/20
 * Description        : USB CDC-ACM host class driver
 *********************************************************************************
 * Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.

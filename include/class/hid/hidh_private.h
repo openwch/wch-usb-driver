@@ -2,7 +2,7 @@
 * File Name          : hidh_private.h
 * Author             : WCH
 * Version            : V1.0.0
-* Date               : 2026/10/15
+* Date               : 2026/10/20
 * Description        : USB HID host class driver private header
 *********************************************************************************
 * Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.

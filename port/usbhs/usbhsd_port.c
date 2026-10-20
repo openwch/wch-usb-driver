@@ -2,7 +2,7 @@
 * File Name          : usbhsd_port.c
 * Author             : WCH
 * Version            : V1.0.0
-* Date               : 2026/10/15
+* Date               : 2026/10/20
 * Description        : USB High-Speed device port source file
 *********************************************************************************
 * Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.

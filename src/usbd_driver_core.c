@@ -2,7 +2,7 @@
 * File Name          : usbd_driver_core.c
 * Author             : WCH
 * Version            : V1.0.0
-* Date               : 2026/10/15
+* Date               : 2026/10/20
 * Description        : USB device driver core source file
 *********************************************************************************
 * Copyright (c) 2026 Nanjing Qinheng Microelectronics Co., Ltd.

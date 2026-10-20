@@ -11,5 +11,7 @@ WCH-USB-Driver
    quick_start
    demo
    api
+   porting_guide
+   configuration_file
    supported_chips
    release_notes

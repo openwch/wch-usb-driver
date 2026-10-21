@@ -16,6 +16,7 @@
 /* @include */
 /* Standard library includes */
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 #include <stdbool.h>
 

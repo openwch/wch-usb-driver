@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "board.h"
+#include "usart.h"
 #include "led.h"
 
 #include "usb_driver.h"
@@ -29,10 +30,30 @@
 #error "Not supported: USBD_INDEX exceeds USB_COUNT"
 #endif
 
+#define READ_BUF_COUNT  4
+#define READ_BUF_SIZE   512
+
+#define WRITE_BUF_COUNT 4
+#define WRITE_BUF_SIZE  512
+
+/* @struct */
+typedef struct
+{
+    bool stop;
+    uint32_t load;
+    uint32_t deal;
+    uint32_t count;
+} xfer_manage_t;
+
 /* @global */
 static usbd_handle_t *usbd_handle;
 static cdcd_acm_handle_t acm_handle;
-static __attribute__((aligned(4))) uint8_t transfer_buf[512];
+static xfer_manage_t read_xfer_manage;
+static xfer_manage_t write_xfer_manage;
+static uint32_t read_length[READ_BUF_COUNT];
+static uint32_t write_length[WRITE_BUF_COUNT];
+static __attribute__((aligned(4))) uint8_t read_bufs[READ_BUF_COUNT][READ_BUF_SIZE];
+static __attribute__((aligned(4))) uint8_t write_bufs[WRITE_BUF_COUNT][WRITE_BUF_SIZE];
 
 static const void *get_string_desc_cb(uint8_t string_index, size_t *len)
 {
@@ -97,6 +118,50 @@ static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t type, uint8_t ind
     return NULL;
 }
 
+static bool cdc_acm_set_line_coding_cb(cdcd_acm_handle_t *cdcd_acm, cdc_line_coding_t *line_coding)
+{
+    usart_stop_bits_t stop_bits;
+    usart_parity_t parity;
+
+    switch (line_coding->stop_bits)
+    {
+    case 0:
+        stop_bits = USART_STOP_BITS_1;
+        break;
+
+    case 1:
+        stop_bits = USART_STOP_BITS_1_5;
+        break;
+
+    case 2:
+        stop_bits = USART_STOP_BITS_2;
+        break;
+
+    default:
+        return false;
+    }
+
+    switch (line_coding->parity)
+    {
+    case 0:
+        parity = USART_PARITY_NONE;
+        break;
+
+    case 1:
+        parity = USART_PARITY_ODD;
+        break;
+
+    case 2:
+        parity = USART_PARITY_EVEN;
+        break;
+
+    default:
+        return false;
+    }
+
+    return usart_config(line_coding->bit_rate, stop_bits, parity);
+}
+
 static void cdc_acm_set_line_state_cb(cdcd_acm_handle_t *cdcd_acm, uint16_t bitmap)
 {
     led_write(bitmap & 0x03);
@@ -104,25 +169,34 @@ static void cdc_acm_set_line_state_cb(cdcd_acm_handle_t *cdcd_acm, uint16_t bitm
 
 static void cdc_acm_read_cb(cdcd_acm_handle_t *cdcd_acm, void *buf, size_t len)
 {
-    /* Echo the received data back to the host */
-    cdcd_acm_drv_write(&acm_handle, transfer_buf, len);
-}
+    /* Store the length of the received data */
+    read_length[read_xfer_manage.load] = len;
+    read_xfer_manage.load = (read_xfer_manage.load + 1) % READ_BUF_COUNT;
+    read_xfer_manage.count++;
 
-static void cdc_acm_write_cb(cdcd_acm_handle_t *cdcd_acm, const void *buf, size_t len)
-{
-    /* Start the next read operation */
-    cdcd_acm_drv_read(&acm_handle, transfer_buf, sizeof(transfer_buf));
+    /* Start the next read operation if there is space in the buffer */
+    if (read_xfer_manage.count + 1 < READ_BUF_COUNT)
+    {
+        cdcd_acm_drv_read(&acm_handle, read_bufs[read_xfer_manage.load], READ_BUF_SIZE);
+    }
+    else
+    {
+        read_xfer_manage.stop = true;
+    }
 }
 
 static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
 {
+    memset(&read_xfer_manage, 0, sizeof(read_xfer_manage));
+    memset(&write_xfer_manage, 0, sizeof(write_xfer_manage));
+
     /* Initialize CDC-ACM device handle */
     memset(&acm_handle, 0, sizeof(acm_handle));
     acm_handle.usbd_handle = h;
     acm_handle.ctrl_itf_num = 0;
     acm_handle.data_itf_num = 1;
     acm_handle.read_comp_cb = cdc_acm_read_cb;
-    acm_handle.write_comp_cb = cdc_acm_write_cb;
+    acm_handle.set_line_coding_cb = cdc_acm_set_line_coding_cb;
     acm_handle.set_control_line_state_cb = cdc_acm_set_line_state_cb;
     if (ctx->enum_completed.link_speed == USB_SPEED_HIGH)
     {
@@ -139,12 +213,13 @@ static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
     assert(cdcd_acm_drv_open(&acm_handle));
 
     /* Start the first read operation */
-    cdcd_acm_drv_read(&acm_handle, transfer_buf, sizeof(transfer_buf));
+    cdcd_acm_drv_read(&acm_handle, read_bufs[read_xfer_manage.load], READ_BUF_SIZE);
 }
 
 int main(void)
 {
     board_init();
+    usart_init();
     led_init();
 
     usbd_handle = board_usb_init(USBD_INDEX, USB_MODE_DEVICE);
@@ -153,7 +228,49 @@ int main(void)
     assert(usbd_register_event_callback(usbd_handle, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
     assert(usbd_drv_open(usbd_handle, USB_SPEED_HIGH, false, get_stand_desc_cb));
 
-    while (1);
+    while (1)
+    {
+        /* Disable interrupts to safely access shared resources */
+        board_disable_irq();
+
+        /* Handle data read from USB and write it to USART */
+        if (read_xfer_manage.count && usart_write(read_bufs[read_xfer_manage.deal], read_length[read_xfer_manage.deal]))
+        {
+            read_xfer_manage.deal = (read_xfer_manage.deal + 1) % READ_BUF_COUNT;
+            read_xfer_manage.count--;
+        }
+
+        /* Start the next read operation if the previous one has stopped and there is space in the buffer */
+        if (read_xfer_manage.stop && read_xfer_manage.count + 1 < READ_BUF_COUNT)
+        {
+            if (cdcd_acm_drv_read(&acm_handle, read_bufs[read_xfer_manage.load], READ_BUF_SIZE))
+            {
+                read_xfer_manage.stop = false;
+            }
+        }
+
+        /* Re-enable interrupts after accessing shared resources */
+        board_enable_irq();
+
+        /* Handle data read from USART and prepare it for writing to USB */
+        if (write_xfer_manage.count + 1 < WRITE_BUF_COUNT)
+        {
+            size_t length = usart_read(write_bufs[write_xfer_manage.load], WRITE_BUF_SIZE);
+            if (length)
+            {
+                write_length[write_xfer_manage.load] = length;
+                write_xfer_manage.load = (write_xfer_manage.load + 1) % WRITE_BUF_COUNT;
+                write_xfer_manage.count++;
+            }
+        }
+
+        if (write_xfer_manage.count &&
+            cdcd_acm_drv_write(&acm_handle, write_bufs[write_xfer_manage.deal], write_length[write_xfer_manage.deal]))
+        {
+            write_xfer_manage.deal = (write_xfer_manage.deal + 1) % WRITE_BUF_COUNT;
+            write_xfer_manage.count--;
+        }
+    }
 
     return 0;
 }

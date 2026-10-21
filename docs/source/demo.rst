@@ -13,7 +13,7 @@
      - HID 键鼠复合设备，按键模拟键盘和鼠标输入
    * - ``examples/device/cdc_acm``
      - 设备
-     - CDC-ACM 虚拟串口，回显主机数据，LED 指示 DTR/RTS
+     - CDC-ACM 虚拟串口，在 USB 主机与 USART 之间双向转发，LED 指示 DTR/RTS
    * - ``examples/host/hid_km``
      - 主机
      - 枚举键鼠设备，打印按键、鼠标数据及 LED 状态
@@ -69,7 +69,7 @@ CDC-ACM 虚拟串口
 示例目录：``examples/device/cdc_acm``。
 
 - 枚举为 CDC-ACM 设备，控制接口 0、数据接口 1；VID/PID 为 ``0x1A86/0xFE31``。
-- 使用 512 字节缓冲区循环读取，收到数据后原样回显，写完成后继续下一次读。
+- 在 USB 主机与片上 USART 之间双向转发数据：主机发送的数据写入 USART，USART 接收的数据发回主机。
 - DTR 状态输出到 LED0，RTS 状态输出到 LED1。
 - 同时提供全速和高速配置描述符，实际速度取决于所选 USB 控制器。
 

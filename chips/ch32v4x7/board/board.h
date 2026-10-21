@@ -35,6 +35,8 @@ typedef enum
 
 /* @function declarations */
 void board_init(void);
+void board_enable_irq(void);
+void board_disable_irq(void);
 void *board_usb_init(uint8_t index, usb_mode_t mode);
 void board_usb_deinit(uint8_t index);
 

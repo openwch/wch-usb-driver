@@ -59,6 +59,17 @@ void board_init(void)
     printf("=====================================\r\n\r\n");
 }
 
+void board_enable_irq(void)
+{
+    __enable_irq();
+}
+
+void board_disable_irq(void)
+{
+    __disable_irq();
+    __asm volatile("fence.i");
+}
+
 void *board_usb_init(uint8_t index, usb_mode_t mode)
 {
     if (index >= USB_COUNT || mode == USB_MODE_IDLE || usb_modes[index] != USB_MODE_IDLE) return NULL;

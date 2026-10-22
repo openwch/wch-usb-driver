@@ -36,11 +36,13 @@
 /* USB device class driver includes */
 #include "class/hid/hidd.h"
 #include "class/cdc/cdcd_acm.h"
+#include "class/cdc/cdcd_ecm.h"
 
 /* USB host class driver includes */
 #include "class/hub/hubh.h"
 #include "class/hid/hidh.h"
 #include "class/cdc/cdch_acm.h"
+#include "class/cdc/cdch_ecm.h"
 
 #ifdef __cplusplus
 extern "C" {

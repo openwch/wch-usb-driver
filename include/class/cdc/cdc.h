@@ -21,14 +21,42 @@ extern "C" {
 #endif
 
 /* @define */
-#define CDC_LINE_STATE_DTR_MASK           0x01
-#define CDC_LINE_STATE_RTS_MASK           0x02
+#define CDC_LINE_STATE_DTR_MASK             0x01
+#define CDC_LINE_STATE_RTS_MASK             0x02
 
-/* @define */
-#define CDC_ACM_CAPBIT_COMM_FEATURE       0x01
-#define CDC_ACM_CAPBIT_LINE_CODING        0x02
-#define CDC_ACM_CAPBIT_SEND_BREAK         0x04
-#define CDC_ACM_CAPBIT_NETWORK_CONNECTION 0x08
+#define CDC_ACM_CAPBIT_COMM_FEATURE         0x01
+#define CDC_ACM_CAPBIT_LINE_CODING          0x02
+#define CDC_ACM_CAPBIT_SEND_BREAK           0x04
+
+#define CDC_ECM_STAT_XMIT_OK                0x00000001
+#define CDC_ECM_STAT_RVC_OK                 0x00000002
+#define CDC_ECM_STAT_XMIT_ERROR             0x00000004
+#define CDC_ECM_STAT_RCV_ERROR              0x00000008
+#define CDC_ECM_STAT_RCV_NO_BUFFER          0x00000010
+#define CDC_ECM_STAT_DIRECTED_BYTES_XMIT    0x00000020
+#define CDC_ECM_STAT_DIRECTED_FRAMES_XMIT   0x00000040
+#define CDC_ECM_STAT_MULTICAST_BYTES_XMIT   0x00000080
+#define CDC_ECM_STAT_MULTICAST_FRAMES_XMIT  0x00000100
+#define CDC_ECM_STAT_BROADCAST_BYTES_XMIT   0x00000200
+#define CDC_ECM_STAT_BROADCAST_FRAMES_XMIT  0x00000400
+#define CDC_ECM_STAT_DIRECTED_BYTES_RCV     0x00000800
+#define CDC_ECM_STAT_DIRECTED_FRAMES_RCV    0x00001000
+#define CDC_ECM_STAT_MULTICAST_BYTES_RCV    0x00002000
+#define CDC_ECM_STAT_MULTICAST_FRAMES_RCV   0x00004000
+#define CDC_ECM_STAT_BROADCAST_BYTES_RCV    0x00008000
+#define CDC_ECM_STAT_BROADCAST_FRAMES_RCV   0x00010000
+#define CDC_ECM_STAT_RCV_CRC_ERROR          0x00020000
+#define CDC_ECM_STAT_TRANSMIT_QUEUE_LENGTH  0x00040000
+#define CDC_ECM_STAT_RCV_ERROR_ALIGNMENT    0x00080000
+#define CDC_ECM_STAT_XMIT_ONE_COLLISION     0x00100000
+#define CDC_ECM_STAT_XMIT_MORE_COLLISIONS   0x00200000
+#define CDC_ECM_STAT_XMIT_DEFERRED          0x00400000
+#define CDC_ECM_STAT_XMIT_MAX_COLLISIONS    0x00800000
+#define CDC_ECM_STAT_RCV_OVERRUN            0x01000000
+#define CDC_ECM_STAT_XMIT_UNDERRUN          0x02000000
+#define CDC_ECM_STAT_XMIT_HEARTBEAT_FAILURE 0x04000000
+#define CDC_ECM_STAT_XMIT_TIMES_CRS_LOST    0x08000000
+#define CDC_ECM_STAT_XMIT_LATE_COLLISIONS   0x10000000
 
 /* @enum */
 typedef enum
@@ -137,6 +165,18 @@ typedef enum
     CDC_REQ_MDLM_SEMANTIC_MODEL = 0x60,
 } cdc_request_t;
 
+typedef enum
+{
+    CDC_NOTIF_NETWORK_CONNECTION = 0x00,
+    CDC_NOTIF_RESPONSE_AVAILABLE = 0x01,
+    CDC_NOTIF_AUX_JACK_HOOK_STATE = 0x08,
+    CDC_NOTIF_RING_DETECT = 0x09,
+    CDC_NOTIF_SERIAL_STATE = 0x20,
+    CDC_NOTIF_CALL_STATE_CHANGE = 0x28,
+    CDC_NOTIF_LINE_STATE_CHANGE = 0x29,
+    CDC_NOTIF_CONNECTION_SPEED_CHANGE = 0x2A,
+} cdc_notif_t;
+
 /* @struct */
 typedef struct __attribute__((packed))
 {
@@ -160,6 +200,24 @@ typedef struct __attribute__((packed))
     uint8_t bLength;
     uint8_t bDescriptorType;
     uint8_t bDescriptorSubType;
+    uint8_t bControlInterface;
+    uint8_t bSubordinateInterface[];
+} cdc_desc_union_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t iCountryCodeRelDate;
+    uint16_t wCountryCode[];
+} cdc_desc_country_selection_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
     uint8_t bmCapabilities;
 } cdc_desc_abstract_control_management_t;
 
@@ -169,6 +227,18 @@ typedef struct __attribute__((packed))
     uint8_t bDescriptorType;
     uint8_t bDescriptorSubType;
     uint8_t bmCapabilities;
+} cdc_desc_ethernet_networking_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t iMACAddress;
+    uint32_t bmEthernetStatistics;
+    uint16_t wMaxSegmentSize;
+    uint16_t wNumberMCFilters;
+    uint8_t bNumberPowerFilters;
 } cdc_desc_direct_line_management_t;
 
 typedef struct __attribute__((packed))
@@ -190,29 +260,17 @@ typedef struct __attribute__((packed))
 
 typedef struct __attribute__((packed))
 {
-    uint8_t bLength;
-    uint8_t bDescriptorType;
-    uint8_t bDescriptorSubType;
-    uint8_t bControlInterface;
-    uint8_t bSubordinateInterface[];
-} cdc_desc_union_t;
-
-typedef struct __attribute__((packed))
-{
-    uint8_t bLength;
-    uint8_t bDescriptorType;
-    uint8_t bDescriptorSubType;
-    uint8_t iCountryCodeRelDate;
-    uint16_t wCountryCode[];
-} cdc_desc_country_selection_t;
-
-typedef struct __attribute__((packed))
-{
     uint32_t bit_rate;
     uint8_t stop_bits;
     uint8_t parity;
     uint8_t data_bits;
 } cdc_line_coding_t;
+
+typedef struct __attribute__((packed))
+{
+    uint32_t DLBitRate;
+    uint32_t ULBitRate;
+} cdc_connect_speed_change_notify_t;
 
 #ifdef __cplusplus
 }

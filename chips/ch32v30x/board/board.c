@@ -17,8 +17,10 @@
 #include "usbfs_port.h"
 
 /* @define */
-#define USBFSD_BASE_ADDR 0x50000000
-#define USBFSH_BASE_ADDR 0x50000000
+#define USBFSD_BASE_ADDR     0x50000000
+#define USBFSH_BASE_ADDR     0x50000000
+
+#define ROM_CONFIG_USER_ADDR 0x1FFFF7E8
 
 /* @enum */
 typedef enum
@@ -63,6 +65,19 @@ void board_disable_irq(void)
 {
     __disable_irq();
     __asm volatile("fence.i");
+}
+
+const uint8_t *board_get_mac_address(void)
+{
+    static uint8_t mac_addr[6];
+    const uint8_t *mac_ptr = (uint8_t *)(ROM_CONFIG_USER_ADDR + 5);
+
+    for (uint8_t i = 0; i < 6; i++)
+    {
+        mac_addr[i] = *mac_ptr--;
+    }
+
+    return mac_addr;
 }
 
 void *board_usb_init(uint8_t index, usb_mode_t mode)

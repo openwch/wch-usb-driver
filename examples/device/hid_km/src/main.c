@@ -56,36 +56,58 @@ static hid_kb_report_t hid_kb_report;
 static hid_mouse_report_t hid_mouse_report;
 static __attribute__((aligned(4))) uint8_t hid_kb_led_status;
 
-static const void *get_string_desc_cb(uint8_t string_index, size_t *len)
+static const void *get_string_desc_cb(uint8_t index, size_t *len)
 {
-    static uint8_t string_desc_buf[256];
-    static const char *string_desc[] = {
-        "wch.cn",
-        "HID Keyboard and Mouse Example",
-        "0123456789",
-    };
+    static uint8_t string_desc_buf[128];
 
-    if (string_index == 0)
+    uint8_t char_len;
+    uint16_t *char_ptr = (uint16_t *)&string_desc_buf[2];
+
+    if (index == 0)
     {
-        static const uint8_t lang_id_desc[] = {0x04, 0x03, 0x09, 0x04};
-        *len = sizeof(lang_id_desc);
-        return lang_id_desc;
+        char_len = 1;
+        char_ptr[0] = 0x0409;
     }
-    else if (string_index <= USB_ARRAY_SIZE(string_desc))
+    else if (index == 3)
     {
-        const char *str = string_desc[string_index - 1];
-        *len = strlen(str) * 2 + 2;
-        string_desc_buf[0] = *len;
-        string_desc_buf[1] = USB_DESC_STRING;
-        for (size_t i = 0; i < strlen(str); i++)
+        static const char ascii_char[] = "0123456789ABCDEF";
+        const uint8_t *mac_addr = board_get_mac_address();
+        char_len = 12;
+        for (uint8_t i = 0; i < 6; i++)
         {
-            string_desc_buf[2 + i * 2] = str[i];
-            string_desc_buf[3 + i * 2] = 0;
+            char_ptr[i * 2 + 0] = ascii_char[(mac_addr[i] >> 4) & 0x0F];
+            char_ptr[i * 2 + 1] = ascii_char[(mac_addr[i] >> 0) & 0x0F];
         }
-        return (const void *)string_desc_buf;
+    }
+    else
+    {
+        static const char *string_desc[] = {
+            "wch.cn",
+            "HID Keyboard and Mouse Example",
+        };
+
+        uint8_t string_index = index - 1;
+
+        if (string_index < USB_ARRAY_SIZE(string_desc))
+        {
+            char_len = strlen(string_desc[string_index]);
+            for (uint8_t i = 0; i < char_len; i++)
+            {
+                char_ptr[i] = string_desc[string_index][i];
+            }
+        }
+        else
+        {
+            *len = 0;
+            return NULL;
+        }
     }
 
-    return NULL;
+    uint8_t desc_len = char_len * 2 + 2;
+    *len = desc_len;
+    string_desc_buf[0] = desc_len;
+    string_desc_buf[1] = USB_DESC_STRING;
+    return string_desc_buf;
 }
 
 static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t type, uint8_t index, usb_speed_t speed, size_t *len)

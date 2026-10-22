@@ -218,8 +218,6 @@ static void reset_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
 static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
 {
     enum_completed = true;
-    memset(&read_xfer_manage, 0, sizeof(read_xfer_manage));
-    memset(&write_xfer_manage, 0, sizeof(write_xfer_manage));
 
     /* Initialize CDC-ACM device handle */
     memset(&acm_handle, 0, sizeof(acm_handle));

@@ -35,6 +35,8 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
 
         case CDC_REQ_SET_CONTROL_LINE_STATE:
         case CDC_REQ_SEND_BREAK:
+            *buf = NULL;
+            *len = 0;
             return true;
         }
     }

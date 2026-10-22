@@ -52,6 +52,8 @@ extern "C" {
 #define USB_U32_BYTE1(data)             ((uint8_t)(((data) >> 8) & 0x000000FF))
 #define USB_U32_BYTE2(data)             ((uint8_t)(((data) >> 16) & 0x000000FF))
 #define USB_U32_BYTE3(data)             ((uint8_t)(((data) >> 24) & 0x000000FF))
+#define USB_U32_TO_U8_LSB(data) USB_U32_BYTE0(data), USB_U32_BYTE1(data), USB_U32_BYTE2(data), USB_U32_BYTE3(data)
+#define USB_U32_TO_U8_MSB(data) USB_U32_BYTE3(data), USB_U32_BYTE2(data), USB_U32_BYTE1(data), USB_U32_BYTE0(data)
 
 #ifndef USB_LOG_TAG
 #define USB_LOG_TAG "?"

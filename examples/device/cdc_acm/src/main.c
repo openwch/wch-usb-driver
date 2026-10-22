@@ -46,6 +46,7 @@ typedef struct
 } xfer_manage_t;
 
 /* @global */
+static volatile bool enum_completed;
 static usbd_handle_t *usbd_handle;
 static cdcd_acm_handle_t acm_handle;
 static xfer_manage_t read_xfer_manage;
@@ -185,8 +186,16 @@ static void cdc_acm_read_cb(cdcd_acm_handle_t *cdcd_acm, void *buf, size_t len)
     }
 }
 
+static void reset_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
+{
+    enum_completed = false;
+    memset(&read_xfer_manage, 0, sizeof(read_xfer_manage));
+    memset(&write_xfer_manage, 0, sizeof(write_xfer_manage));
+}
+
 static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
 {
+    enum_completed = true;
     memset(&read_xfer_manage, 0, sizeof(read_xfer_manage));
     memset(&write_xfer_manage, 0, sizeof(write_xfer_manage));
 
@@ -216,6 +225,50 @@ static void enum_completed_event_cb(usbd_handle_t *h, usbd_event_ctx_t *ctx)
     cdcd_acm_drv_read(&acm_handle, read_bufs[read_xfer_manage.load], READ_BUF_SIZE);
 }
 
+static void cdc_acm_application_handle(void)
+{
+    /* Disable interrupts to safely access shared resources */
+    board_disable_irq();
+
+    /* Handle data read from USB and write it to USART */
+    if (read_xfer_manage.count && usart_write(read_bufs[read_xfer_manage.deal], read_length[read_xfer_manage.deal]))
+    {
+        read_xfer_manage.deal = (read_xfer_manage.deal + 1) % READ_BUF_COUNT;
+        read_xfer_manage.count--;
+    }
+
+    /* Start the next read operation if the previous one has stopped and there is space in the buffer */
+    if (read_xfer_manage.stop && read_xfer_manage.count + 1 < READ_BUF_COUNT)
+    {
+        if (cdcd_acm_drv_read(&acm_handle, read_bufs[read_xfer_manage.load], READ_BUF_SIZE))
+        {
+            read_xfer_manage.stop = false;
+        }
+    }
+
+    /* Re-enable interrupts after accessing shared resources */
+    board_enable_irq();
+
+    /* Handle data read from USART and prepare it for writing to USB */
+    if (write_xfer_manage.count + 1 < WRITE_BUF_COUNT)
+    {
+        size_t length = usart_read(write_bufs[write_xfer_manage.load], WRITE_BUF_SIZE);
+        if (length)
+        {
+            write_length[write_xfer_manage.load] = length;
+            write_xfer_manage.load = (write_xfer_manage.load + 1) % WRITE_BUF_COUNT;
+            write_xfer_manage.count++;
+        }
+    }
+
+    if (write_xfer_manage.count &&
+        cdcd_acm_drv_write(&acm_handle, write_bufs[write_xfer_manage.deal], write_length[write_xfer_manage.deal]))
+    {
+        write_xfer_manage.deal = (write_xfer_manage.deal + 1) % WRITE_BUF_COUNT;
+        write_xfer_manage.count--;
+    }
+}
+
 int main(void)
 {
     board_init();
@@ -225,50 +278,15 @@ int main(void)
     usbd_handle = board_usb_init(USBD_INDEX, USB_MODE_DEVICE);
     assert(usbd_handle != NULL);
 
+    assert(usbd_register_event_callback(usbd_handle, USBD_EVENT_RESET, reset_event_cb));
     assert(usbd_register_event_callback(usbd_handle, USBD_EVENT_ENUM_COMPLETED, enum_completed_event_cb));
     assert(usbd_drv_open(usbd_handle, USB_SPEED_HIGH, false, get_stand_desc_cb));
 
     while (1)
     {
-        /* Disable interrupts to safely access shared resources */
-        board_disable_irq();
-
-        /* Handle data read from USB and write it to USART */
-        if (read_xfer_manage.count && usart_write(read_bufs[read_xfer_manage.deal], read_length[read_xfer_manage.deal]))
+        if (enum_completed)
         {
-            read_xfer_manage.deal = (read_xfer_manage.deal + 1) % READ_BUF_COUNT;
-            read_xfer_manage.count--;
-        }
-
-        /* Start the next read operation if the previous one has stopped and there is space in the buffer */
-        if (read_xfer_manage.stop && read_xfer_manage.count + 1 < READ_BUF_COUNT)
-        {
-            if (cdcd_acm_drv_read(&acm_handle, read_bufs[read_xfer_manage.load], READ_BUF_SIZE))
-            {
-                read_xfer_manage.stop = false;
-            }
-        }
-
-        /* Re-enable interrupts after accessing shared resources */
-        board_enable_irq();
-
-        /* Handle data read from USART and prepare it for writing to USB */
-        if (write_xfer_manage.count + 1 < WRITE_BUF_COUNT)
-        {
-            size_t length = usart_read(write_bufs[write_xfer_manage.load], WRITE_BUF_SIZE);
-            if (length)
-            {
-                write_length[write_xfer_manage.load] = length;
-                write_xfer_manage.load = (write_xfer_manage.load + 1) % WRITE_BUF_COUNT;
-                write_xfer_manage.count++;
-            }
-        }
-
-        if (write_xfer_manage.count &&
-            cdcd_acm_drv_write(&acm_handle, write_bufs[write_xfer_manage.deal], write_length[write_xfer_manage.deal]))
-        {
-            write_xfer_manage.deal = (write_xfer_manage.deal + 1) % WRITE_BUF_COUNT;
-            write_xfer_manage.count--;
+            cdc_acm_application_handle();
         }
     }
 

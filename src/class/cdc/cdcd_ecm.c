@@ -29,6 +29,11 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
     {
         switch (setup->bRequest)
         {
+        case USB_REQ_GET_INTERFACE:
+            *buf = &h->alt_setting;
+            *len = sizeof(h->alt_setting);
+            return true;
+
         case USB_REQ_SET_INTERFACE:
             *buf = NULL;
             *len = 0;
@@ -56,18 +61,6 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
     return false;
 }
 
-static void read_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
-{
-    cdcd_ecm_handle_t *h = (cdcd_ecm_handle_t *)handle;
-    if (h->read_comp_cb) h->read_comp_cb(h, buf, len);
-}
-
-static void write_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
-{
-    cdcd_ecm_handle_t *h = (cdcd_ecm_handle_t *)handle;
-    if (h->write_comp_cb) h->write_comp_cb(h, buf, len);
-}
-
 static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, size_t len)
 {
     cdcd_ecm_handle_t *h = (cdcd_ecm_handle_t *)handle;
@@ -77,15 +70,10 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         switch (setup->bRequest)
         {
         case USB_REQ_SET_INTERFACE:
-            if (setup->wValue == 0)
+            h->alt_setting = setup->wValue;
+            if (h->set_interface_cb)
             {
-                usbd_endp_close(h->usbd_handle, h->in_ep->bEndpointAddress);
-                usbd_endp_close(h->usbd_handle, h->out_ep->bEndpointAddress);
-            }
-            else
-            {
-                usbd_endp_open(h->usbd_handle, h, h->in_ep, write_callback);
-                usbd_endp_open(h->usbd_handle, h, h->out_ep, read_callback);
+                h->set_interface_cb(h, setup->wValue);
             }
             break;
         }
@@ -103,6 +91,18 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             break;
         }
     }
+}
+
+static void read_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
+{
+    cdcd_ecm_handle_t *h = (cdcd_ecm_handle_t *)handle;
+    if (h->read_comp_cb) h->read_comp_cb(h, buf, len);
+}
+
+static void write_callback(void *handle, usb_endp_t endp, void *buf, size_t len)
+{
+    cdcd_ecm_handle_t *h = (cdcd_ecm_handle_t *)handle;
+    if (h->write_comp_cb) h->write_comp_cb(h, buf, len);
 }
 
 bool cdcd_ecm_drv_open(cdcd_ecm_handle_t *cdcd_ecm)
@@ -127,13 +127,36 @@ close_notify_ep:
 
 unregister_itf:
     usbd_unregister_interface_cb(cdcd_ecm->usbd_handle, cdcd_ecm->ctrl_itf_num);
+    usbd_unregister_interface_cb(cdcd_ecm->usbd_handle, cdcd_ecm->data_itf_num);
     USB_LOGE("Handle: %p Failed to open CDC ECM", cdcd_ecm);
+    return false;
+}
+
+bool cdcd_ecm_drv_ctrl_data_endpoint(cdcd_ecm_handle_t *cdcd_ecm, bool enable)
+{
+    if (!cdcd_ecm || !cdcd_ecm->usbd_handle || !cdcd_ecm->in_ep || !cdcd_ecm->out_ep) return false;
+
+    if (enable)
+    {
+        if (!usbd_endp_open(cdcd_ecm->usbd_handle, cdcd_ecm, cdcd_ecm->in_ep, write_callback)) goto failed;
+        if (!usbd_endp_open(cdcd_ecm->usbd_handle, cdcd_ecm, cdcd_ecm->out_ep, read_callback)) goto failed;
+    }
+    else
+    {
+        usbd_endp_close(cdcd_ecm->usbd_handle, cdcd_ecm->in_ep->bEndpointAddress);
+        usbd_endp_close(cdcd_ecm->usbd_handle, cdcd_ecm->out_ep->bEndpointAddress);
+    }
+    return true;
+
+failed:
+    usbd_endp_close(cdcd_ecm->usbd_handle, cdcd_ecm->in_ep->bEndpointAddress);
+    usbd_endp_close(cdcd_ecm->usbd_handle, cdcd_ecm->out_ep->bEndpointAddress);
     return false;
 }
 
 bool cdcd_ecm_drv_connect_change_notify(cdcd_ecm_handle_t *cdcd_ecm, bool connected)
 {
-    if (!cdcd_ecm) return false;
+    if (!cdcd_ecm || !cdcd_ecm->usbd_handle || !cdcd_ecm->notify_ep) return false;
     usb_setup_t *request = (usb_setup_t *)cdcd_ecm->connect_notify;
     request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
     request->bRequest = CDC_NOTIF_NETWORK_CONNECTION;
@@ -145,18 +168,28 @@ bool cdcd_ecm_drv_connect_change_notify(cdcd_ecm_handle_t *cdcd_ecm, bool connec
 
 bool cdcd_ecm_drv_speed_change_notify(cdcd_ecm_handle_t *cdcd_ecm, uint32_t ul_bit_rate, uint32_t dl_bit_rate)
 {
-    if (!cdcd_ecm) return false;
-    usb_setup_t *request = (usb_setup_t *)&cdcd_ecm->connect_notify[0];
+    if (!cdcd_ecm || !cdcd_ecm->usbd_handle || !cdcd_ecm->notify_ep) return false;
+    usb_setup_t *request = (usb_setup_t *)&cdcd_ecm->speed_notify[0];
     request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
     request->bRequest = CDC_NOTIF_CONNECTION_SPEED_CHANGE;
     request->wValue = 0;
     request->wIndex = cdcd_ecm->ctrl_itf_num;
     request->wLength = sizeof(cdc_connect_speed_change_notify_t);
-    cdc_connect_speed_change_notify_t *speed = (cdc_connect_speed_change_notify_t *)&cdcd_ecm->connect_notify[8];
+    cdc_connect_speed_change_notify_t *speed = (cdc_connect_speed_change_notify_t *)&cdcd_ecm->speed_notify[8];
     speed->ULBitRate = ul_bit_rate;
     speed->DLBitRate = dl_bit_rate;
     return usbd_endp_write(cdcd_ecm->usbd_handle, cdcd_ecm->notify_ep->bEndpointAddress, request,
                            sizeof(usb_setup_t) + sizeof(cdc_connect_speed_change_notify_t));
+}
+
+bool cdcd_ecm_drv_read(cdcd_ecm_handle_t *cdcd_ecm, void *buf, size_t len)
+{
+    return usbd_endp_read(cdcd_ecm->usbd_handle, cdcd_ecm->out_ep->bEndpointAddress, buf, len);
+}
+
+bool cdcd_ecm_drv_write(cdcd_ecm_handle_t *cdcd_ecm, const void *buf, size_t len)
+{
+    return usbd_endp_write(cdcd_ecm->usbd_handle, cdcd_ecm->in_ep->bEndpointAddress, buf, len);
 }
 
 #endif // USB_CLASS_CDCD_ECM_DRIVER_EN

@@ -43,11 +43,15 @@ typedef struct cdcd_ecm_handle
     const usb_desc_endpoint_t *in_ep;
     const usb_desc_endpoint_t *out_ep;
 
+    /* Current alternate setting for the data interface (optional) */
+    __attribute__((aligned(4))) uint8_t alt_setting;
+
     /* Buffers for connection and speed change notifications (optional) */
     __attribute__((aligned(4))) uint8_t connect_notify[8];
     __attribute__((aligned(4))) uint8_t speed_notify[16];
 
     /* Callback functions for the CDC-ECM device (optional) */
+    void (*set_interface_cb)(cdcd_ecm_handle_t *cdcd_ecm, uint16_t alt_setting);
     void (*set_ethernet_packet_filter_cb)(cdcd_ecm_handle_t *cdcd_ecm, uint16_t bitmap);
     void (*read_comp_cb)(cdcd_ecm_handle_t *cdcd_ecm, void *buf, size_t len);
     void (*write_comp_cb)(cdcd_ecm_handle_t *cdcd_ecm, const void *buf, size_t len);
@@ -63,6 +67,16 @@ typedef struct cdcd_ecm_handle
  * @return Operation result
  */
 bool cdcd_ecm_drv_open(cdcd_ecm_handle_t *cdcd_ecm);
+
+/**
+ * @brief Control the data endpoint of the USB CDC-ECM device class driver instance
+ * 
+ * @param cdcd_ecm CDC-ECM device class driver instance handle
+ * @param enable Enable or disable the data endpoint (true to enable, false to disable)
+ * 
+ * @return Operation result
+ */
+bool cdcd_ecm_drv_ctrl_data_endpoint(cdcd_ecm_handle_t *cdcd_ecm, bool enable);
 
 /**
  * @brief Notify the USB CDC-ECM device class driver of a change in connection status
@@ -84,6 +98,28 @@ bool cdcd_ecm_drv_connect_change_notify(cdcd_ecm_handle_t *cdcd_ecm, bool connec
  * @return Operation result
  */
 bool cdcd_ecm_drv_speed_change_notify(cdcd_ecm_handle_t *cdcd_ecm, uint32_t ul_bit_rate, uint32_t dl_bit_rate);
+
+/**
+ * @brief Read data from the USB CDC-ECM device class driver instance
+ * 
+ * @param cdcd_ecm CDC-ECM device class driver instance handle
+ * @param buf The buffer to store the read data
+ * @param len The length of the data to read
+ * 
+ * @return Operation result
+ */
+bool cdcd_ecm_drv_read(cdcd_ecm_handle_t *cdcd_ecm, void *buf, size_t len);
+
+/**
+ * @brief Write data to the USB CDC-ECM device class driver instance
+ * 
+ * @param cdcd_ecm CDC-ECM device class driver instance handle
+ * @param buf The buffer containing the data to write
+ * @param len The length of the data to write
+ * 
+ * @return Operation result
+ */
+bool cdcd_ecm_drv_write(cdcd_ecm_handle_t *cdcd_ecm, const void *buf, size_t len);
 
 #ifdef __cplusplus
 }

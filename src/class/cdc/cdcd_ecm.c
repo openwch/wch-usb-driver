@@ -71,6 +71,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         {
         case USB_REQ_SET_INTERFACE:
             h->alt_setting = setup->wValue;
+            USB_LOGI("Handle: %p SET_INTERFACE: AltSetting=%d", h, setup->wValue);
             if (h->set_interface_cb)
             {
                 h->set_interface_cb(h, setup->wValue);

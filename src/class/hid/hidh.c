@@ -763,11 +763,11 @@ static hidh_handle_t *handle_alloc(void)
 {
     for (size_t i = 0; i < USB_ARRAY_SIZE(handle_pool); i++)
     {
-        hidh_handle_t *hidh = &handle_pool[i];
-        if (hidh->dev == NULL)
+        hidh_handle_t *hid = &handle_pool[i];
+        if (hid->dev == NULL)
         {
-            memset(hidh, 0, sizeof(hidh_handle_t));
-            return hidh;
+            memset(hid, 0, sizeof(hidh_handle_t));
+            return hid;
         }
     }
     return NULL;
@@ -883,6 +883,8 @@ static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
         hidh_handle_t *next = hid->next;
         if (hid->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || hid->itf_desc->bInterfaceNumber == itf_num))
         {
+            if (hid->in_ep) usbh_endp_close(hid->dev, hid->in_ep->bEndpointAddress);
+            if (hid->out_ep) usbh_endp_close(hid->dev, hid->out_ep->bEndpointAddress);
             usbh_list_remove((void **)&hid_list, hid);
             hid_handle_free(hid);
             memset(hid, 0, sizeof(hidh_handle_t));

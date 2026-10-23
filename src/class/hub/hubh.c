@@ -557,6 +557,7 @@ static bool hub_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
         hubh_handle_t *next = hub->next;
         if (hub->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || hub->itf_desc->bInterfaceNumber == itf_num))
         {
+            usbh_endp_close(hub->dev, hub->in_ep->bEndpointAddress);
             usbh_list_remove((void **)&hub_list, hub);
             memset(hub, 0, sizeof(hubh_handle_t));
         }

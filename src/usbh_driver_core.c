@@ -1411,7 +1411,18 @@ bool usbh_register_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info)
 
 bool usbh_unregister_driver(usbh_handle_t *h, const usbh_drv_info_t *drv_info)
 {
-    if (!h || !drv_info) return false;
+    if (!h || !drv_info || !drv_info->unbind) return false;
+
+    /* Unbind the driver from all devices before removing it from the driver list */
+    usbh_device_t *dev = h->device_list;
+    while (dev)
+    {
+        usbh_device_t *next = dev->next;
+        drv_info->unbind(dev, USBH_DRV_ALL_INTERFACE);
+        dev = next;
+    }
+
+    /* Remove the driver from the driver list */
     for (size_t i = 0; i < USB_ARRAY_SIZE(h->drv_info_list); i++)
     {
         if (h->drv_info_list[i] == drv_info)

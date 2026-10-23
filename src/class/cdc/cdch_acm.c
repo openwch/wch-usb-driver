@@ -526,6 +526,9 @@ static bool acm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
         acmh_handle_t *next = acm->next;
         if (acm->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || acm->ctrl_itf->bInterfaceNumber == itf_num))
         {
+            usbh_endp_close(acm->dev, acm->notify_ep->bEndpointAddress);
+            usbh_endp_close(acm->dev, acm->in_ep->bEndpointAddress);
+            usbh_endp_close(acm->dev, acm->out_ep->bEndpointAddress);
             usbh_list_remove((void **)&acm_list, acm);
             memset(acm, 0, sizeof(acmh_handle_t));
         }

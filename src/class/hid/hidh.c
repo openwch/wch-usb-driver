@@ -486,16 +486,15 @@ static void hid_enum_task(hidh_handle_t *hid)
     {
     case ENUM_STAGE_IDLE:
     {
+        if (usbh_is_ctrl_xfering(hid->dev)) return;
+        hid->enum_stage = ENUM_STAGE_SET_IDLE;
         usb_setup_t *request = &hid->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = HID_REQ_SET_IDLE;
         request->wValue = 0;
         request->wIndex = hid->itf_desc->bInterfaceNumber;
         request->wLength = 0;
-        if (usbh_ctrl_xfer(hid->dev, hid, request, NULL, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb))
-        {
-            hid->enum_stage = ENUM_STAGE_SET_IDLE;
-        }
+        usbh_ctrl_xfer(hid->dev, hid, request, NULL, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         break;
     }
 

@@ -154,16 +154,15 @@ static void acm_enum_task(acmh_handle_t *acm)
     {
     case ENUM_STAGE_IDLE:
     {
+        if (usbh_is_ctrl_xfering(acm->dev)) return;
+        acm->enum_stage = ENUM_STAGE_GET_LINE_CODING;
         usb_setup_t *request = &acm->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = CDC_REQ_GET_LINE_CODING;
         request->wValue = 0;
         request->wIndex = acm->ctrl_itf->bInterfaceNumber;
         request->wLength = sizeof(acm->line_coding);
-        if (usbh_ctrl_xfer(acm->dev, acm, request, &acm->line_coding, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb))
-        {
-            acm->enum_stage = ENUM_STAGE_GET_LINE_CODING;
-        }
+        usbh_ctrl_xfer(acm->dev, acm, request, &acm->line_coding, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         break;
     }
 

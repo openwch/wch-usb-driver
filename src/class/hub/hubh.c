@@ -193,16 +193,15 @@ static void hub_enum_task(hubh_handle_t *hub)
     {
     case ENUM_STAGE_IDLE:
     {
+        if (usbh_is_ctrl_xfering(hub->dev)) return;
+        hub->enum_stage = ENUM_STAGE_GET_HUB_DESC;
         usb_setup_t *request = &hub->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_DEVICE);
         request->bRequest = USB_REQ_GET_DESCRIPTOR;
         request->wValue = HUB_DESC_HUB << 8;
         request->wIndex = 0;
         request->wLength = sizeof(hub->ctrl_buf);
-        if (usbh_ctrl_xfer(hub->dev, hub, request, hub->ctrl_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb))
-        {
-            hub->enum_stage = ENUM_STAGE_GET_HUB_DESC;
-        }
+        usbh_ctrl_xfer(hub->dev, hub, request, hub->ctrl_buf, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         break;
     }
 

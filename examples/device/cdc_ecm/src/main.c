@@ -312,7 +312,7 @@ static bool ipv4_protocol_process(const uint8_t *frame, size_t len, uint8_t *rep
 static bool arp_protocol_process(const uint8_t *frame, size_t len, uint8_t *reply, size_t *reply_size)
 {
     size_t header_len = sizeof(arp_header_t);
-    if (!mac_addr_ptr || len < header_len) return false;
+    if (len < header_len) return false;
 
     const arp_header_t *recv_arp = (const arp_header_t *)frame;
     if (recv_arp->hw_type != NET_ARP_HW_ETHERNET || recv_arp->proto_type != NET_ETH_TYPE_IPV4) return false;
@@ -337,7 +337,7 @@ static bool arp_protocol_process(const uint8_t *frame, size_t len, uint8_t *repl
 static bool ethernet_packet_process(const uint8_t *frame, size_t len, uint8_t *reply, size_t *reply_size)
 {
     size_t header_len = sizeof(ethernet_header_t);
-    if (!mac_addr_ptr || len < header_len) return false;
+    if (len < header_len) return false;
 
     const ethernet_header_t *recv_eth = (const ethernet_header_t *)frame;
     static const uint8_t broadcast_addr[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};

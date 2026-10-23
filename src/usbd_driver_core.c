@@ -534,6 +534,11 @@ bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp)
     return false;
 }
 
+bool usbd_endp_is_busy(usbd_handle_t *h, usb_endp_t endp)
+{
+    return h->endp_is_busy(h, endp);
+}
+
 bool usbd_endp_read(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len)
 {
     return h->endp_transfer(h, USB_ENDP_NUM(endp), buf, len);

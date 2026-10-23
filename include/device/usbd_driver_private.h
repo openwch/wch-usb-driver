@@ -143,6 +143,7 @@ typedef struct usbd_handle
     bool (*endp_close)(usbd_handle_t *h, usb_endp_t endp);
     bool (*endp_stall)(usbd_handle_t *h, usb_endp_t endp, bool stall);
     bool (*endp_is_stalled)(usbd_handle_t *h, usb_endp_t endp);
+    bool (*endp_is_busy)(usbd_handle_t *h, usb_endp_t endp);
     bool (*endp_transfer)(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len);
 } usbd_handle_t;
 
@@ -222,6 +223,16 @@ bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint
  * @return Operation result
  */
 bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp);
+
+/**
+ * @brief Check if a USB endpoint is busy
+ * 
+ * @param h USB device driver handle
+ * @param endp Endpoint to check
+ * @return true If the endpoint is busy
+ * @return false If the endpoint is not busy
+ */
+bool usbd_endp_is_busy(usbd_handle_t *h, usb_endp_t endp);
 
 /**
  * @brief Read data from a USB endpoint

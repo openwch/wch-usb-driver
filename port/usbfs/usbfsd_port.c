@@ -235,17 +235,17 @@ static bool endp_stall(usbd_handle_t *h, usb_endp_t endp, bool stall)
 static bool endp_is_stalled(usbd_handle_t *h, usb_endp_t endp)
 {
     uint8_t num = USB_ENDP_NUM(endp);
-
     if (!h || num >= 8) return false;
+    return USB_ENDP_DIR(endp) ? (ENDP_TX_CTRL(num) & USBFS_UEP_T_RES_MASK) == USBFS_UEP_T_RES_STALL
+                              : (ENDP_RX_CTRL(num) & USBFS_UEP_R_RES_MASK) == USBFS_UEP_R_RES_STALL;
+}
 
-    if (USB_ENDP_DIR(endp))
-    {
-        return (ENDP_TX_CTRL(num) & USBFS_UEP_T_RES_MASK) == USBFS_UEP_T_RES_STALL;
-    }
-    else
-    {
-        return (ENDP_RX_CTRL(num) & USBFS_UEP_R_RES_MASK) == USBFS_UEP_R_RES_STALL;
-    }
+static bool endp_is_busy(usbd_handle_t *h, usb_endp_t endp)
+{
+    uint8_t num = USB_ENDP_NUM(endp);
+    if (!h || num >= 8) return false;
+    return USB_ENDP_DIR(endp) ? (ENDP_TX_CTRL(num) & USBFS_UEP_T_RES_MASK) != USBFS_UEP_T_RES_NAK
+                              : (ENDP_RX_CTRL(num) & USBFS_UEP_R_RES_MASK) != USBFS_UEP_R_RES_NAK;
 }
 
 static bool endp_transfer(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len)
@@ -290,6 +290,7 @@ void usbfsd_handle_init(usbd_handle_t *h, usbfsd_ctx_t *ctx)
     h->endp_close = endp_close;
     h->endp_stall = endp_stall;
     h->endp_is_stalled = endp_is_stalled;
+    h->endp_is_busy = endp_is_busy;
     h->endp_transfer = endp_transfer;
 }
 

@@ -158,7 +158,9 @@ failed:
 bool cdcd_ecm_drv_connect_change_notify(cdcd_ecm_handle_t *cdcd_ecm, bool connected)
 {
     if (!cdcd_ecm || !cdcd_ecm->usbd_handle || !cdcd_ecm->notify_ep) return false;
-    usb_setup_t *request = (usb_setup_t *)cdcd_ecm->connect_notify;
+    if (usbd_endp_is_busy(cdcd_ecm->usbd_handle, cdcd_ecm->notify_ep->bEndpointAddress)) return false;
+
+    usb_setup_t *request = (usb_setup_t *)cdcd_ecm->notify_buf;
     request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
     request->bRequest = CDC_NOTIF_NETWORK_CONNECTION;
     request->wValue = connected ? 0x01 : 0x00;
@@ -170,13 +172,15 @@ bool cdcd_ecm_drv_connect_change_notify(cdcd_ecm_handle_t *cdcd_ecm, bool connec
 bool cdcd_ecm_drv_speed_change_notify(cdcd_ecm_handle_t *cdcd_ecm, uint32_t ul_bit_rate, uint32_t dl_bit_rate)
 {
     if (!cdcd_ecm || !cdcd_ecm->usbd_handle || !cdcd_ecm->notify_ep) return false;
-    usb_setup_t *request = (usb_setup_t *)&cdcd_ecm->speed_notify[0];
+    if (usbd_endp_is_busy(cdcd_ecm->usbd_handle, cdcd_ecm->notify_ep->bEndpointAddress)) return false;
+
+    usb_setup_t *request = (usb_setup_t *)cdcd_ecm->notify_buf;
     request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
     request->bRequest = CDC_NOTIF_CONNECTION_SPEED_CHANGE;
     request->wValue = 0;
     request->wIndex = cdcd_ecm->ctrl_itf_num;
     request->wLength = sizeof(cdc_connect_speed_change_notify_t);
-    cdc_connect_speed_change_notify_t *speed = (cdc_connect_speed_change_notify_t *)&cdcd_ecm->speed_notify[8];
+    cdc_connect_speed_change_notify_t *speed = (cdc_connect_speed_change_notify_t *)&cdcd_ecm->notify_buf[8];
     speed->ULBitRate = ul_bit_rate;
     speed->DLBitRate = dl_bit_rate;
     return usbd_endp_write(cdcd_ecm->usbd_handle, cdcd_ecm->notify_ep->bEndpointAddress, request,

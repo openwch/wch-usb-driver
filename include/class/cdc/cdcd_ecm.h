@@ -46,9 +46,8 @@ typedef struct cdcd_ecm_handle
     /* Current alternate setting for the data interface (optional) */
     __attribute__((aligned(4))) uint8_t alt_setting;
 
-    /* Buffers for connection and speed change notifications (optional) */
-    __attribute__((aligned(4))) uint8_t connect_notify[8];
-    __attribute__((aligned(4))) uint8_t speed_notify[16];
+    /* Notification buffer (optional) */
+    __attribute__((aligned(4))) uint8_t notify_buf[16];
 
     /* Callback functions for the CDC-ECM device (optional) */
     void (*set_interface_cb)(cdcd_ecm_handle_t *cdcd_ecm, uint16_t alt_setting);

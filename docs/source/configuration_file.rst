@@ -28,6 +28,8 @@
      - 使能 HID 设备类驱动
    * - ``USB_CLASS_CDCD_ACM_DRIVER_EN``
      - 使能 CDC-ACM 设备类驱动
+   * - ``USB_CLASS_CDCD_ECM_DRIVER_EN``
+     - 使能 CDC-ECM 设备类驱动
    * - ``USB_CLASS_HUBH_DRIVER_EN``
      - 使能 HUB 主机类驱动
    * - ``USB_CLASS_HIDH_DRIVER_EN``
@@ -38,6 +40,8 @@
      - 使能 HID 主机鼠标解析，依赖 ``USB_CLASS_HIDH_DRIVER_EN``
    * - ``USB_CLASS_CDCH_ACM_DRIVER_EN``
      - 使能 CDC-ACM 主机类驱动
+   * - ``USB_CLASS_CDCH_ECM_DRIVER_EN``
+     - 使能 CDC-ECM 主机类驱动
 
 日志
 --------------------
@@ -147,3 +151,15 @@ CDC-ACM 主机类参数
    * - ``CDCH_ACM_HANDLE_POOL_SIZE``
      - 1
      - CDC-ACM 主机句柄数量上限
+
+CDC-ECM 主机类参数
+--------------------
+
+.. list-table::
+
+   * - 宏
+     - 默认值
+     - 说明
+   * - ``CDCH_ECM_HANDLE_POOL_SIZE``
+     - 1
+     - CDC-ECM 主机句柄数量上限

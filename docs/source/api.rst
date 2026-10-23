@@ -429,7 +429,7 @@ HID 设备类驱动在设备核心驱动之上实现 HID 类请求处理，并�
 
    发送完成后驱动调用 ``write_comp_cb`` 通知应用。回调在 USB 中断上下文中执行。
 
-CDC类驱动
+CDC-ACM类驱动
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 CDC-ACM 设备类驱动实现虚拟串口（ACM）的类请求处理和数据收发。应用需填写 ``cdcd_acm_handle_t`` 后调用 ``cdcd_acm_drv_open()``。
@@ -579,6 +579,234 @@ CDC-ACM 设备类驱动实现虚拟串口（ACM）的类请求处理和数据收
       * - ``cdcd_acm``
         - ``cdcd_acm_handle_t *``
         - CDC-ACM 类驱动句柄。
+      * - ``buf``
+        - ``const void *``
+        - 待发送数据的缓冲区。
+      * - ``len``
+        - ``size_t``
+        - 待发送的字节数。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 请求提交成功。
+      * - ``false``
+        - 请求提交失败。
+
+   发送完成后驱动调用 ``write_comp_cb`` 通知应用。回调在 USB 中断上下文中执行。
+
+CDC-ECM类驱动
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CDC-ECM 设备类驱动实现以太网控制模型（Ethernet Control Model），处理数据接口的标准请求和控制接口的以太网类请求，并在数据端点上收发以太网帧。应用需填写 ``cdcd_ecm_handle_t`` 后调用 ``cdcd_ecm_drv_open()``。
+
+驱动处理数据接口的 ``GET_INTERFACE`` / ``SET_INTERFACE`` 标准请求，以及控制接口的 ``SET_ETHERNET_PACKET_FILTER`` 类请求。数据端点不由 ``cdcd_ecm_drv_open()`` 打开，应用通常在 ``set_interface_cb`` 中根据备用设置调用 ``cdcd_ecm_drv_ctrl_data_endpoint()``。
+
+.. c:struct:: cdcd_ecm_handle_t
+
+   CDC-ECM 设备类驱动句柄。各成员由应用在调用 ``cdcd_ecm_drv_open()`` 前填写。
+
+   .. list-table::
+
+      * - 成员
+        - 类型
+        - 必选
+        - 说明
+      * - ``usbd_handle``
+        - ``usbd_handle_t *``
+        - 是
+        - 关联的设备核心驱动句柄。
+      * - ``ctrl_itf_num``
+        - ``uint8_t``
+        - 是
+        - 通信控制接口号。
+      * - ``data_itf_num``
+        - ``uint8_t``
+        - 是
+        - 数据接口号。
+      * - ``notify_ep``
+        - ``const usb_desc_endpoint_t *``
+        - 是
+        - 通知端点描述符，驱动打开时会打开该端点。
+      * - ``in_ep``
+        - ``const usb_desc_endpoint_t *``
+        - 是
+        - IN 数据端点描述符，用于设备向主机发送以太网帧。
+      * - ``out_ep``
+        - ``const usb_desc_endpoint_t *``
+        - 是
+        - OUT 数据端点描述符，用于设备接收主机发来的以太网帧。
+      * - ``alt_setting``
+        - ``uint8_t``
+        - —
+        - 数据接口当前的备用设置，由驱动在 ``SET_INTERFACE`` 请求后更新。
+      * - ``notify_buf``
+        - ``uint8_t[16]``
+        - —
+        - 通知请求缓冲区，驱动内部使用。
+      * - ``set_interface_cb``
+        - ``void (*)(cdcd_ecm_handle_t *, uint16_t)``
+        - 否
+        - ``SET_INTERFACE`` 请求处理回调，``alt_setting`` 为新的备用设置。通常在此打开或关闭数据端点。
+      * - ``set_ethernet_packet_filter_cb``
+        - ``void (*)(cdcd_ecm_handle_t *, uint16_t)``
+        - 否
+        - ``SET_ETHERNET_PACKET_FILTER`` 请求处理回调，``bitmap`` 取值见 ``CDC_ECM_ETH_PACK_FILTER_*``。
+      * - ``read_comp_cb``
+        - ``void (*)(cdcd_ecm_handle_t *, void *, size_t)``
+        - 否
+        - OUT 数据端点接收完成回调。
+      * - ``write_comp_cb``
+        - ``void (*)(cdcd_ecm_handle_t *, const void *, size_t)``
+        - 否
+        - IN 数据端点发送完成回调。
+
+.. c:function:: bool cdcd_ecm_drv_open(cdcd_ecm_handle_t *cdcd_ecm)
+
+   打开 CDC-ECM 设备类驱动。驱动为控制接口和数据接口注册控制请求回调，并打开通知端点。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``cdcd_ecm``
+        - ``cdcd_ecm_handle_t *``
+        - CDC-ECM 类驱动句柄。``usbd_handle``、``notify_ep``、``in_ep`` 和 ``out_ep`` 必须有效。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 打开成功。
+      * - ``false``
+        - 参数非法或端点打开失败。
+
+.. c:function:: bool cdcd_ecm_drv_ctrl_data_endpoint(cdcd_ecm_handle_t *cdcd_ecm, bool enable)
+
+   打开或关闭 CDC-ECM 的数据端点。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``cdcd_ecm``
+        - ``cdcd_ecm_handle_t *``
+        - CDC-ECM 类驱动句柄。
+      * - ``enable``
+        - ``bool``
+        - 为 ``true`` 时打开 IN / OUT 数据端点，为 ``false`` 时关闭两个端点。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 操作成功。
+      * - ``false``
+        - 参数非法或端点打开失败。
+
+   打开端点后，驱动通过 ``read_comp_cb`` / ``write_comp_cb`` 通知应用收发完成。回调在 USB 中断上下文中执行。
+
+.. c:function:: bool cdcd_ecm_drv_connect_change_notify(cdcd_ecm_handle_t *cdcd_ecm, bool connected)
+
+   通过通知端点发送网络连接状态变化通知（``CDC_NOTIF_NETWORK_CONNECTION``）。该函数为异步操作。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``cdcd_ecm``
+        - ``cdcd_ecm_handle_t *``
+        - CDC-ECM 类驱动句柄。
+      * - ``connected``
+        - ``bool``
+        - 为 ``true`` 表示网络已连接，为 ``false`` 表示已断开。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 通知提交成功。
+      * - ``false``
+        - 参数非法或通知端点忙。
+
+.. c:function:: bool cdcd_ecm_drv_speed_change_notify(cdcd_ecm_handle_t *cdcd_ecm, uint32_t ul_bit_rate, uint32_t dl_bit_rate)
+
+   通过通知端点发送连接速度变化通知（``CDC_NOTIF_CONNECTION_SPEED_CHANGE``）。该函数为异步操作。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``cdcd_ecm``
+        - ``cdcd_ecm_handle_t *``
+        - CDC-ECM 类驱动句柄。
+      * - ``ul_bit_rate``
+        - ``uint32_t``
+        - 上行速率，单位 bit/s。
+      * - ``dl_bit_rate``
+        - ``uint32_t``
+        - 下行速率，单位 bit/s。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 通知提交成功。
+      * - ``false``
+        - 参数非法或通知端点忙。
+
+.. c:function:: bool cdcd_ecm_drv_read(cdcd_ecm_handle_t *cdcd_ecm, void *buf, size_t len)
+
+   从 CDC-ECM 的 OUT 数据端点发起一次异步读取。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``cdcd_ecm``
+        - ``cdcd_ecm_handle_t *``
+        - CDC-ECM 类驱动句柄。
+      * - ``buf``
+        - ``void *``
+        - 接收数据的缓冲区。
+      * - ``len``
+        - ``size_t``
+        - 期望读取的最大字节数。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 请求提交成功。
+      * - ``false``
+        - 请求提交失败。
+
+   读取完成后驱动调用 ``read_comp_cb`` 通知应用。回调在 USB 中断上下文中执行。
+
+.. c:function:: bool cdcd_ecm_drv_write(cdcd_ecm_handle_t *cdcd_ecm, const void *buf, size_t len)
+
+   向 CDC-ECM 的 IN 数据端点发起一次异步写入。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``cdcd_ecm``
+        - ``cdcd_ecm_handle_t *``
+        - CDC-ECM 类驱动句柄。
       * - ``buf``
         - ``const void *``
         - 待发送数据的缓冲区。
@@ -929,7 +1157,7 @@ HID 主机类驱动完成 HID 设备的枚举、报表描述符解析和输入�
 
    注销鼠标状态变化回调。该函数无参数、无返回值。
 
-CDC类驱动
+CDC-ACM类驱动
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如下：
@@ -1315,3 +1543,392 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - RTS 已置位。
       * - ``false``
         - RTS 未置位。
+
+CDC-ECM类驱动
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流程如下：
+
+1. 调用 ``cdch_ecm_drv_open()`` 注册类驱动；
+2. 在主循环中调用 ``cdch_ecm_drv_task()`` 和 ``usbh_drv_task()``；
+3. 通过 ``cdch_ecm_get_count()`` / ``cdch_ecm_get_handle()`` 获取已枚举的 CDC-ECM 实例；
+4. 调用 ``cdch_ecm_open()`` 打开实例，然后进行异步读写。
+
+驱动按接口类 ``USB_CLASS_CDC`` 和子类 ``CDC_SUBCLASS_ETHERNET_CONTROL_MODEL`` 匹配设备。绑定后驱动依次读取 MAC 地址字符串描述符、将数据接口切换到关闭状态并设置以太网包过滤器；打开实例时再切换到数据接口的启用设置并打开通知、IN 和 OUT 端点。
+
+.. c:type:: ecmh_handle_t
+
+   CDC-ECM 主机实例句柄，类型不透明。由类驱动在设备枚举完成后创建，应用通过 ``cdch_ecm_get_handle()`` 获取。
+
+.. c:type:: cdch_ecm_open_cb
+
+   实例打开完成回调函数类型。无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``rst``
+        - ``bool``
+        - 为 ``true`` 表示数据接口切换和端点打开成功、实例已打开。
+
+.. c:type:: cdch_ecm_connect_change_cb
+
+   网络连接状态变化回调函数类型，由设备的网络连接状态通知触发。无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``connected``
+        - ``bool``
+        - 为 ``true`` 表示网络已连接。
+
+.. c:type:: cdch_ecm_speed_change_cb
+
+   连接速度变化回调函数类型，由设备的连接速度变化通知触发。无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``upload_speed``
+        - ``uint32_t``
+        - 上行速率，单位 bit/s。
+      * - ``download_speed``
+        - ``uint32_t``
+        - 下行速率，单位 bit/s。
+
+.. c:type:: cdch_ecm_read_cb
+
+   读取完成回调函数类型。回调在主机任务上下文中执行。无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``buf``
+        - ``const void *``
+        - 本次接收到的以太网帧。
+      * - ``length``
+        - ``size_t``
+        - 本次接收到的字节数。
+
+.. c:type:: cdch_ecm_write_cb
+
+   写入完成回调函数类型。回调在主机任务上下文中执行。无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``buf``
+        - ``const void *``
+        - 本次发送的以太网帧。
+      * - ``length``
+        - ``size_t``
+        - 本次发送的字节数。
+
+.. c:function:: bool cdch_ecm_drv_open(usbh_handle_t *h)
+
+   向主机注册 CDC-ECM 类驱动。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``h``
+        - ``usbh_handle_t *``
+        - 主机驱动句柄。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 注册成功。
+      * - ``false``
+        - 注册失败。
+
+.. c:function:: void cdch_ecm_drv_task(void)
+
+   CDC-ECM 类驱动任务处理函数，处理设备枚举、实例打开 / 关闭、通知读取和数据传输。应用需在主循环中周期性调用。该函数无参数、无返回值。
+
+.. c:function:: bool cdch_ecm_drv_close(usbh_handle_t *h)
+
+   注销 CDC-ECM 类驱动。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``h``
+        - ``usbh_handle_t *``
+        - 主机驱动句柄。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 注销成功。
+      * - ``false``
+        - 注销失败。
+
+.. c:function:: size_t cdch_ecm_get_count(void)
+
+   获取已完成枚举的 CDC-ECM 实例数量。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - 实例数量
+        - 已完成枚举的 CDC-ECM 实例数量。
+      * - ``0``
+        - 未连接设备。
+
+.. c:function:: ecmh_handle_t *cdch_ecm_get_handle(size_t index)
+
+   按索引获取 CDC-ECM 实例句柄。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``index``
+        - ``size_t``
+        - 实例索引，从 0 开始。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - 实例句柄
+        - 索引有效时返回对应的 ``ecmh_handle_t *``。
+      * - ``NULL``
+        - 索引无效。
+
+.. c:function:: void cdch_ecm_open(ecmh_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connect_change_cb connect_cb, cdch_ecm_speed_change_cb speed_cb)
+
+   打开 CDC-ECM 实例。该函数仅记录目标状态和回调，实际数据接口切换与端点打开由 ``cdch_ecm_drv_task()`` 异步完成，完成后调用 ``open_cb``。该函数无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``open_cb``
+        - ``cdch_ecm_open_cb``
+        - 打开完成回调；``ecm`` 为空时以 ``rst = false`` 调用。
+      * - ``connect_cb``
+        - ``cdch_ecm_connect_change_cb``
+        - 网络连接状态变化回调。
+      * - ``speed_cb``
+        - ``cdch_ecm_speed_change_cb``
+        - 连接速度变化回调。
+
+.. c:function:: void cdch_ecm_close(ecmh_handle_t *ecm)
+
+   关闭 CDC-ECM 实例。该函数仅记录目标状态，实际接口切换和端点关闭由 ``cdch_ecm_drv_task()`` 异步完成。该函数无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+
+.. c:function:: const uint8_t *cdch_ecm_get_mac_addr(ecmh_handle_t *ecm)
+
+   获取实例的 MAC 地址。该地址由设备提供的 MAC 地址字符串描述符解析得到。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - MAC 地址指针
+        - 指向 6 字节 MAC 地址的指针。
+      * - ``NULL``
+        - 句柄为空。
+
+.. c:function:: bool cdch_ecm_is_open(ecmh_handle_t *ecm)
+
+   查询 CDC-ECM 实例是否已打开。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 实例已打开。
+      * - ``false``
+        - 实例未打开。
+
+.. c:function:: bool cdch_ecm_is_connected(ecmh_handle_t *ecm)
+
+   查询 CDC-ECM 实例的网络连接状态。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 网络已连接。
+      * - ``false``
+        - 网络未连接。
+
+.. c:function:: bool cdch_ecm_get_speed(ecmh_handle_t *ecm, uint32_t *upload_speed, uint32_t *download_speed)
+
+   获取最近一次连接速度变化通知中的速率。未收到通知前，速率为 0。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``upload_speed``
+        - ``uint32_t *``
+        - 输出参数，上行速率，单位 bit/s。
+      * - ``download_speed``
+        - ``uint32_t *``
+        - 输出参数，下行速率，单位 bit/s。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 获取成功。
+      * - ``false``
+        - 参数为空。
+
+.. c:function:: bool cdch_ecm_read(ecmh_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb)
+
+   从 CDC-ECM 实例发起一次异步读取，接收设备发来的以太网帧。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``buf``
+        - ``void *``
+        - 接收数据的缓冲区。
+      * - ``length``
+        - ``size_t``
+        - 期望读取的最大字节数，不能为 0。
+      * - ``timeout``
+        - ``uint32_t``
+        - 超时时间，单位为毫秒；为 0 表示不启用超时。
+      * - ``cb``
+        - ``cdch_ecm_read_cb``
+        - 读取完成回调。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 请求提交成功。
+      * - ``false``
+        - 实例未打开、网络未连接、参数非法或端点忙。
+
+   ``cb`` 在传输成功时由类驱动调用。
+
+.. c:function:: bool cdch_ecm_write(ecmh_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb)
+
+   向 CDC-ECM 实例发起一次异步写入，发送以太网帧。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``ecm``
+        - ``ecmh_handle_t *``
+        - CDC-ECM 实例句柄。
+      * - ``buf``
+        - ``const void *``
+        - 待发送数据的缓冲区。
+      * - ``length``
+        - ``size_t``
+        - 待发送的字节数，不能为 0。
+      * - ``timeout``
+        - ``uint32_t``
+        - 超时时间，单位为毫秒；为 0 表示不启用超时。
+      * - ``cb``
+        - ``cdch_ecm_write_cb``
+        - 写入完成回调。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 请求提交成功。
+      * - ``false``
+        - 实例未打开、网络未连接、参数非法或端点忙。
+
+   ``cb`` 在传输成功时由类驱动调用。若发送长度恰为端点最大包长的整数倍，驱动会自动追加零长度包，回调中的 ``length`` 仍为原始长度。

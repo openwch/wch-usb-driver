@@ -97,7 +97,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     hubh_handle_t *hub = (hubh_handle_t *)handle;
     if (!rst)
     {
-        USB_LOGE("Handle: %p Enumeration control transfer failed at stage %d", hub, hub->enum_stage);
+        USB_LOGE("Handle %p: Enumeration control transfer failed at stage %d", hub, hub->enum_stage);
         hub->enum_stage = ENUM_STAGE_ENUM_FAILED;
         return;
     }
@@ -112,11 +112,11 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         {
             hub->port_num = hub_desc->bNbrPorts;
             hub->power_delayms = hub_desc->bPwrOn2PwrGood * 2;
-            USB_LOGI("Handle: %p Hub has %d ports, power delay %d ms", hub, hub->port_num, hub->power_delayms);
+            USB_LOGI("Handle %p: Hub has %d ports, power delay %d ms", hub, hub->port_num, hub->power_delayms);
             if (hub->itf_desc->bAlternateSetting > 0)
             {
                 hub->enum_stage = ENUM_STAGE_SET_INTERFACE;
-                USB_LOGI("Handle: %p Setting alternate setting %d for interface %d", hub,
+                USB_LOGI("Handle %p: Setting alternate setting %d for interface %d", hub,
                          hub->itf_desc->bAlternateSetting, hub->itf_desc->bInterfaceNumber);
 
                 usb_setup_t *request = &hub->ctrl_setup;
@@ -130,7 +130,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             else
             {
                 hub->enum_stage = ENUM_STAGE_SET_PORT_POWER;
-                USB_LOGI("Handle: %p Setting port 1 power", hub);
+                USB_LOGI("Handle %p: Setting port 1 power", hub);
 
                 usb_setup_t *request = &hub->ctrl_setup;
                 request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
@@ -144,14 +144,14 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         else
         {
             hub->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Invalid hub descriptor error code: %d", hub, check_rst);
+            USB_LOGE("Handle %p: Invalid hub descriptor error code: %d", hub, check_rst);
         }
         break;
     }
     case ENUM_STAGE_SET_INTERFACE:
     {
         hub->enum_stage = ENUM_STAGE_SET_PORT_POWER;
-        USB_LOGI("Handle: %p Setting port 1 power", hub);
+        USB_LOGI("Handle %p: Setting port 1 power", hub);
 
         usb_setup_t *request = &hub->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
@@ -167,7 +167,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         if (setup->wIndex < hub->port_num)
         {
             hub->enum_stage = ENUM_STAGE_SET_PORT_POWER;
-            USB_LOGI("Handle: %p Setting port %d power", hub, setup->wIndex + 1);
+            USB_LOGI("Handle %p: Setting port %d power", hub, setup->wIndex + 1);
 
             usb_setup_t *request = &hub->ctrl_setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
@@ -215,12 +215,12 @@ static void hub_enum_task(hubh_handle_t *hub)
             {
                 hub->enum_stage = ENUM_STAGE_END;
                 hub->status_change_bitmap = 0xFFFFFFFF;
-                USB_LOGI("Handle: %p Enumeration completed", hub);
+                USB_LOGI("Handle %p: Enumeration completed", hub);
             }
             else
             {
                 hub->enum_stage = ENUM_STAGE_ENUM_FAILED;
-                USB_LOGE("Handle: %p Open endpoint failed", hub);
+                USB_LOGE("Handle %p: Open endpoint failed", hub);
             }
         }
         break;

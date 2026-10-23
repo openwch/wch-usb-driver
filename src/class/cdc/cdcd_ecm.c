@@ -71,7 +71,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         {
         case USB_REQ_SET_INTERFACE:
             h->alt_setting = setup->wValue;
-            USB_LOGI("Handle: %p SET_INTERFACE: AltSetting=%d", h, setup->wValue);
+            USB_LOGI("Handle %p: SET_INTERFACE: AltSetting=%d", h, setup->wValue);
             if (h->set_interface_cb)
             {
                 h->set_interface_cb(h, setup->wValue);
@@ -84,7 +84,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         switch (setup->bRequest)
         {
         case CDC_REQ_SET_ETHERNET_PACKET_FILTER:
-            USB_LOGI("Handle: %p SET_ETHERNET_PACKET_FILTER: Bitmap=0x%04x", h, setup->wValue);
+            USB_LOGI("Handle %p: SET_ETHERNET_PACKET_FILTER: Bitmap=0x%04x", h, setup->wValue);
             if (h->set_ethernet_packet_filter_cb)
             {
                 h->set_ethernet_packet_filter_cb(h, setup->wValue);
@@ -120,7 +120,7 @@ bool cdcd_ecm_drv_open(cdcd_ecm_handle_t *cdcd_ecm)
     if (!usbd_register_interface_cb(cdcd_ecm->usbd_handle, cdcd_ecm, cdcd_ecm->ctrl_itf_num, &cbs)) goto unregister_itf;
     if (!usbd_register_interface_cb(cdcd_ecm->usbd_handle, cdcd_ecm, cdcd_ecm->data_itf_num, &cbs)) goto unregister_itf;
     if (!usbd_endp_open(cdcd_ecm->usbd_handle, cdcd_ecm, cdcd_ecm->notify_ep, NULL)) goto close_notify_ep;
-    USB_LOGI("Handle: %p Successfully opened CDC ECM", cdcd_ecm);
+    USB_LOGI("Handle %p: Successfully opened CDC ECM", cdcd_ecm);
     return true;
 
 close_notify_ep:
@@ -129,7 +129,7 @@ close_notify_ep:
 unregister_itf:
     usbd_unregister_interface_cb(cdcd_ecm->usbd_handle, cdcd_ecm->ctrl_itf_num);
     usbd_unregister_interface_cb(cdcd_ecm->usbd_handle, cdcd_ecm->data_itf_num);
-    USB_LOGE("Handle: %p Failed to open CDC ECM", cdcd_ecm);
+    USB_LOGE("Handle %p: Failed to open CDC ECM", cdcd_ecm);
     return false;
 }
 

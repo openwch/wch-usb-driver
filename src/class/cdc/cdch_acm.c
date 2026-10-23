@@ -95,7 +95,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     acmh_handle_t *acm = (acmh_handle_t *)handle;
     if (!rst)
     {
-        USB_LOGE("Handle: %p Enumeration control transfer failed at stage %d", acm, acm->enum_stage);
+        USB_LOGE("Handle %p: Enumeration control transfer failed at stage %d", acm, acm->enum_stage);
         acm->enum_stage = ENUM_STAGE_ENUM_FAILED;
         return;
     }
@@ -105,7 +105,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     case ENUM_STAGE_GET_LINE_CODING:
     {
         acm->enum_stage = ENUM_STAGE_SET_CONTROL_LINE_STATE;
-        USB_LOGI("Handle: %p GET_LINE_CODING: Bit_Rate %u, Stop_Bits %d, Parity %d, Data_Bits %d", acm,
+        USB_LOGI("Handle %p: GET_LINE_CODING: Bit_Rate %u, Stop_Bits %d, Parity %d, Data_Bits %d", acm,
                  acm->line_coding.bit_rate, acm->line_coding.stop_bits, acm->line_coding.parity,
                  acm->line_coding.data_bits);
 
@@ -124,14 +124,14 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         if (!usbh_endp_open(acm->dev, acm, acm->notify_ep, NULL))
         {
             acm->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Failed to open notify endpoint", acm);
+            USB_LOGE("Handle %p: Failed to open notify endpoint", acm);
             break;
         }
         if (!usbh_endp_open(acm->dev, acm, acm->in_ep, acm_drv_read_cb))
         {
             acm->enum_stage = ENUM_STAGE_ENUM_FAILED;
             usbh_endp_close(acm->dev, acm->notify_ep->bEndpointAddress);
-            USB_LOGE("Handle: %p Failed to open IN endpoint", acm);
+            USB_LOGE("Handle %p: Failed to open IN endpoint", acm);
             break;
         }
         if (!usbh_endp_open(acm->dev, acm, acm->out_ep, acm_drv_write_cb))
@@ -139,11 +139,11 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             acm->enum_stage = ENUM_STAGE_ENUM_FAILED;
             usbh_endp_close(acm->dev, acm->notify_ep->bEndpointAddress);
             usbh_endp_close(acm->dev, acm->in_ep->bEndpointAddress);
-            USB_LOGE("Handle: %p Failed to open OUT endpoint", acm);
+            USB_LOGE("Handle %p: Failed to open OUT endpoint", acm);
             break;
         }
         acm->enum_stage = ENUM_STAGE_END;
-        USB_LOGI("Handle: %p Enumeration completed", acm);
+        USB_LOGI("Handle %p: Enumeration completed", acm);
     }
     }
 }
@@ -178,7 +178,7 @@ static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, c
 {
     acmh_handle_t *acm = (acmh_handle_t *)handle;
     if (!acm->opening) return;
-    USB_LOGI("Handle: %p Successfully opened Baud rate: %u", acm, acm->line_coding.bit_rate);
+    USB_LOGI("Handle %p: Successfully opened Baud rate: %u", acm, acm->line_coding.bit_rate);
     acm->opening = false;
     acm->is_open = rst;
     if (acm->open_cb)
@@ -472,21 +472,24 @@ static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
             if (class_type == CDC_DESC_HEADER)
             {
                 cdc_desc_header_t *header_desc = (cdc_desc_header_t *)curr;
+                if (header_desc->bLength < sizeof(cdc_desc_header_t)) return false;
                 if (header_desc->bcdCDC > SUPPORTED_PROTOCOL_VERSION) return false;
-            }
-            else if (class_type == CDC_DESC_CALL_MANAGEMENT)
-            {
-                cm_desc = (cdc_desc_call_management_t *)curr;
-            }
-            else if (class_type == CDC_DESC_ABSTRACT_CONTROL_MANAGEMENT)
-            {
-                acm_desc = (cdc_desc_abstract_control_management_t *)curr;
             }
             else if (class_type == CDC_DESC_UNION)
             {
                 union_desc = (cdc_desc_union_t *)curr;
                 if (union_desc->bLength < sizeof(cdc_desc_union_t) + 1) return false;
                 if (union_desc->bControlInterface != ctrl_itf->bInterfaceNumber) return false;
+            }
+            else if (class_type == CDC_DESC_CALL_MANAGEMENT)
+            {
+                cm_desc = (cdc_desc_call_management_t *)curr;
+                if (cm_desc->bLength < sizeof(cdc_desc_call_management_t)) return false;
+            }
+            else if (class_type == CDC_DESC_ABSTRACT_CONTROL_MANAGEMENT)
+            {
+                acm_desc = (cdc_desc_abstract_control_management_t *)curr;
+                if (acm_desc->bLength < sizeof(cdc_desc_abstract_control_management_t)) return false;
             }
             break;
         }
@@ -497,7 +500,7 @@ static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
     if (!ctrl_itf || !data_itf || !notify_ep || !in_ep || !out_ep || !acm_desc) return false;
 
-    /* Allocate and initialize a new hub handle */
+    /* Allocate and initialize a new cdc acm handle */
     acmh_handle_t *acm = handle_alloc();
     if (!acm)
     {
@@ -537,7 +540,7 @@ static void acm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void 
     acmh_handle_t *acm = (acmh_handle_t *)handle;
     if (rst && acm->is_open)
     {
-        USB_LOGI("Handle: %p Read %u bytes", acm, len);
+        USB_LOGI("Handle %p: Read %u bytes", acm, len);
         if (acm->read_cb)
         {
             acm->read_cb(acm, buf, len);
@@ -550,7 +553,7 @@ static void acm_drv_write_cb(void *handle, bool rst, usb_endp_t endp, const void
     acmh_handle_t *acm = (acmh_handle_t *)handle;
     if (rst && acm->is_open)
     {
-        USB_LOGI("Handle: %p Write %u bytes", acm, len);
+        USB_LOGI("Handle %p: Write %u bytes", acm, len);
         if (acm->write_cb)
         {
             acm->write_cb(acm, buf, len);

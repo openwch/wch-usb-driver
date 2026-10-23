@@ -63,7 +63,7 @@ static void setup_event_handle(usbd_handle_t *h)
 
     if (rst)
     {
-        USB_LOGI("Handle: %p Received setup: %02x %02x %04x %04x %04x", h, setup->bmRequestType, setup->bRequest,
+        USB_LOGI("Handle %p: Received setup: %02x %02x %04x %04x %04x", h, setup->bmRequestType, setup->bRequest,
                  setup->wValue, setup->wIndex, setup->wLength);
         h->ctrl_xfer_zlp = false;
         h->ctrl_xfer_buf = buf;
@@ -80,7 +80,7 @@ static void setup_event_handle(usbd_handle_t *h)
     }
     else
     {
-        USB_LOGW("Handle: %p Failed to handle setup: %02x %02x %04x %04x %04x", h, setup->bmRequestType,
+        USB_LOGW("Handle %p: Failed to handle setup: %02x %02x %04x %04x %04x", h, setup->bmRequestType,
                  setup->bRequest, setup->wValue, setup->wIndex, setup->wLength);
         h->endp_stall(h, 0x80, true);
         h->endp_stall(h, 0x00, true);
@@ -232,7 +232,7 @@ static void set_address_status(void *handle, const usb_setup_t *setup, void *buf
 {
     usbd_handle_t *h = (usbd_handle_t *)handle;
     uint8_t addr = USB_U16_LOW(setup->wValue) & 0x7F;
-    USB_LOGI("Handle: %p Set bus address: %d", h, addr);
+    USB_LOGI("Handle %p: Set bus address: %d", h, addr);
     h->set_address(h, addr);
 }
 
@@ -240,7 +240,7 @@ static void set_config_status(void *handle, const usb_setup_t *setup, void *buf,
 {
     usbd_handle_t *h = (usbd_handle_t *)handle;
     uint8_t config_num = USB_U16_LOW(setup->wValue);
-    USB_LOGI("Handle: %p Set configuration: %d", h, config_num);
+    USB_LOGI("Handle %p: Set configuration: %d", h, config_num);
     h->config_num = config_num;
     if (h->event_cbs[USBD_EVENT_ENUM_COMPLETED])
     {
@@ -260,13 +260,13 @@ static void set_feature_status(void *handle, const usb_setup_t *setup, void *buf
     case USB_REQ_RCPT_DEVICE:
         if (setup->wValue == USB_FEATURE_REMOTE_WAKEUP)
         {
-            USB_LOGI("Handle: %p Enable remote wakeup", h);
+            USB_LOGI("Handle %p: Enable remote wakeup", h);
             h->remote_wakeup = true;
         }
         else if (setup->wValue == USB_FEATURE_TEST_MODE)
         {
             usb_test_select_t test_selector = USB_U16_HIGH(setup->wIndex);
-            USB_LOGI("Handle: %p Enter test mode: %d", h, test_selector);
+            USB_LOGI("Handle %p: Enter test mode: %d", h, test_selector);
             h->test_mode_ctrl(h, test_selector);
         }
         break;
@@ -275,7 +275,7 @@ static void set_feature_status(void *handle, const usb_setup_t *setup, void *buf
         if (setup->wValue == USB_FEATURE_EDPT_HALT)
         {
             usb_endp_t endp = USB_U16_LOW(setup->wIndex);
-            USB_LOGI("Handle: %p Set endpoint 0x%02X stall", h, endp);
+            USB_LOGI("Handle %p: Set endpoint 0x%02X stall", h, endp);
             h->endp_stall(h, endp, true);
         }
         break;
@@ -290,7 +290,7 @@ static void clear_feature_status(void *handle, const usb_setup_t *setup, void *b
     case USB_REQ_RCPT_DEVICE:
         if (setup->wValue == USB_FEATURE_REMOTE_WAKEUP)
         {
-            USB_LOGI("Handle: %p Disable remote wakeup", h);
+            USB_LOGI("Handle %p: Disable remote wakeup", h);
             h->remote_wakeup = false;
         }
         break;
@@ -300,7 +300,7 @@ static void clear_feature_status(void *handle, const usb_setup_t *setup, void *b
         {
             usb_endp_t endp = USB_U16_LOW(setup->wIndex);
             h->endp_stall(h, endp, false);
-            USB_LOGI("Handle: %p Clear endpoint 0x%02X stall", h, endp);
+            USB_LOGI("Handle %p: Clear endpoint 0x%02X stall", h, endp);
         }
         break;
     }
@@ -356,7 +356,7 @@ bool usbd_drv_open(usbd_handle_t *h, usb_speed_t speed, bool sof_en, usbd_get_de
     cbs.status = set_config_status;
     if (!usbd_register_request_cb(h, 0x00, USB_REQ_SET_CONFIGURATION, &cbs)) return false;
 
-    USB_LOGI("Handle: %p Successfully opened USB device driver", h);
+    USB_LOGI("Handle %p: Successfully opened USB device driver", h);
     return h->open(h, speed, sof_en);
 }
 
@@ -410,7 +410,7 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         break;
 
     case USBD_PORT_EVENT_RESET:
-        USB_LOGI("Handle: %p Bus reset", h);
+        USB_LOGI("Handle %p: Bus reset", h);
         h->remote_wakeup = false;
         h->link_speed = USB_SPEED_UNKNOWN;
         h->config_num = 0;
@@ -431,7 +431,7 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         break;
 
     case USBD_PORT_EVENT_SUSPEND:
-        USB_LOGI("Handle: %p Bus suspend", h);
+        USB_LOGI("Handle %p: Bus suspend", h);
         if (h->event_cbs[USBD_EVENT_SUSPEND])
         {
             usbd_event_ctx_t event_ctx;

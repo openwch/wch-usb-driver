@@ -412,7 +412,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     hidh_handle_t *hid = (hidh_handle_t *)handle;
     if (!rst && hid->enum_stage != ENUM_STAGE_SET_IDLE)
     {
-        USB_LOGE("Handle: %p Enumeration control transfer failed at stage %d", hid, hid->enum_stage);
+        USB_LOGE("Handle %p: Enumeration control transfer failed at stage %d", hid, hid->enum_stage);
         hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
         return;
     }
@@ -422,7 +422,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     case ENUM_STAGE_SET_IDLE:
     {
         hid->enum_stage = ENUM_STAGE_GET_DESC;
-        USB_LOGI("Handle: %p SET_IDLE", hid);
+        USB_LOGI("Handle %p: SET_IDLE", hid);
         for (size_t i = 0; i < hid->hid_desc->bNumDescriptors; i++)
         {
             if (hid->hid_desc->descriptor[i].bReportType == HID_DESC_REPORT)
@@ -441,41 +441,41 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             }
         }
         hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
-        USB_LOGE("Handle: %p No report descriptor found", hid);
+        USB_LOGE("Handle %p: No report descriptor found", hid);
         break;
     }
     case ENUM_STAGE_GET_DESC:
         if (length != setup->wLength)
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Get descriptor failed: expected length %d, got %d", hid, setup->wLength, length);
+            USB_LOGE("Handle %p: Get descriptor failed: expected length %d, got %d", hid, setup->wLength, length);
             break;
         }
 
         if (!hid_report_desc_parse(hid, &hid->report_desc_buf, length))
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Failed to parse HID report descriptor", hid);
+            USB_LOGE("Handle %p: Failed to parse HID report descriptor", hid);
             break;
         }
 
         if (hid->in_ep && !usbh_endp_open(hid->dev, hid, hid->in_ep, hid_drv_read_cb))
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Failed to open IN endpoint", hid);
+            USB_LOGE("Handle %p: Failed to open IN endpoint", hid);
             break;
         }
 
         if (hid->out_ep && !usbh_endp_open(hid->dev, hid, hid->out_ep, NULL))
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle: %p Failed to open OUT endpoint", hid);
+            USB_LOGE("Handle %p: Failed to open OUT endpoint", hid);
             if (hid->in_ep) usbh_endp_close(hid->dev, hid->in_ep->bEndpointAddress);
             break;
         }
 
         hid->enum_stage = ENUM_STAGE_END;
-        USB_LOGI("Handle: %p Enumeration completed", hid);
+        USB_LOGI("Handle %p: Enumeration completed", hid);
         break;
     }
 }

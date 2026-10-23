@@ -58,7 +58,7 @@ static __attribute__((aligned(4))) uint8_t hid_kb_led_status;
 
 static const void *get_string_desc_cb(uint8_t index, size_t *len)
 {
-    static uint8_t string_desc_buf[128];
+    static __attribute__((aligned(4))) uint8_t string_desc_buf[128];
 
     uint8_t char_len;
     uint16_t *char_ptr = (uint16_t *)&string_desc_buf[2];

@@ -142,7 +142,7 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
     /* Isochronous/interrupt/bulk transfer event handling */
     else
     {
-        usbd_xfer_cb_ctx_t *cb_ctx = &h->cb_ctxs[dir ? USB_DIR_IN : USB_DIR_OUT][num - 1];
+        usbd_xfer_cb_ctx_t *cb_ctx = &h->xfer_cb_ctxs[dir ? USB_DIR_IN : USB_DIR_OUT][num - 1];
         if (cb_ctx->function)
         {
             cb_ctx->function((void *)cb_ctx->class_handle, ctx->xfer.endp, ctx->xfer.buf, ctx->xfer.len);
@@ -414,6 +414,11 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         h->remote_wakeup = false;
         h->link_speed = USB_SPEED_UNKNOWN;
         h->config_num = 0;
+        h->ctrl_handle = NULL;
+        h->ctrl_xfer_zlp = false;
+        h->ctrl_cbs = NULL;
+        memset(h->interface_cbs, 0, sizeof(h->interface_cbs));
+        memset(h->xfer_cb_ctxs, 0, sizeof(h->xfer_cb_ctxs));
         h->set_address(h, 0);
         h->endp_open(h, 0x80, USB_ENDP_TYPE_CTRL, h->ep0_mps);
         h->endp_open(h, 0x00, USB_ENDP_TYPE_CTRL, h->ep0_mps);
@@ -508,7 +513,7 @@ bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint
     usb_endp_type_t endp_type = USB_ENDP_GET_TYPE(ep_desc->bmAttributes);
     uint16_t endp_mps = USB_ENDP_GET_MPS(ep_desc->wMaxPacketSize);
 
-    usbd_xfer_cb_ctx_t *cb_ctx = &h->cb_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
+    usbd_xfer_cb_ctx_t *cb_ctx = &h->xfer_cb_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
     cb_ctx->class_handle = class;
     cb_ctx->function = cb;
     return h->endp_open(h, endp, endp_type, endp_mps);
@@ -517,7 +522,16 @@ bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint
 bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp)
 {
     if (!h) return false;
-    return h->endp_close(h, endp);
+    uint8_t endp_num = USB_ENDP_NUM(endp);
+    if (endp_num == 0) return false;
+    if (h->endp_close(h, endp))
+    {
+        usbd_xfer_cb_ctx_t *cb_ctx = &h->xfer_cb_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
+        cb_ctx->function = NULL;
+        cb_ctx->class_handle = NULL;
+        return true;
+    }
+    return false;
 }
 
 bool usbd_endp_read(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len)

@@ -121,11 +121,13 @@ typedef struct usbd_handle
     void *ctrl_xfer_buf;
     size_t ctrl_xfer_len;
     usbd_ctrl_xfer_cbs_t *ctrl_cbs;
+
+    /* Request and interface callback context */
     usbd_request_cbs_t request_cbs[USBD_REQUEST_CB_COUNT];
     usbd_interface_cbs_t interface_cbs[USBD_INTERFACE_CB_COUNT];
 
-    /* Data transfer context */
-    usbd_xfer_cb_ctx_t cb_ctxs[2][USB_MAX_ENDP_NUM - 1];
+    /* Data transfer callback context */
+    usbd_xfer_cb_ctx_t xfer_cb_ctxs[2][USB_MAX_ENDP_NUM - 1];
 
     /* USB device port operations */
     bool (*open)(usbd_handle_t *h, usb_speed_t speed, bool sof_en);

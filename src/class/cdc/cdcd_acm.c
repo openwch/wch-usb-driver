@@ -114,7 +114,7 @@ bool cdcd_acm_drv_open(cdcd_acm_handle_t *cdcd_acm)
         .status = ctrl_xfer_status,
     };
 
-    if (!usbd_register_interface_cb(cdcd_acm->usbd_handle, cdcd_acm, cdcd_acm->ctrl_itf_num, &cbs)) goto unregister_itf;
+    if (!usbd_register_itf_req_cb(cdcd_acm->usbd_handle, cdcd_acm, cdcd_acm->ctrl_itf_num, &cbs)) goto unregister_itf;
     if (!usbd_endp_open(cdcd_acm->usbd_handle, cdcd_acm, cdcd_acm->notify_ep, NULL)) goto close_notify_ep;
     if (!usbd_endp_open(cdcd_acm->usbd_handle, cdcd_acm, cdcd_acm->in_ep, write_callback)) goto close_in_ep;
     if (!usbd_endp_open(cdcd_acm->usbd_handle, cdcd_acm, cdcd_acm->out_ep, read_callback)) goto close_out_ep;
@@ -131,7 +131,7 @@ close_notify_ep:
     usbd_endp_close(cdcd_acm->usbd_handle, cdcd_acm->notify_ep->bEndpointAddress);
 
 unregister_itf:
-    usbd_unregister_interface_cb(cdcd_acm->usbd_handle, cdcd_acm->ctrl_itf_num);
+    usbd_unregister_itf_req_cb(cdcd_acm->usbd_handle, cdcd_acm->ctrl_itf_num);
     USB_LOGE("Handle %p: Failed to open CDC ACM", cdcd_acm);
     return false;
 }

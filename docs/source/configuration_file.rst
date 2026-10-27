@@ -67,12 +67,15 @@
    * - 宏
      - 默认值
      - 说明
-   * - ``USBD_REQUEST_CB_COUNT``
+   * - ``USBD_DEV_REQ_CB_COUNT``
      - 12
-     - 类请求回调的最大数量
-   * - ``USBD_INTERFACE_CB_COUNT``
+     - 设备请求回调的最大数量
+   * - ``USBD_ITF_REQ_CB_COUNT``
      - 2
      - 接口回调的最大数量
+   * - ``USBD_ENDP_REQ_CB_COUNT``
+     - 2
+     - 端点请求回调的最大数量
 
 主机驱动参数
 --------------------

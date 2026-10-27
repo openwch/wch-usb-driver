@@ -22,12 +22,16 @@ extern "C" {
 #endif
 
 /* @define */
-#ifndef USBD_REQUEST_CB_COUNT
-#define USBD_REQUEST_CB_COUNT 12
+#ifndef USBD_DEV_REQ_CB_COUNT
+#define USBD_DEV_REQ_CB_COUNT 12
 #endif
 
-#ifndef USBD_INTERFACE_CB_COUNT
-#define USBD_INTERFACE_CB_COUNT 2
+#ifndef USBD_ITF_REQ_CB_COUNT
+#define USBD_ITF_REQ_CB_COUNT 2
+#endif
+
+#ifndef USBD_ENDP_REQ_CB_COUNT
+#define USBD_ENDP_REQ_CB_COUNT 2
 #endif
 
 /* @enum */
@@ -76,12 +80,6 @@ typedef struct
 
 typedef struct
 {
-    const void *class_handle;
-    usbd_data_xfer_cb function;
-} usbd_xfer_cb_ctx_t;
-
-typedef struct
-{
     bool (*setup)(void *handle, const usb_setup_t *setup, void **buf, size_t *len);
     bool (*data)(void *handle, const usb_setup_t *setup, void *buf, size_t len);
     void (*status)(void *handle, const usb_setup_t *setup, void *buf, size_t len);
@@ -92,13 +90,26 @@ typedef struct
     uint8_t bmRequestType;
     uint8_t bRequest;
     usbd_ctrl_xfer_cbs_t cbs;
-} usbd_request_cbs_t;
+} usbd_dev_req_cb_t;
 
 typedef struct
 {
-    void *itf_handle;
+    void *class_handle;
     usbd_ctrl_xfer_cbs_t cbs;
-} usbd_interface_cbs_t;
+} usbd_itf_req_cb_t;
+
+typedef struct
+{
+    usb_endp_t endp;
+    void *class_handle;
+    usbd_ctrl_xfer_cbs_t cbs;
+} usbd_endp_req_cb_t;
+
+typedef struct
+{
+    void *class_handle;
+    usbd_data_xfer_cb cb;
+} usbd_data_xfer_cbs_t;
 
 typedef struct usbd_handle
 {
@@ -120,14 +131,15 @@ typedef struct usbd_handle
     bool ctrl_xfer_zlp;
     void *ctrl_xfer_buf;
     size_t ctrl_xfer_len;
-    usbd_ctrl_xfer_cbs_t *ctrl_cbs;
+    const usbd_ctrl_xfer_cbs_t *ctrl_cbs;
 
-    /* Request and interface callback context */
-    usbd_request_cbs_t request_cbs[USBD_REQUEST_CB_COUNT];
-    usbd_interface_cbs_t interface_cbs[USBD_INTERFACE_CB_COUNT];
+    /* Control transfer callback context */
+    usbd_dev_req_cb_t dev_req_cbs[USBD_DEV_REQ_CB_COUNT];
+    usbd_itf_req_cb_t itf_req_cbs[USBD_ITF_REQ_CB_COUNT];
+    usbd_endp_req_cb_t endp_req_cbs[USBD_ENDP_REQ_CB_COUNT];
 
     /* Data transfer callback context */
-    usbd_xfer_cb_ctx_t xfer_cb_ctxs[2][USB_MAX_ENDP_NUM - 1];
+    usbd_data_xfer_cbs_t xfer_cb_ctxs[2][USB_MAX_ENDP_NUM - 1];
 
     /* USB device port operations */
     bool (*open)(usbd_handle_t *h, usb_speed_t speed, bool sof_en);
@@ -158,7 +170,7 @@ typedef struct usbd_handle
 void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
 
 /**
- * @brief Register a request callback for the USB device driver
+ * @brief Register a device request callback for the USB device driver
  * 
  * @param h USB device driver handle
  * @param bmRequestType bmRequestType of the USB setup request
@@ -167,22 +179,34 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx);
  * 
  * @return Operation result
  */
-bool usbd_register_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cbs_t *cbs);
+bool usbd_register_dev_req_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest, usbd_ctrl_xfer_cbs_t *cbs);
 
 /**
- * @brief Register an interface callback for the USB device driver
+ * @brief Register an interface request callback for the USB device driver
  * 
  * @param h USB device driver handle
- * @param itf_handle Interface handle
+ * @param class_handle Class handle associated with the interface
  * @param itf_num Interface number
  * @param cbs Callback structure for handling the interface
  * 
  * @return Operation result
  */
-bool usbd_register_interface_cb(usbd_handle_t *h, void *itf_handle, uint8_t itf_num, usbd_ctrl_xfer_cbs_t *cbs);
+bool usbd_register_itf_req_cb(usbd_handle_t *h, void *class_handle, uint8_t itf_num, usbd_ctrl_xfer_cbs_t *cbs);
 
 /**
- * @brief Unregister a request callback for the USB device driver
+ * @brief Register an endpoint request callback for the USB device driver
+ * 
+ * @param h USB device driver handle
+ * @param class_handle Class handle associated with the endpoint
+ * @param endp Endpoint number
+ * @param cbs Callback structure for handling the endpoint request
+ * 
+ * @return Operation result
+ */
+bool usbd_register_endp_req_cb(usbd_handle_t *h, void *class_handle, usb_endp_t endp, usbd_ctrl_xfer_cbs_t *cbs);
+
+/**
+ * @brief Unregister a device request callback for the USB device driver
  * 
  * @param h USB device driver handle
  * @param bmRequestType bmRequestType of the USB setup request
@@ -190,29 +214,39 @@ bool usbd_register_interface_cb(usbd_handle_t *h, void *itf_handle, uint8_t itf_
  * 
  * @return Operation result
  */
-bool usbd_unregister_request_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
+bool usbd_unregister_dev_req_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t bRequest);
 
 /**
- * @brief Unregister an interface callback for the USB device driver
+ * @brief Unregister an interface request callback for the USB device driver
  * 
  * @param h USB device driver handle
  * @param itf_num Interface number
  * 
  * @return Operation result
  */
-bool usbd_unregister_interface_cb(usbd_handle_t *h, uint8_t itf_num);
+bool usbd_unregister_itf_req_cb(usbd_handle_t *h, uint8_t itf_num);
+
+/**
+ * @brief Unregister an endpoint request callback for the USB device driver
+ * 
+ * @param h USB device driver handle
+ * @param endp Endpoint number
+ * 
+ * @return Operation result
+ */
+bool usbd_unregister_endp_req_cb(usbd_handle_t *h, usb_endp_t endp);
 
 /**
  * @brief Open a USB endpoint for data transfer
  * 
  * @param h USB device driver handle
- * @param class Class handle associated with the endpoint
+ * @param class_handle Class handle associated with the endpoint
  * @param ep_desc Endpoint descriptor
  * @param cb Callback function for handling data transfer on the endpoint
  * 
  * @return Operation result
  */
-bool usbd_endp_open(usbd_handle_t *h, const void *class, const usb_desc_endpoint_t *ep_desc, usbd_data_xfer_cb cb);
+bool usbd_endp_open(usbd_handle_t *h, void *class_handle, const usb_desc_endpoint_t *ep_desc, usbd_data_xfer_cb cb);
 
 /**
  * @brief Close a USB endpoint

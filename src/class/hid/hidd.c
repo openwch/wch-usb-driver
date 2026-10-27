@@ -169,7 +169,7 @@ bool hidd_drv_open(hidd_handle_t *hidd)
         .status = ctrl_xfer_status,
     };
 
-    if (!usbd_register_interface_cb(hidd->usbd_handle, hidd, hidd->itf_num, &cbs)) goto unregister_interface;
+    if (!usbd_register_itf_req_cb(hidd->usbd_handle, hidd, hidd->itf_num, &cbs)) goto unregister_interface;
     if (hidd->in_ep)
     {
         if (!usbd_endp_open(hidd->usbd_handle, hidd, hidd->in_ep, write_callback)) goto close_in_ep;
@@ -195,7 +195,7 @@ close_in_ep:
 
 unregister_interface:
     USB_LOGE("Handle %p: Failed to open HID", hidd);
-    usbd_unregister_interface_cb(hidd->usbd_handle, hidd->itf_num);
+    usbd_unregister_itf_req_cb(hidd->usbd_handle, hidd->itf_num);
     return false;
 }
 

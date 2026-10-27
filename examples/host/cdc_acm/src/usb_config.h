@@ -49,8 +49,9 @@ extern "C" {
 
 /* USB device driver parameter macros */
 #ifdef USB_DEVICE_DRIVER_EN
-#define USBD_REQUEST_CB_COUNT   12
-#define USBD_INTERFACE_CB_COUNT 2
+#define USBD_DEV_REQ_CB_COUNT  12
+#define USBD_ITF_REQ_CB_COUNT  4
+#define USBD_ENDP_REQ_CB_COUNT 2
 #endif
 
 /* USB host driver parameters macros */

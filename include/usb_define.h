@@ -305,18 +305,6 @@ typedef struct __attribute__((packed))
 {
     uint8_t bLength;
     uint8_t bDescriptorType;
-    uint8_t bEndpointAddress;
-    uint8_t bmAttributes;
-    uint16_t wMaxPacketSize;
-    uint8_t bInterval;
-    uint8_t bRefresh;
-    uint8_t bSynchAddress;
-} usb_desc_iso_endpoint_t;
-
-typedef struct __attribute__((packed))
-{
-    uint8_t bLength;
-    uint8_t bDescriptorType;
     uint8_t bFirstInterface;
     uint8_t bInterfaceCount;
     uint8_t bFunctionClass;

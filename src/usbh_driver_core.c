@@ -263,7 +263,7 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
                 {0x0040, 0x0400, 0x0200, 0x0400}, // HIGH
             };
 
-            if (len != sizeof(usb_desc_endpoint_t) && len != sizeof(usb_desc_iso_endpoint_t)) return 16;
+            if (len != sizeof(usb_desc_endpoint_t) && len != 9) return 16;
             const usb_desc_endpoint_t *endp_desc = (usb_desc_endpoint_t *)curr;
             uint8_t endp_dir = USB_ENDP_DIR(endp_desc->bEndpointAddress);
             uint8_t endp_num = USB_ENDP_NUM(endp_desc->bEndpointAddress);

@@ -307,43 +307,43 @@ HID 设备类驱动在设备核心驱动之上实现 HID 类请求处理，并�
         - 否
         - ``report_buf`` 的字节数。
       * - ``get_desc_cb``
-        - ``bool (*)(hidd_handle_t *, uint8_t, uint8_t, void **, size_t *)``
+        - ``bool (*)(struct hidd_handle *, uint8_t, uint8_t, void **, size_t *)``
         - 是
         - HID 描述符获取回调。``desc_type`` 为 ``HID_DESC_HID``、``HID_DESC_REPORT`` 等，``desc_index`` 为索引。回调需设置 ``*desc`` 和 ``*len``，处理成功返回 ``true``。
       * - ``set_desc_cb``
-        - ``bool (*)(hidd_handle_t *, uint8_t, uint8_t, void **, size_t *)``
+        - ``bool (*)(struct hidd_handle *, uint8_t, uint8_t, void **, size_t *)``
         - 否
         - HID 描述符设置回调，处理 ``SET_DESCRIPTOR`` 请求。
       * - ``get_report_prev_cb``
-        - ``bool (*)(hidd_handle_t *, uint8_t, uint8_t, size_t, size_t *)``
+        - ``bool (*)(struct hidd_handle *, uint8_t, uint8_t, size_t, size_t *)``
         - 否
         - ``GET_REPORT`` 请求的预处理回调，在建立阶段调用。``type`` 为报表类型，``id`` 为报表 ID，``xfer_len`` 为主机请求长度。回调需通过 ``*len`` 返回有效数据长度，处理成功返回 ``true``。
       * - ``set_report_prev_cb``
-        - ``bool (*)(hidd_handle_t *, uint8_t, uint8_t, size_t, size_t *)``
+        - ``bool (*)(struct hidd_handle *, uint8_t, uint8_t, size_t, size_t *)``
         - 否
         - ``SET_REPORT`` 请求的预处理回调，在建立阶段调用，参数含义同上。
       * - ``get_report_comp_cb``
-        - ``void (*)(hidd_handle_t *, uint8_t, uint8_t, void *, size_t)``
+        - ``void (*)(struct hidd_handle *, uint8_t, uint8_t, void *, size_t)``
         - 否
         - ``GET_REPORT`` 请求完成回调，``buf`` / ``len`` 为发送的数据。
       * - ``set_report_comp_cb``
-        - ``void (*)(hidd_handle_t *, uint8_t, uint8_t, void *, size_t)``
+        - ``void (*)(struct hidd_handle *, uint8_t, uint8_t, void *, size_t)``
         - 否
         - ``SET_REPORT`` 请求完成回调，``buf`` / ``len`` 为接收的数据。
       * - ``set_idle_cb``
-        - ``void (*)(hidd_handle_t *, uint8_t, uint8_t)``
+        - ``void (*)(struct hidd_handle *, uint8_t, uint8_t)``
         - 否
         - ``SET_IDLE`` 请求处理回调。
       * - ``set_protocol_cb``
-        - ``void (*)(hidd_handle_t *, uint8_t)``
+        - ``void (*)(struct hidd_handle *, uint8_t)``
         - 否
         - ``SET_PROTOCOL`` 请求处理回调。
       * - ``read_comp_cb``
-        - ``void (*)(hidd_handle_t *, void *, size_t)``
+        - ``void (*)(struct hidd_handle *, void *, size_t)``
         - 否
         - OUT 端点接收完成回调，由 ``hidd_drv_read()`` 发起。
       * - ``write_comp_cb``
-        - ``void (*)(hidd_handle_t *, const void *, size_t)``
+        - ``void (*)(struct hidd_handle *, const void *, size_t)``
         - 否
         - IN 端点发送完成回调，由 ``hidd_drv_write()`` 发起。
 
@@ -495,23 +495,23 @@ CDC-ACM 设备类驱动实现虚拟串口（ACM）的类请求处理和数据收
         - —
         - 当前线路参数。收到 ``SET_LINE_CODING`` 请求后由驱动更新。
       * - ``set_line_coding_cb``
-        - ``bool (*)(cdcd_acm_handle_t *, cdc_line_coding_t *)``
+        - ``bool (*)(struct cdcd_acm_handle *, cdc_line_coding_t *)``
         - 否
         - ``SET_LINE_CODING`` 请求处理回调，在数据阶段调用。返回 ``true`` 表示接受该参数。
       * - ``set_control_line_state_cb``
-        - ``void (*)(cdcd_acm_handle_t *, uint16_t)``
+        - ``void (*)(struct cdcd_acm_handle *, uint16_t)``
         - 否
         - ``SET_CONTROL_LINE_STATE`` 请求处理回调。``bitmap`` 的 bit0（``CDC_LINE_STATE_DTR_MASK``）和 bit1（``CDC_LINE_STATE_RTS_MASK``）分别表示 DTR / RTS 状态。
       * - ``send_break_cb``
-        - ``void (*)(cdcd_acm_handle_t *, uint16_t)``
+        - ``void (*)(struct cdcd_acm_handle *, uint16_t)``
         - 否
         - ``SEND_BREAK`` 请求处理回调，``duration`` 为 break 持续时间。
       * - ``read_comp_cb``
-        - ``void (*)(cdcd_acm_handle_t *, void *, size_t)``
+        - ``void (*)(struct cdcd_acm_handle *, void *, size_t)``
         - 否
         - OUT 端点接收完成回调。
       * - ``write_comp_cb``
-        - ``void (*)(cdcd_acm_handle_t *, const void *, size_t)``
+        - ``void (*)(struct cdcd_acm_handle *, const void *, size_t)``
         - 否
         - IN 端点发送完成回调。
 
@@ -647,19 +647,19 @@ CDC-ECM 设备类驱动实现以太网控制模型（Ethernet Control Model）�
         - —
         - 通知请求缓冲区，驱动内部使用。
       * - ``set_interface_cb``
-        - ``void (*)(cdcd_ecm_handle_t *, uint16_t)``
+        - ``void (*)(struct cdcd_ecm_handle *, uint16_t)``
         - 否
         - ``SET_INTERFACE`` 请求处理回调，``alt_setting`` 为新的备用设置。通常在此打开或关闭数据端点。
       * - ``set_ethernet_packet_filter_cb``
-        - ``void (*)(cdcd_ecm_handle_t *, uint16_t)``
+        - ``void (*)(struct cdcd_ecm_handle *, uint16_t)``
         - 否
         - ``SET_ETHERNET_PACKET_FILTER`` 请求处理回调，``bitmap`` 取值见 ``CDC_ECM_ETH_PACK_FILTER_*``。
       * - ``read_comp_cb``
-        - ``void (*)(cdcd_ecm_handle_t *, void *, size_t)``
+        - ``void (*)(struct cdcd_ecm_handle *, void *, size_t)``
         - 否
         - OUT 数据端点接收完成回调。
       * - ``write_comp_cb``
-        - ``void (*)(cdcd_ecm_handle_t *, const void *, size_t)``
+        - ``void (*)(struct cdcd_ecm_handle *, const void *, size_t)``
         - 否
         - IN 数据端点发送完成回调。
 

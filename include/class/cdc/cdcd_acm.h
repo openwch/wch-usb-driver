@@ -23,7 +23,6 @@ extern "C" {
 #endif
 
 /* @struct */
-typedef struct cdcd_acm_handle cdcd_acm_handle_t;
 
 /**
  * @brief USB CDC-ACM device class driver handle structure
@@ -47,11 +46,11 @@ typedef struct cdcd_acm_handle
     cdc_line_coding_t line_coding;
 
     /* Callback functions for the CDC-ACM device (optional) */
-    bool (*set_line_coding_cb)(cdcd_acm_handle_t *cdcd_acm, cdc_line_coding_t *line_coding);
-    void (*set_control_line_state_cb)(cdcd_acm_handle_t *cdcd_acm, uint16_t bitmap);
-    void (*send_break_cb)(cdcd_acm_handle_t *cdcd_acm, uint16_t duration);
-    void (*read_comp_cb)(cdcd_acm_handle_t *cdcd_acm, void *buf, size_t len);
-    void (*write_comp_cb)(cdcd_acm_handle_t *cdcd_acm, const void *buf, size_t len);
+    bool (*set_line_coding_cb)(struct cdcd_acm_handle *cdcd_acm, cdc_line_coding_t *line_coding);
+    void (*set_control_line_state_cb)(struct cdcd_acm_handle *cdcd_acm, uint16_t bitmap);
+    void (*send_break_cb)(struct cdcd_acm_handle *cdcd_acm, uint16_t duration);
+    void (*read_comp_cb)(struct cdcd_acm_handle *cdcd_acm, void *buf, size_t len);
+    void (*write_comp_cb)(struct cdcd_acm_handle *cdcd_acm, const void *buf, size_t len);
 } cdcd_acm_handle_t;
 
 /* @function declarations */

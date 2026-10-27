@@ -23,7 +23,6 @@ extern "C" {
 #endif
 
 /* @struct */
-typedef struct hidd_handle hidd_handle_t;
 
 /**
  * @brief USB HID device class driver handle structure
@@ -51,18 +50,18 @@ typedef struct hidd_handle
     size_t report_buf_size;
 
     /* Callback functions for getting HID descriptors (must) */
-    bool (*get_desc_cb)(hidd_handle_t *hidd, uint8_t desc_type, uint8_t desc_index, void **desc, size_t *len);
+    bool (*get_desc_cb)(struct hidd_handle *hidd, uint8_t desc_type, uint8_t desc_index, void **desc, size_t *len);
 
     /* Callback functions for handling HID class requests and events (optional) */
-    bool (*set_desc_cb)(hidd_handle_t *hidd, uint8_t desc_type, uint8_t desc_index, void **desc, size_t *len);
-    bool (*get_report_prev_cb)(hidd_handle_t *hidd, uint8_t type, uint8_t id, size_t xfer_len, size_t *len);
-    bool (*set_report_prev_cb)(hidd_handle_t *hidd, uint8_t type, uint8_t id, size_t xfer_len, size_t *len);
-    void (*get_report_comp_cb)(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len);
-    void (*set_report_comp_cb)(hidd_handle_t *hidd, uint8_t type, uint8_t id, void *buf, size_t len);
-    void (*set_idle_cb)(hidd_handle_t *hidd, uint8_t report_id, uint8_t idle_rate);
-    void (*set_protocol_cb)(hidd_handle_t *hidd, uint8_t protocol);
-    void (*read_comp_cb)(hidd_handle_t *hidd, void *buf, size_t len);
-    void (*write_comp_cb)(hidd_handle_t *hidd, const void *buf, size_t len);
+    bool (*set_desc_cb)(struct hidd_handle *hidd, uint8_t desc_type, uint8_t desc_index, void **desc, size_t *len);
+    bool (*get_report_prev_cb)(struct hidd_handle *hidd, uint8_t type, uint8_t id, size_t xfer_len, size_t *len);
+    bool (*set_report_prev_cb)(struct hidd_handle *hidd, uint8_t type, uint8_t id, size_t xfer_len, size_t *len);
+    void (*get_report_comp_cb)(struct hidd_handle *hidd, uint8_t type, uint8_t id, void *buf, size_t len);
+    void (*set_report_comp_cb)(struct hidd_handle *hidd, uint8_t type, uint8_t id, void *buf, size_t len);
+    void (*set_idle_cb)(struct hidd_handle *hidd, uint8_t report_id, uint8_t idle_rate);
+    void (*set_protocol_cb)(struct hidd_handle *hidd, uint8_t protocol);
+    void (*read_comp_cb)(struct hidd_handle *hidd, void *buf, size_t len);
+    void (*write_comp_cb)(struct hidd_handle *hidd, const void *buf, size_t len);
 } hidd_handle_t;
 
 /* @function declarations */

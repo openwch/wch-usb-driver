@@ -23,7 +23,6 @@ extern "C" {
 #endif
 
 /* @struct */
-typedef struct cdcd_ecm_handle cdcd_ecm_handle_t;
 
 /**
  * @brief USB CDC-ECM device class driver handle structure
@@ -50,10 +49,10 @@ typedef struct cdcd_ecm_handle
     __attribute__((aligned(4))) uint8_t notify_buf[16];
 
     /* Callback functions for the CDC-ECM device (optional) */
-    void (*set_interface_cb)(cdcd_ecm_handle_t *cdcd_ecm, uint16_t alt_setting);
-    void (*set_ethernet_packet_filter_cb)(cdcd_ecm_handle_t *cdcd_ecm, uint16_t bitmap);
-    void (*read_comp_cb)(cdcd_ecm_handle_t *cdcd_ecm, void *buf, size_t len);
-    void (*write_comp_cb)(cdcd_ecm_handle_t *cdcd_ecm, const void *buf, size_t len);
+    void (*set_interface_cb)(struct cdcd_ecm_handle *cdcd_ecm, uint16_t alt_setting);
+    void (*set_ethernet_packet_filter_cb)(struct cdcd_ecm_handle *cdcd_ecm, uint16_t bitmap);
+    void (*read_comp_cb)(struct cdcd_ecm_handle *cdcd_ecm, void *buf, size_t len);
+    void (*write_comp_cb)(struct cdcd_ecm_handle *cdcd_ecm, const void *buf, size_t len);
 } cdcd_ecm_handle_t;
 
 /* @function declarations */

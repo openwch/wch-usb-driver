@@ -48,6 +48,12 @@ extern "C" {
 #define USB_U16_TO_U8_LSB(data)         USB_U16_LOW(data), USB_U16_HIGH(data)
 #define USB_U16_TO_U8_MSB(data)         USB_U16_HIGH(data), USB_U16_LOW(data)
 
+#define USB_U24_BYTE0(data)             ((uint8_t)(((data) >> 0) & 0x000000FF))
+#define USB_U24_BYTE1(data)             ((uint8_t)(((data) >> 8) & 0x000000FF))
+#define USB_U24_BYTE2(data)             ((uint8_t)(((data) >> 16) & 0x000000FF))
+#define USB_U24_TO_U8_LSB(data)         USB_U24_BYTE0(data), USB_U24_BYTE1(data), USB_U24_BYTE2(data)
+#define USB_U24_TO_U8_MSB(data)         USB_U24_BYTE2(data), USB_U24_BYTE1(data), USB_U24_BYTE0(data)
+
 #define USB_U32_BYTE0(data)             ((uint8_t)(((data) >> 0) & 0x000000FF))
 #define USB_U32_BYTE1(data)             ((uint8_t)(((data) >> 8) & 0x000000FF))
 #define USB_U32_BYTE2(data)             ((uint8_t)(((data) >> 16) & 0x000000FF))

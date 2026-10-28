@@ -647,7 +647,7 @@ CDC-ECM 设备类驱动实现以太网控制模型（Ethernet Control Model）�
         - —
         - 通知请求缓冲区，驱动内部使用。
       * - ``set_interface_cb``
-        - ``void (*)(struct cdcd_ecm_handle *, uint16_t)``
+        - ``void (*)(struct cdcd_ecm_handle *, uint8_t)``
         - 否
         - ``SET_INTERFACE`` 请求处理回调，``alt_setting`` 为新的备用设置。通常在此打开或关闭数据端点。
       * - ``set_ethernet_packet_filter_cb``

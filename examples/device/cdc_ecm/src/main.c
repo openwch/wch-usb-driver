@@ -185,7 +185,7 @@ static const void *get_stand_desc_cb(usbd_handle_t *h, uint8_t type, uint8_t ind
     return NULL;
 }
 
-static void cdc_ecm_set_interface_cb(cdcd_ecm_handle_t *cdcd_ecm, uint16_t alt_setting)
+static void cdc_ecm_set_interface_cb(cdcd_ecm_handle_t *cdcd_ecm, uint8_t alt_setting)
 {
     if (alt_setting == 0)
     {

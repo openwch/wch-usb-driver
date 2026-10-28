@@ -93,9 +93,11 @@ static void setup_event_handle(usbd_handle_t *h)
         break;
 
     case USB_REQ_RCPT_INTERFACE:
-        if (setup->wIndex < USB_ARRAY_SIZE(h->itf_req_cbs))
+    {
+        uint8_t itf_num = USB_U16_LOW(setup->wIndex);
+        if (itf_num < USB_ARRAY_SIZE(h->itf_req_cbs))
         {
-            usbd_itf_req_cb_t *itf_req = &h->itf_req_cbs[setup->wIndex];
+            usbd_itf_req_cb_t *itf_req = &h->itf_req_cbs[itf_num];
             if (itf_req->cbs.setup || itf_req->cbs.data || itf_req->cbs.status)
             {
                 h->ctrl_handle = itf_req->class_handle;
@@ -104,6 +106,7 @@ static void setup_event_handle(usbd_handle_t *h)
             }
         }
         break;
+    }
 
     case USB_REQ_RCPT_ENDPOINT:
         if (USB_GET_REQ_TYPE(setup->bmRequestType) == USB_REQ_TYPE_STANDARD)

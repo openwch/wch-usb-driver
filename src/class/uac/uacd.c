@@ -41,6 +41,7 @@ static bool ctrl_xfer_setup(void *handle, const usb_setup_t *setup, void **buf, 
             break;
 
         case USB_REQ_SET_INTERFACE:
+            USB_LOGI("Handle %p: SET_INTERFACE: AltSetting=%d", h, setup->wValue);
             if (h->set_itf_cb)
             {
                 h->set_itf_cb(h, setup->wIndex, setup->wValue);
@@ -113,6 +114,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
         switch (setup->bRequest)
         {
         case UAC_REQ_SET_CUR:
+            USB_LOGI("Handle %p: SET_CUR: rcpt=%d id_ep=%d wValue=0x%04x", h, rcpt, id_ep, setup->wValue);
             if (h->set_cur_cb)
             {
                 h->set_cur_cb(h, rcpt, id_ep, setup->wValue, buf, len);
@@ -120,6 +122,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             break;
 
         case UAC_REQ_SET_MIN:
+            USB_LOGI("Handle %p: SET_MIN: rcpt=%d id_ep=%d wValue=0x%04x", h, rcpt, id_ep, setup->wValue);
             if (h->set_min_cb)
             {
                 h->set_min_cb(h, rcpt, id_ep, setup->wValue, buf, len);
@@ -127,6 +130,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             break;
 
         case UAC_REQ_SET_MAX:
+            USB_LOGI("Handle %p: SET_MAX: rcpt=%d id_ep=%d wValue=0x%04x", h, rcpt, id_ep, setup->wValue);
             if (h->set_max_cb)
             {
                 h->set_max_cb(h, rcpt, id_ep, setup->wValue, buf, len);
@@ -134,6 +138,7 @@ static void ctrl_xfer_status(void *handle, const usb_setup_t *setup, void *buf, 
             break;
 
         case UAC_REQ_SET_RES:
+            USB_LOGI("Handle %p: SET_RES: rcpt=%d id_ep=%d wValue=0x%04x", h, rcpt, id_ep, setup->wValue);
             if (h->set_res_cb)
             {
                 h->set_res_cb(h, rcpt, id_ep, setup->wValue, buf, len);

@@ -484,20 +484,20 @@ static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
         case USB_DESC_CS_INTERFACE:
         {
-            uint8_t class_type = curr[2];
-            if (class_type == CDC_DESC_HEADER)
+            uint8_t sub_type = curr[2];
+            if (sub_type == CDC_DESC_HEADER)
             {
                 cdc_desc_header_t *header_desc = (cdc_desc_header_t *)curr;
                 if (header_desc->bLength < sizeof(cdc_desc_header_t)) return false;
                 if (header_desc->bcdCDC > SUPPORTED_PROTOCOL_VERSION) return false;
             }
-            else if (class_type == CDC_DESC_UNION)
+            else if (sub_type == CDC_DESC_UNION)
             {
                 union_desc = (cdc_desc_union_t *)curr;
                 if (union_desc->bLength < sizeof(cdc_desc_union_t) + 1) return false;
                 if (union_desc->bControlInterface != ctrl_itf->bInterfaceNumber) return false;
             }
-            else if (class_type == CDC_DESC_ETHERNET_NETWORKING)
+            else if (sub_type == CDC_DESC_ETHERNET_NETWORKING)
             {
                 ecm_desc = (cdc_desc_ethernet_networking_t *)curr;
                 if (ecm_desc->bLength < sizeof(cdc_desc_ethernet_networking_t)) return false;

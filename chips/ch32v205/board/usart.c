@@ -127,7 +127,7 @@ bool usart_config(uint32_t baudrate, usart_stop_bits_t stop_bits, usart_parity_t
 
 size_t usart_read(uint8_t *buffer, size_t length)
 {
-    if (buffer == NULL || length == 0) return 0;
+    if (!buffer || !length) return 0;
 
     const size_t write_pos = sizeof(dma_buffer) - DMA_GetCurrDataCounter(DMA1_Channel3);
     size_t read_pos = dma_offset;

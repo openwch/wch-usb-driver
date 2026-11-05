@@ -17,6 +17,9 @@
    * - ``examples/device/cdc_ecm``
      - 设备
      - CDC-ECM 虚拟网卡，回复 ARP 请求和 ICMP echo
+   * - ``examples/device/uac_headset``
+     - 设备
+     - UAC 耳机设备，播放 USB 音频到 DAC，采集 ADC 音频到 USB
    * - ``examples/host/hid_km``
      - 主机
      - 枚举键鼠设备，打印按键、鼠标数据及 LED 状态
@@ -26,6 +29,9 @@
    * - ``examples/host/cdc_ecm``
      - 主机
      - 枚举 CDC-ECM 设备，通过 ARP 获取目标 MAC 并发送 ICMP echo 请求
+   * - ``examples/host/uac_headset``
+     - 主机
+     - 枚举 UAC 设备，打开采集 / 播放流并持续传输音频数据
    * - ``examples/dual_device/cdc_acm_bridge``
      - 双设备
      - 两个 CDC-ACM 实例间双向转发数据
@@ -91,6 +97,18 @@ CDC-ECM 虚拟网卡
 - 收到发往本机 MAC 或广播地址的 ARP 请求时回复 ARP；收到发往本机 IP 的 ICMP echo 请求时回复 echo reply，其他报文丢弃。
 - 同时提供全速和高速配置描述符：高速数据端点最大包长为 512，全速为 64。
 
+UAC 耳机设备
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+示例目录：``examples/device/uac_headset``。
+
+- 枚举为 UAC 1.0 音频设备，设备类为 Audio，VID/PID 为 ``0x1A86/0xFE33``，仅支持全速运行。
+- 接口 0 为音频控制接口；接口 1 为播放流接口（备用设置 0 无端点，备用设置 1 使用 OUT 同步端点 0x01）；接口 2 为采集流接口（备用设置 0 无端点，备用设置 1 使用 IN 同步端点 0x82）。
+- 播放流为 16 位立体声 PCM、48 kHz，端点最大包长 200 字节；采集流为 16 位单声道 PCM、48 kHz，端点最大包长 200 字节。
+- 主机将播放流接口切换到备用设置 1 时打开 OUT 端点并持续读取，收到数据后将 16 位立体声 PCM 转换为 12 位左右声道采样写入 DAC。
+- 主机将采集流接口切换到备用设置 1 时打开 IN 端点并持续写入，每次发送前从 ADC 读取 12 位采样并转换为 16 位 PCM。
+- 接口切换到备用设置 0 时关闭对应端点；示例未实现音量、静音等音频控制请求。
+
 主机示例
 --------------------
 
@@ -151,6 +169,16 @@ CDC-ECM 主机
        - 打开 / 关闭端口；打开时注册打开、连接状态与速度变化回调
      * - BUTTON_1
        - ARP 解析完成后发送一次 ICMP echo 请求（ping）
+
+UAC 耳机主机
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+示例目录：``examples/host/uac_headset``。
+
+- 使能主机、HUB 和 UAC 主机类驱动，支持直连或经 HUB 连接的 UAC 设备。
+- 主循环中调用 ``usbh_drv_task()``、``hubh_drv_task()`` 和 ``uach_drv_task()``，并在 UAC 设备数量变化时打印新数量。
+- 使用第一个 UAC 设备的句柄，通过 ``uach_get_stream_info()`` 获取各音频流信息；对第一个采集流和第一个播放流分别调用 ``uach_stream_open()``，采样率取自流信息的 ``sample_freq[0]``。
+- 流打开后，采集回调持续以 1024 字节缓冲区调用 ``uach_stream_capture()``，播放回调持续调用 ``uach_stream_playback()``；播放长度按每毫秒音频数据计算，即 ``channels * sub_frame_size * sample_rate / 1000``。
 
 双设备示例
 --------------------

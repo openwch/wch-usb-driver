@@ -30,6 +30,8 @@
      - 使能 CDC-ACM 设备类驱动
    * - ``USB_CLASS_CDCD_ECM_DRIVER_EN``
      - 使能 CDC-ECM 设备类驱动
+   * - ``USB_CLASS_UACD_DRIVER_EN``
+     - 使能 UAC 设备类驱动
    * - ``USB_CLASS_HUBH_DRIVER_EN``
      - 使能 HUB 主机类驱动
    * - ``USB_CLASS_HIDH_DRIVER_EN``
@@ -42,6 +44,8 @@
      - 使能 CDC-ACM 主机类驱动
    * - ``USB_CLASS_CDCH_ECM_DRIVER_EN``
      - 使能 CDC-ECM 主机类驱动
+   * - ``USB_CLASS_UACH_DRIVER_EN``
+     - 使能 UAC 主机类驱动
 
 日志
 --------------------
@@ -166,3 +170,18 @@ CDC-ECM 主机类参数
    * - ``CDCH_ECM_HANDLE_POOL_SIZE``
      - 1
      - CDC-ECM 主机句柄数量上限
+
+UAC 主机类参数
+--------------------
+
+.. list-table::
+
+   * - 宏
+     - 默认值
+     - 说明
+   * - ``UACH_HANDLE_POOL_SIZE``
+     - 1
+     - UAC 主机句柄数量上限
+   * - ``UACH_MAX_STREAM_ITF_COUNT``
+     - 2
+     - 单个 UAC 设备可管理的音频流接口数量上限

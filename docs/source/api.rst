@@ -825,6 +825,274 @@ CDC-ECM 设备类驱动实现以太网控制模型（Ethernet Control Model）�
 
    发送完成后驱动调用 ``write_comp_cb`` 通知应用。回调在 USB 中断上下文中执行。
 
+UAC类驱动
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+UAC 设备类驱动实现 USB 音频类（Audio Class）1.0 的控制请求处理与音频流端点收发。应用需填写 ``uacd_handle_t`` 后调用 ``uacd_drv_open()``，并通过 ``uacd_drv_stream_interface_append()``、``uacd_drv_stream_endpoint_append()`` 为音频流接口和端点补充注册控制请求回调。
+
+驱动不解析音频描述符，也不主动打开流端点。应用通常在 ``SET_INTERFACE`` 回调中根据备用设置打开或关闭流端点，并启动音频数据的异步读写。
+
+.. c:struct:: uacd_handle_t
+
+   UAC 设备类驱动句柄。各成员由应用在调用 ``uacd_drv_open()`` 前填写。
+
+   .. list-table::
+
+      * - 成员
+        - 类型
+        - 必选
+        - 说明
+      * - ``usbd_handle``
+        - ``usbd_handle_t *``
+        - 是
+        - 关联的设备核心驱动句柄。
+      * - ``ctrl_itf_num``
+        - ``uint8_t``
+        - 是
+        - 音频控制接口号。
+      * - ``temp_buf``
+        - ``uint8_t[64]``
+        - —
+        - 类请求数据阶段使用的临时缓冲区，驱动内部使用。
+      * - ``set_itf_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t)``
+        - 否
+        - ``SET_INTERFACE`` 请求处理回调，参数为接口号和新的备用设置。
+      * - ``get_itf_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t *)``
+        - 否
+        - ``GET_INTERFACE`` 请求处理回调，参数为接口号和用于返回当前备用设置的指针。
+      * - ``set_cur_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t, uint16_t, void *, size_t)``
+        - 否
+        - ``SET_CUR`` 类请求状态阶段回调。
+      * - ``set_min_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t, uint16_t, void *, size_t)``
+        - 否
+        - ``SET_MIN`` 类请求状态阶段回调。
+      * - ``set_max_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t, uint16_t, void *, size_t)``
+        - 否
+        - ``SET_MAX`` 类请求状态阶段回调。
+      * - ``set_res_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t, uint16_t, void *, size_t)``
+        - 否
+        - ``SET_RES`` 类请求状态阶段回调。
+      * - ``get_cur_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t, uint16_t, void **, size_t *)``
+        - 否
+        - ``GET_CUR`` 类请求建立阶段回调。
+      * - ``get_min_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t, uint16_t, void **, size_t *)``
+        - 否
+        - ``GET_MIN`` 类请求建立阶段回调。
+      * - ``get_max_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t, uint16_t, void **, size_t *)``
+        - 否
+        - ``GET_MAX`` 类请求建立阶段回调。
+      * - ``get_res_cb``
+        - ``void (*)(struct uacd_handle *, uint8_t, uint8_t, uint16_t, void **, size_t *)``
+        - 否
+        - ``GET_RES`` 类请求建立阶段回调。
+      * - ``read_comp_cb``
+        - ``void (*)(struct uacd_handle *, usb_endp_t, void *, size_t)``
+        - 否
+        - OUT 流端点接收完成回调，``endp`` 为端点地址。
+      * - ``write_comp_cb``
+        - ``void (*)(struct uacd_handle *, usb_endp_t, const void *, size_t)``
+        - 否
+        - IN 流端点发送完成回调，``endp`` 为端点地址。
+
+   ``SET_*`` / ``GET_*`` 回调的 ``rcpt`` 为请求接收方（``USB_REQ_RCPT_INTERFACE`` 或 ``USB_REQ_RCPT_ENDPOINT``）；``id_ep`` 在接收方为接口时是实体 ID（``wIndex`` 高字节），为端点时是端点地址（``wIndex`` 低字节）；``value`` 为 ``wValue``。``GET_*`` 回调需将响应数据指针和长度分别写入 ``*buf``、``*len``，否则驱动将以 STALL 结束请求。
+
+.. c:function:: bool uacd_drv_open(uacd_handle_t *uacd)
+
+   打开 UAC 设备类驱动。驱动为 ``ctrl_itf_num`` 对应的音频控制接口注册控制请求回调，不打开任何端点。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``uacd``
+        - ``uacd_handle_t *``
+        - UAC 类驱动句柄。``usbd_handle`` 和 ``ctrl_itf_num`` 必须有效。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 打开成功。
+      * - ``false``
+        - 参数非法或回调注册失败。
+
+.. c:function:: bool uacd_drv_stream_interface_append(uacd_handle_t *uacd, uint8_t itf_num)
+
+   为音频流接口注册控制请求回调，使该接口的 ``GET_INTERFACE`` / ``SET_INTERFACE`` 请求也能由应用处理。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``uacd``
+        - ``uacd_handle_t *``
+        - UAC 类驱动句柄。
+      * - ``itf_num``
+        - ``uint8_t``
+        - 音频流接口号。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 注册成功。
+      * - ``false``
+        - 参数非法或注册失败。
+
+.. c:function:: bool uacd_drv_stream_endpoint_append(uacd_handle_t *uacd, const uac_desc_audio_endpoint_t *desc)
+
+   为音频流端点注册控制请求回调，用于处理以端点为接收方的类请求，例如设置采样频率。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``uacd``
+        - ``uacd_handle_t *``
+        - UAC 类驱动句柄。
+      * - ``desc``
+        - ``const uac_desc_audio_endpoint_t *``
+        - 音频流端点描述符，驱动使用其中的 ``bEndpointAddress``。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 注册成功。
+      * - ``false``
+        - 参数非法或注册失败。
+
+.. c:function:: bool uacd_drv_open_stream_endpoint(uacd_handle_t *uacd, const uac_desc_audio_endpoint_t *desc)
+
+   打开音频流端点。IN 端点的发送完成回调为 ``write_comp_cb``，OUT 端点的接收完成回调为 ``read_comp_cb``。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``uacd``
+        - ``uacd_handle_t *``
+        - UAC 类驱动句柄。
+      * - ``desc``
+        - ``const uac_desc_audio_endpoint_t *``
+        - 待打开的音频流端点描述符。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 打开成功。
+      * - ``false``
+        - 参数非法或端点打开失败。
+
+.. c:function:: bool uacd_drv_close_stream_endpoint(uacd_handle_t *uacd, const uac_desc_audio_endpoint_t *desc)
+
+   关闭音频流端点。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``uacd``
+        - ``uacd_handle_t *``
+        - UAC 类驱动句柄。
+      * - ``desc``
+        - ``const uac_desc_audio_endpoint_t *``
+        - 音频流端点描述符。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 关闭成功。
+      * - ``false``
+        - 参数非法或端点关闭失败。
+
+.. c:function:: bool uacd_drv_read(uacd_handle_t *uacd, const uac_desc_audio_endpoint_t *desc, void *buf, size_t len)
+
+   从 OUT 音频流端点发起一次异步读取，接收主机发来的音频数据。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``uacd``
+        - ``uacd_handle_t *``
+        - UAC 类驱动句柄。
+      * - ``desc``
+        - ``const uac_desc_audio_endpoint_t *``
+        - 音频流端点描述符。
+      * - ``buf``
+        - ``void *``
+        - 接收数据的缓冲区。
+      * - ``len``
+        - ``size_t``
+        - 期望读取的最大字节数。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 请求提交成功。
+      * - ``false``
+        - 请求提交失败。
+
+   读取完成后驱动调用 ``read_comp_cb`` 通知应用。回调在 USB 中断上下文中执行。
+
+.. c:function:: bool uacd_drv_write(uacd_handle_t *uacd, const uac_desc_audio_endpoint_t *desc, const void *buf, size_t len)
+
+   向 IN 音频流端点发起一次异步写入，向主机发送音频数据。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``uacd``
+        - ``uacd_handle_t *``
+        - UAC 类驱动句柄。
+      * - ``desc``
+        - ``const uac_desc_audio_endpoint_t *``
+        - 音频流端点描述符。
+      * - ``buf``
+        - ``const void *``
+        - 待发送数据的缓冲区。
+      * - ``len``
+        - ``size_t``
+        - 待发送的字节数。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 请求提交成功。
+      * - ``false``
+        - 请求提交失败。
+
+   发送完成后驱动调用 ``write_comp_cb`` 通知应用。回调在 USB 中断上下文中执行。
+
 主机
 ----------------------------
 
@@ -1932,3 +2200,352 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 实例未打开、网络未连接、参数非法或端点忙。
 
    ``cb`` 在传输成功时由类驱动调用。若发送长度恰为端点最大包长的整数倍，驱动会自动追加零长度包，回调中的 ``length`` 仍为原始长度。
+
+UAC类驱动
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+UAC 主机类驱动实现 USB 音频类设备的主机端，完成音频控制接口和音频流接口的枚举与解析，并提供音频流的异步打开、关闭和数据传输。典型使用流程如下：
+
+1. 调用 ``uach_drv_open()`` 注册类驱动；
+2. 在主循环中调用 ``uach_drv_task()`` 和 ``usbh_drv_task()``；
+3. 通过 ``uach_get_count()`` / ``uach_get_handle()`` 获取已枚举的 UAC 实例；
+4. 通过 ``uach_get_stream_info()`` 获取音频流信息，使用其中的 ``stream_handle`` 打开流并进行采集或播放。
+
+驱动按接口类 ``USB_CLASS_AUDIO`` 和子类 ``UAC_SUBCLASS_AUDIO_CONTROL`` 匹配设备，仅支持全速和高速设备以及 UAC 1.0（``bcdADC`` 不大于 ``0x0100``）。绑定设备时驱动解析配置描述符中的音频控制拓扑和音频流接口并校验描述符结构，随后在任务中将各音频流接口切换到备用设置 0。
+
+.. c:type:: uach_handle_t
+
+   UAC 主机实例句柄，类型不透明。由类驱动在设备枚举完成后创建，应用通过 ``uach_get_handle()`` 获取。
+
+.. c:enum:: uach_stream_dir_t
+
+   音频流方向。
+
+   .. list-table::
+
+      * - 取值
+        - 数值
+        - 说明
+      * - ``UACH_STREAM_DIR_CAPTURE``
+        - 0
+        - 采集流，数据从设备发往主机。
+      * - ``UACH_STREAM_DIR_PLAYBACK``
+        - 1
+        - 播放流，数据从主机发往设备。
+
+.. c:struct:: uach_stream_info_t
+
+   音频流信息，由 ``uach_get_stream_info()`` 填充。
+
+   .. list-table::
+
+      * - 成员
+        - 类型
+        - 说明
+      * - ``dir``
+        - ``uint8_t``
+        - 流方向，取值见 ``uach_stream_dir_t``。
+      * - ``delay``
+        - ``uint8_t``
+        - AS 通用描述符中的 ``bDelay``。
+      * - ``format_type``
+        - ``uint8_t``
+        - 格式类型。
+      * - ``channels``
+        - ``uint8_t``
+        - 声道数。
+      * - ``sub_frame_size``
+        - ``uint8_t``
+        - 每个声道每个采样的字节数。
+      * - ``bit_resolution``
+        - ``uint8_t``
+        - 采样位深，单位 bit。
+      * - ``sample_freq_type``
+        - ``uint8_t``
+        - 采样率类型。为 0 表示连续范围，此时使用 ``min_sample_freq`` / ``max_sample_freq``；大于 0 表示离散采样率的个数，此时使用 ``sample_freq``。
+      * - ``format_tag``
+        - ``uint16_t``
+        - 音频格式标签，PCM 为 ``0x0001``。
+      * - ``channel_config``
+        - ``uint16_t``
+        - 声道配置位图。
+      * - ``min_sample_freq``
+        - ``uint32_t``
+        - 最小采样率，仅 ``sample_freq_type`` 为 0 时有效。
+      * - ``max_sample_freq``
+        - ``uint32_t``
+        - 最大采样率，仅 ``sample_freq_type`` 为 0 时有效。
+      * - ``sample_freq``
+        - ``uint32_t[UACH_MAX_SAMPLE_FREQ]``
+        - 离散采样率列表，仅 ``sample_freq_type`` 大于 0 时有效。``UACH_MAX_SAMPLE_FREQ`` 为 8。
+      * - ``stream_handle``
+        - ``void *``
+        - 不透明的流句柄，用于调用 ``uach_stream_*()`` 系列接口。
+
+.. c:type:: uach_stream_open_cb
+
+   流打开完成回调函数类型。无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``stream_handle``
+        - ``void *``
+        - 流句柄。
+      * - ``rst``
+        - ``bool``
+        - 为 ``true`` 表示流已成功打开。
+
+.. c:type:: uach_stream_transfer_cb
+
+   流传输完成回调函数类型。无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``stream_handle``
+        - ``void *``
+        - 流句柄。
+      * - ``buf``
+        - ``void *``
+        - 本次传输使用的缓冲区。
+      * - ``size``
+        - ``size_t``
+        - 本次传输的字节数。
+
+.. c:function:: void uach_drv_task(void)
+
+   UAC 类驱动任务处理函数，处理设备枚举、音频流接口切换和流的打开 / 关闭。应用需在主循环中周期性调用。该函数无参数、无返回值。
+
+.. c:function:: bool uach_drv_open(usbh_handle_t *h)
+
+   向主机注册 UAC 类驱动。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``h``
+        - ``usbh_handle_t *``
+        - 主机驱动句柄。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 注册成功。
+      * - ``false``
+        - 注册失败。
+
+.. c:function:: bool uach_drv_close(usbh_handle_t *h)
+
+   注销 UAC 类驱动。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``h``
+        - ``usbh_handle_t *``
+        - 主机驱动句柄。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 注销成功。
+      * - ``false``
+        - 注销失败。
+
+.. c:function:: size_t uach_get_count(void)
+
+   获取已完成枚举的 UAC 实例数量。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - 实例数量
+        - 已完成枚举的 UAC 实例数量。
+      * - ``0``
+        - 未连接设备。
+
+.. c:function:: uach_handle_t *uach_get_handle(size_t index)
+
+   按索引获取 UAC 实例句柄。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``index``
+        - ``size_t``
+        - 实例索引，从 0 开始。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - 实例句柄
+        - 索引有效时返回对应的 ``uach_handle_t *``。
+      * - ``NULL``
+        - 索引无效。
+
+.. c:function:: size_t uach_get_stream_info(uach_handle_t *uac, uach_stream_info_t *info, size_t max_count)
+
+   获取 UAC 实例的音频流信息。驱动按音频流接口顺序填充 ``info``，跳过缺少 AS 通用描述符或格式类型描述符的流。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``uac``
+        - ``uach_handle_t *``
+        - UAC 实例句柄。
+      * - ``info``
+        - ``uach_stream_info_t *``
+        - 用于接收音频流信息的数组。
+      * - ``max_count``
+        - ``size_t``
+        - 数组可容纳的最大条目数，不能为 0。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - 数量
+        - 实际填充的音频流信息数量。
+      * - ``0``
+        - 参数非法或没有可用的音频流。
+
+.. c:function:: void uach_stream_open(void *handle, uint32_t sample_rate, uach_stream_open_cb cb)
+
+   打开音频流。该函数仅记录目标状态和采样率，实际的接口切换、采样率设置和端点打开由 ``uach_drv_task()`` 异步完成，完成后调用 ``cb``。该函数无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``handle``
+        - ``void *``
+        - 流句柄，取自 ``uach_stream_info_t.stream_handle``。
+      * - ``sample_rate``
+        - ``uint32_t``
+        - 目标采样率，单位 Hz。为 0 时驱动不发送采样率设置请求。
+      * - ``cb``
+        - ``uach_stream_open_cb``
+        - 打开完成回调；``handle`` 为空时以 ``rst = false`` 立即调用。
+
+   若端点支持采样率控制（AS 端点描述符 ``bmAttributes`` 的 ``UAC_ENDP_SELECT_SAMPLING_FREQ`` 位为 1）且 ``sample_rate`` 非 0，驱动会在切换备用设置后通过 ``SET_CUR`` 请求设置采样率。
+
+.. c:function:: void uach_stream_close(void *handle)
+
+   关闭音频流。该函数仅记录目标状态，实际的接口切换和端点关闭由 ``uach_drv_task()`` 异步完成。该函数无返回值。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``handle``
+        - ``void *``
+        - 流句柄。
+
+.. c:function:: bool uach_stream_is_open(void *handle)
+
+   查询音频流是否已打开。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``handle``
+        - ``void *``
+        - 流句柄。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 流已打开。
+      * - ``false``
+        - 流未打开或句柄为空。
+
+.. c:function:: bool uach_stream_capture(void *handle, void *buf, size_t size, uach_stream_transfer_cb cb)
+
+   在采集流上发起一次异步读取，接收设备发往主机的音频数据。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``handle``
+        - ``void *``
+        - 流句柄。
+      * - ``buf``
+        - ``void *``
+        - 接收数据的缓冲区。
+      * - ``size``
+        - ``size_t``
+        - 期望读取的最大字节数，不能为 0。
+      * - ``cb``
+        - ``uach_stream_transfer_cb``
+        - 传输完成回调。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 请求提交成功。
+      * - ``false``
+        - 参数非法、流未打开或流方向不是采集。
+
+   传输完成后驱动调用 ``cb`` 通知应用，应用可在回调中再次调用本接口实现连续采集。本接口不设置超时。
+
+.. c:function:: bool uach_stream_playback(void *handle, void *buf, size_t size, uach_stream_transfer_cb cb)
+
+   在播放流上发起一次异步写入，向设备发送主机发来的音频数据。
+
+   .. list-table::
+
+      * - 参数
+        - 类型
+        - 说明
+      * - ``handle``
+        - ``void *``
+        - 流句柄。
+      * - ``buf``
+        - ``void *``
+        - 待发送数据的缓冲区。
+      * - ``size``
+        - ``size_t``
+        - 待发送的字节数，不能为 0。
+      * - ``cb``
+        - ``uach_stream_transfer_cb``
+        - 传输完成回调。
+
+   .. list-table::
+
+      * - 返回值
+        - 说明
+      * - ``true``
+        - 请求提交成功。
+      * - ``false``
+        - 参数非法、流未打开或流方向不是播放。
+
+   传输完成后驱动调用 ``cb`` 通知应用，应用可在回调中再次调用本接口实现连续播放。本接口不设置超时。

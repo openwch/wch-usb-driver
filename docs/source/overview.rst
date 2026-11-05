@@ -32,7 +32,7 @@
 
 1. 调用 ``board_usb_init(index, USB_MODE_DEVICE)`` 获取设备句柄；
 2. 调用 ``usbd_drv_open()`` 打开设备驱动，并注册所需事件回调；
-3. 通常在枚举完成后，调用类驱动的打开接口（如 ``hidd_drv_open()``、``cdcd_acm_drv_open()``）；
+3. 通常在枚举完成后，调用类驱动的打开接口（如 ``hidd_drv_open()``、``cdcd_acm_drv_open()``、``cdcd_ecm_drv_open()``、``uacd_drv_open()``）；
 4. 通过类驱动的读写接口与主机交换数据。
 
 主机模式的典型流程：

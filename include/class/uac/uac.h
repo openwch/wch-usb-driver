@@ -256,6 +256,16 @@ typedef struct __attribute__((packed))
     uint8_t bSynchAddress;
 } uac_desc_audio_endpoint_t;
 
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bmAttributes;
+    uint8_t bLockDelayUnits;
+    uint16_t wLockDelay;
+} uac_desc_audio_as_endpoint_t;
+
 #ifdef __cplusplus
 }
 #endif

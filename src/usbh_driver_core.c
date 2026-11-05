@@ -281,9 +281,7 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
             if (endp_type == USB_ENDP_TYPE_BULK && dev->speed == USB_SPEED_FULL && mps != 8 && mps != 16 && mps != 32 &&
                 mps != 64)
                 return 25;
-            if ((endp_used_bitmap[endp_dir ? 1 : 0] & (1 << endp_num)) ||
-                (alt_used_bitmap[endp_dir ? 1 : 0] & (1 << endp_num)))
-                return 26;
+            if ((endp_used_bitmap[endp_dir ? 1 : 0] & (1 << endp_num))) return 26;
             if (endp_count == 0) return 27;
             alt_used_bitmap[endp_dir ? 1 : 0] |= (1 << endp_num);
             endp_count--;

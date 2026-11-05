@@ -28,6 +28,8 @@ extern "C" {
 #ifdef USB_DEVICE_DRIVER_EN
 // #define USB_CLASS_HIDD_DRIVER_EN
 // #define USB_CLASS_CDCD_ACM_DRIVER_EN
+// #define USB_CLASS_CDCD_ECM_DRIVER_EN
+// #define USB_CLASS_UACD_DRIVER_EN
 #endif
 
 /* USB class host drivers enable macros */
@@ -35,6 +37,8 @@ extern "C" {
 #define USB_CLASS_HUBH_DRIVER_EN
 // #define USB_CLASS_HIDH_DRIVER_EN
 #define USB_CLASS_CDCH_ACM_DRIVER_EN
+// #define USB_CLASS_CDCH_ECM_DRIVER_EN
+// #define USB_CLASS_UACH_DRIVER_EN
 #endif
 
 /* USB driver log output enable macros */
@@ -86,6 +90,17 @@ extern "C" {
 /* USB CDC-ACM host class driver configuration macros */
 #ifdef USB_CLASS_CDCH_ACM_DRIVER_EN
 #define CDCH_ACM_HANDLE_POOL_SIZE 2
+#endif
+
+/* USB CDC-ECM host class driver configuration macros */
+#ifdef USB_CLASS_CDCH_ECM_DRIVER_EN
+#define CDCH_ECM_HANDLE_POOL_SIZE 2
+#endif
+
+/* USB UAC host class driver configuration macros */
+#ifdef USB_CLASS_UACH_DRIVER_EN
+#define UACH_HANDLE_POOL_SIZE     2
+#define UACH_MAX_STREAM_ITF_COUNT 4
 #endif
 
 #ifdef __cplusplus

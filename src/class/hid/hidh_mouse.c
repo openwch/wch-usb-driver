@@ -18,10 +18,10 @@
 #include "host/usbh_driver_private.h"
 #include "class/hid/hidh_private.h"
 
-#ifdef USB_CLASS_HIDH_MOUSE_EN
+#ifdef HIDH_MOUSE_EN
 
-#ifndef USB_CLASS_HIDH_MOUSE_MAX_COUNT
-#define USB_CLASS_HIDH_MOUSE_MAX_COUNT 1
+#ifndef HIDH_MOUSE_MAX_COUNT
+#define HIDH_MOUSE_MAX_COUNT 1
 #endif
 
 /* @struct */
@@ -42,7 +42,7 @@ typedef struct mouse_handle
 hidh_mouse_status_t hidh_mouse_status = {0};
 static hidh_mouse_changed_cb changed_cb = NULL;
 static mouse_handle_t *mouse_list = NULL;
-static mouse_handle_t handle_pool[USB_CLASS_HIDH_MOUSE_MAX_COUNT] = {0};
+static mouse_handle_t handle_pool[HIDH_MOUSE_MAX_COUNT] = {0};
 
 void hidh_register_mouse_changed_cb(hidh_mouse_changed_cb cb)
 {
@@ -165,4 +165,4 @@ hidh_instance_t *hidh_mouse_create_instance(hidh_handle_t *hid)
     return NULL;
 }
 
-#endif // USB_CLASS_HIDH_MOUSE_EN
+#endif // HIDH_MOUSE_EN

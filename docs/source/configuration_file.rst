@@ -36,9 +36,9 @@
      - 使能 HUB 主机类驱动
    * - ``USB_CLASS_HIDH_DRIVER_EN``
      - 使能 HID 主机类驱动
-   * - ``USB_CLASS_HIDH_KEYBOARD_EN``
+   * - ``HIDH_KEYBOARD_EN``
      - 使能 HID 主机键盘解析，依赖 ``USB_CLASS_HIDH_DRIVER_EN``
-   * - ``USB_CLASS_HIDH_MOUSE_EN``
+   * - ``HIDH_MOUSE_EN``
      - 使能 HID 主机鼠标解析，依赖 ``USB_CLASS_HIDH_DRIVER_EN``
    * - ``USB_CLASS_CDCH_ACM_DRIVER_EN``
      - 使能 CDC-ACM 主机类驱动
@@ -122,10 +122,10 @@ HID 主机类参数
    * - 宏
      - 默认值
      - 说明
-   * - ``USB_CLASS_HIDH_KEYBOARD_MAX_COUNT``
+   * - ``HIDH_KEYBOARD_MAX_COUNT``
      - 1
      - 键盘实例数量上限
-   * - ``USB_CLASS_HIDH_MOUSE_MAX_COUNT``
+   * - ``HIDH_MOUSE_MAX_COUNT``
      - 1
      - 鼠标实例数量上限
    * - ``HIDH_HANDLE_POOL_SIZE``

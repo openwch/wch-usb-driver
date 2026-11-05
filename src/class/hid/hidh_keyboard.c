@@ -18,10 +18,10 @@
 #include "host/usbh_driver_private.h"
 #include "class/hid/hidh_private.h"
 
-#ifdef USB_CLASS_HIDH_KEYBOARD_EN
+#ifdef HIDH_KEYBOARD_EN
 
-#ifndef USB_CLASS_HIDH_KEYBOARD_MAX_COUNT
-#define USB_CLASS_HIDH_KEYBOARD_MAX_COUNT 1
+#ifndef HIDH_KEYBOARD_MAX_COUNT
+#define HIDH_KEYBOARD_MAX_COUNT 1
 #endif
 
 #define LED_NUM_LOCK_BIT_MASK    (1U << 0)
@@ -43,7 +43,7 @@ typedef struct kb_handle
 /* @global */
 hidh_keyboard_t hidh_keyboard = {0};
 static kb_handle_t *kb_list = NULL;
-static kb_handle_t handle_pool[USB_CLASS_HIDH_KEYBOARD_MAX_COUNT] = {0};
+static kb_handle_t handle_pool[HIDH_KEYBOARD_MAX_COUNT] = {0};
 static hidh_keyboard_changed_cb changed_cb = NULL;
 
 void hidh_register_keyboard_changed_cb(hidh_keyboard_changed_cb cb)
@@ -185,4 +185,4 @@ hidh_instance_t *hidh_keyboard_create_instance(hidh_handle_t *hid)
     return NULL;
 }
 
-#endif // USB_CLASS_HIDH_KEYBOARD_EN
+#endif // HIDH_KEYBOARD_EN

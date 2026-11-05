@@ -164,12 +164,12 @@ static hidh_instance_t *hidh_instance_alloc(hidh_handle_t *hid, uint16_t usage_p
     {
         switch (usage)
         {
-#ifdef USB_CLASS_HIDH_KEYBOARD_EN
+#ifdef HIDH_KEYBOARD_EN
         case HID_DESKTOP_USAGE_KEYBOARD:
             return hidh_keyboard_create_instance(hid);
 #endif
 
-#ifdef USB_CLASS_HIDH_MOUSE_EN
+#ifdef HIDH_MOUSE_EN
         case HID_DESKTOP_USAGE_MOUSE:
             return hidh_mouse_create_instance(hid);
 #endif
@@ -535,11 +535,11 @@ void hidh_drv_task(void)
         hid = next;
     }
 
-#ifdef USB_CLASS_HIDH_KEYBOARD_EN
+#ifdef HIDH_KEYBOARD_EN
     hidh_keyboard_task();
 #endif
 
-#ifdef USB_CLASS_HIDH_MOUSE_EN
+#ifdef HIDH_MOUSE_EN
     hidh_mouse_task();
 #endif
 }

@@ -1222,7 +1222,7 @@ HUB 类驱动用于支持外部 USB HUB，使主机能够通过 HUB 端口连接
 HID类驱动
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-HID 主机类驱动完成 HID 设备的枚举、报表描述符解析和输入报表读取，并提供键盘、鼠标的通用解析结果。应用通过 ``hidh_drv_open()`` 注册驱动，并在主循环中调用 ``hidh_drv_task()``。键盘和鼠标功能分别通过 ``USB_CLASS_HIDH_KEYBOARD_EN`` 和 ``USB_CLASS_HIDH_MOUSE_EN`` 宏使能。
+HID 主机类驱动完成 HID 设备的枚举、报表描述符解析和输入报表读取，并提供键盘、鼠标的通用解析结果。应用通过 ``hidh_drv_open()`` 注册驱动，并在主循环中调用 ``hidh_drv_task()``。键盘和鼠标功能分别通过 ``HIDH_KEYBOARD_EN`` 和 ``HIDH_MOUSE_EN`` 宏使能。
 
 .. c:function:: bool hidh_drv_open(usbh_handle_t *h)
 

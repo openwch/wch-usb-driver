@@ -29,4 +29,11 @@ clear_all:
 	@rm -rf $(addsuffix /build,$(EXAMPLE_DIRS))
 	@echo "Clear all complete!"
 
-.PHONY: make_evt clear_evt build_all clear_all
+# --- Format ---
+FORMAT_DIRS := examples include port src
+
+format:
+	@find $(FORMAT_DIRS) -type f \( -name '*.c' -o -name '*.h' \) -exec clang-format -i -style=file {} +
+	@echo "Format complete!"
+
+.PHONY: make_evt clear_evt build_all clear_all format

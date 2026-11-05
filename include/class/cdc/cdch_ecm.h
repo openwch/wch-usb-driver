@@ -23,14 +23,14 @@ extern "C" {
 #endif
 
 /* @typedef */
-typedef struct ecmh_handle ecmh_handle_t;
+typedef struct cdch_ecm_handle cdch_ecm_handle_t;
 
 /* @function pointer */
-typedef void (*cdch_ecm_open_cb)(ecmh_handle_t *ecm, bool rst);
-typedef void (*cdch_ecm_connect_change_cb)(ecmh_handle_t *ecm, bool connected);
-typedef void (*cdch_ecm_speed_change_cb)(ecmh_handle_t *ecm, uint32_t upload_speed, uint32_t download_speed);
-typedef void (*cdch_ecm_read_cb)(ecmh_handle_t *ecm, const void *buf, size_t length);
-typedef void (*cdch_ecm_write_cb)(ecmh_handle_t *ecm, const void *buf, size_t length);
+typedef void (*cdch_ecm_open_cb)(cdch_ecm_handle_t *ecm, bool rst);
+typedef void (*cdch_ecm_connect_change_cb)(cdch_ecm_handle_t *ecm, bool connected);
+typedef void (*cdch_ecm_speed_change_cb)(cdch_ecm_handle_t *ecm, uint32_t upload_speed, uint32_t download_speed);
+typedef void (*cdch_ecm_read_cb)(cdch_ecm_handle_t *ecm, const void *buf, size_t length);
+typedef void (*cdch_ecm_write_cb)(cdch_ecm_handle_t *ecm, const void *buf, size_t length);
 
 /* @function declarations */
 
@@ -72,7 +72,7 @@ size_t cdch_ecm_get_count(void);
  * 
  * @return CDC-ECM instance handle, or NULL if the index is invalid
  */
-ecmh_handle_t *cdch_ecm_get_handle(size_t index);
+cdch_ecm_handle_t *cdch_ecm_get_handle(size_t index);
 
 /**
  * @brief Open the USB CDC-ECM host driver instance
@@ -82,7 +82,7 @@ ecmh_handle_t *cdch_ecm_get_handle(size_t index);
  * @param connect_cb The callback function to be called when the connection status changes
  * @param speed_cb The callback function to be called when the connection speed changes
  */
-void cdch_ecm_open(ecmh_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connect_change_cb connect_cb,
+void cdch_ecm_open(cdch_ecm_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connect_change_cb connect_cb,
                    cdch_ecm_speed_change_cb speed_cb);
 
 /**
@@ -90,7 +90,7 @@ void cdch_ecm_open(ecmh_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connec
  * 
  * @param ecm CDC-ECM instance handle
  */
-void cdch_ecm_close(ecmh_handle_t *ecm);
+void cdch_ecm_close(cdch_ecm_handle_t *ecm);
 
 /**
  * @brief Get the MAC address of the USB CDC-ECM host driver instance
@@ -99,7 +99,7 @@ void cdch_ecm_close(ecmh_handle_t *ecm);
  * 
  * @return Pointer to the MAC address
  */
-const uint8_t *cdch_ecm_get_mac_addr(ecmh_handle_t *ecm);
+const uint8_t *cdch_ecm_get_mac_addr(cdch_ecm_handle_t *ecm);
 
 /**
  * @brief Check if the USB CDC-ECM host driver instance is open
@@ -108,7 +108,7 @@ const uint8_t *cdch_ecm_get_mac_addr(ecmh_handle_t *ecm);
  * 
  * @return true if the instance is open
  */
-bool cdch_ecm_is_open(ecmh_handle_t *ecm);
+bool cdch_ecm_is_open(cdch_ecm_handle_t *ecm);
 
 /**
  * @brief Check if the USB CDC-ECM host driver instance is connected
@@ -117,7 +117,7 @@ bool cdch_ecm_is_open(ecmh_handle_t *ecm);
  * 
  * @return true if the instance is connected
  */
-bool cdch_ecm_is_connected(ecmh_handle_t *ecm);
+bool cdch_ecm_is_connected(cdch_ecm_handle_t *ecm);
 
 /**
  * @brief Get the connection speed of the USB CDC-ECM host driver instance
@@ -128,7 +128,7 @@ bool cdch_ecm_is_connected(ecmh_handle_t *ecm);
  * 
  * @return Operation result
  */
-bool cdch_ecm_get_speed(ecmh_handle_t *ecm, uint32_t *upload_speed, uint32_t *download_speed);
+bool cdch_ecm_get_speed(cdch_ecm_handle_t *ecm, uint32_t *upload_speed, uint32_t *download_speed);
 
 /**
  * @brief Read data from the USB CDC-ECM host driver instance
@@ -141,7 +141,7 @@ bool cdch_ecm_get_speed(ecmh_handle_t *ecm, uint32_t *upload_speed, uint32_t *do
  * 
  * @return Operation result
  */
-bool cdch_ecm_read(ecmh_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb);
+bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb);
 
 /**
  * @brief Write data to the USB CDC-ECM host driver instance
@@ -154,7 +154,7 @@ bool cdch_ecm_read(ecmh_handle_t *ecm, void *buf, size_t length, uint32_t timeou
  * 
  * @return Operation result
  */
-bool cdch_ecm_write(ecmh_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb);
+bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb);
 
 #ifdef __cplusplus
 }

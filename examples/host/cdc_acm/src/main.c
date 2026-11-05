@@ -41,17 +41,17 @@ static cdc_line_coding_t line_coding = {
     .data_bits = 8,
 };
 
-static void acm_open_cb(acmh_handle_t *acm, bool rst)
+static void acm_open_cb(cdch_acm_handle_t *acm, bool rst)
 {
     printf("CDC-ACM0: Set baud rate to %u %s\n", line_coding.bit_rate, rst ? "success" : "fail");
 }
 
-static void acm_read_cb(acmh_handle_t *acm, const void *buf, size_t length)
+static void acm_read_cb(cdch_acm_handle_t *acm, const void *buf, size_t length)
 {
     printf("CDC-ACM0: Read %u bytes\n", length);
 }
 
-static void acm_write_cb(acmh_handle_t *acm, const void *buf, size_t length)
+static void acm_write_cb(cdch_acm_handle_t *acm, const void *buf, size_t length)
 {
     printf("CDC-ACM0: Wrote %u bytes\n", length);
 }
@@ -85,7 +85,7 @@ int main(void)
         }
 
         /* Get the handle for the first CDC-ACM device */
-        acmh_handle_t *acm = cdch_acm_get_handle(0);
+        cdch_acm_handle_t *acm = cdch_acm_get_handle(0);
 
         /* Update LED status based on CDC-ACM connection and open state */
         led_write(acm ? (cdch_acm_is_open(acm) ? LED_1 : 0) | LED_0 : 0);

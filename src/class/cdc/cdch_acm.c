@@ -38,9 +38,9 @@ typedef enum
 } enum_stage_t;
 
 /* @struct */
-typedef struct acmh_handle
+typedef struct cdch_acm_handle
 {
-    struct acmh_handle *next;
+    struct cdch_acm_handle *next;
     usbh_device_t *dev;
 
     /* CDC_ACM interface information */
@@ -64,11 +64,11 @@ typedef struct acmh_handle
     cdch_acm_write_cb write_cb;
     __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) cdc_line_coding_t line_coding;
-} acmh_handle_t;
+} cdch_acm_handle_t;
 
 /* @global */
-static acmh_handle_t *acm_list = NULL;
-static acmh_handle_t handle_pool[CDCH_ACM_HANDLE_POOL_SIZE] = {0};
+static cdch_acm_handle_t *acm_list = NULL;
+static cdch_acm_handle_t handle_pool[CDCH_ACM_HANDLE_POOL_SIZE] = {0};
 
 /* @function declarations */
 static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
@@ -92,7 +92,7 @@ static const usbh_drv_info_t acm_drv_info = {
 
 static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
 {
-    acmh_handle_t *acm = (acmh_handle_t *)handle;
+    cdch_acm_handle_t *acm = (cdch_acm_handle_t *)handle;
     if (!rst)
     {
         USB_LOGE("Handle %p: Enumeration control transfer failed at stage %d", acm, acm->enum_stage);
@@ -148,7 +148,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     }
 }
 
-static void acm_enum_task(acmh_handle_t *acm)
+static void acm_enum_task(cdch_acm_handle_t *acm)
 {
     switch (acm->enum_stage)
     {
@@ -175,7 +175,7 @@ static void acm_enum_task(acmh_handle_t *acm)
 
 static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
 {
-    acmh_handle_t *acm = (acmh_handle_t *)handle;
+    cdch_acm_handle_t *acm = (cdch_acm_handle_t *)handle;
     if (!acm->opening) return;
     USB_LOGI("Handle %p: Successfully opened Baud rate: %u", acm, acm->line_coding.bit_rate);
     acm->opening = false;
@@ -186,7 +186,7 @@ static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, c
     }
 }
 
-static void acm_run_task(acmh_handle_t *acm)
+static void acm_run_task(cdch_acm_handle_t *acm)
 {
     if (usbh_is_ctrl_xfering(acm->dev)) return;
     if (acm->opening)
@@ -227,10 +227,10 @@ static void acm_run_task(acmh_handle_t *acm)
 
 void cdch_acm_drv_task(void)
 {
-    acmh_handle_t *acm = acm_list;
+    cdch_acm_handle_t *acm = acm_list;
     while (acm)
     {
-        acmh_handle_t *next = acm->next;
+        cdch_acm_handle_t *next = acm->next;
         if (!acm->dev->suspended)
         {
             if (acm->enum_stage < ENUM_STAGE_END)
@@ -261,7 +261,7 @@ bool cdch_acm_drv_close(usbh_handle_t *h)
 size_t cdch_acm_get_count(void)
 {
     size_t count = 0;
-    acmh_handle_t *acm = acm_list;
+    cdch_acm_handle_t *acm = acm_list;
     while (acm)
     {
         if (acm->enum_stage >= ENUM_STAGE_END) count++;
@@ -270,10 +270,10 @@ size_t cdch_acm_get_count(void)
     return count;
 }
 
-acmh_handle_t *cdch_acm_get_handle(size_t index)
+cdch_acm_handle_t *cdch_acm_get_handle(size_t index)
 {
     size_t i = 0;
-    acmh_handle_t *acm = acm_list;
+    cdch_acm_handle_t *acm = acm_list;
     while (acm)
     {
         if (acm->enum_stage >= ENUM_STAGE_END)
@@ -286,7 +286,7 @@ acmh_handle_t *cdch_acm_get_handle(size_t index)
     return NULL;
 }
 
-void cdch_acm_open(acmh_handle_t *acm, const cdc_line_coding_t *line_coding, cdch_acm_open_cb cb)
+void cdch_acm_open(cdch_acm_handle_t *acm, const cdc_line_coding_t *line_coding, cdch_acm_open_cb cb)
 {
     if (!acm || !line_coding)
     {
@@ -298,20 +298,20 @@ void cdch_acm_open(acmh_handle_t *acm, const cdc_line_coding_t *line_coding, cdc
     memcpy(&acm->line_coding, line_coding, sizeof(cdc_line_coding_t));
 }
 
-void cdch_acm_close(acmh_handle_t *acm)
+void cdch_acm_close(cdch_acm_handle_t *acm)
 {
     if (!acm) return;
     acm->is_open = false;
     acm->opening = false;
 }
 
-bool cdch_acm_is_open(acmh_handle_t *acm)
+bool cdch_acm_is_open(cdch_acm_handle_t *acm)
 {
     if (!acm) return false;
     return acm->is_open;
 }
 
-bool cdch_acm_read(acmh_handle_t *acm, void *buf, size_t length, uint32_t timeout, cdch_acm_read_cb cb)
+bool cdch_acm_read(cdch_acm_handle_t *acm, void *buf, size_t length, uint32_t timeout, cdch_acm_read_cb cb)
 {
     if (!acm || !buf || length == 0 || !acm->is_open) return false;
     if (usbh_is_endp_xfering(acm->dev, acm->in_ep->bEndpointAddress)) return false;
@@ -320,7 +320,7 @@ bool cdch_acm_read(acmh_handle_t *acm, void *buf, size_t length, uint32_t timeou
     return true;
 }
 
-bool cdch_acm_write(acmh_handle_t *acm, const void *buf, size_t length, uint32_t timeout, cdch_acm_write_cb cb)
+bool cdch_acm_write(cdch_acm_handle_t *acm, const void *buf, size_t length, uint32_t timeout, cdch_acm_write_cb cb)
 {
     if (!acm || !buf || length == 0 || !acm->is_open) return false;
     if (usbh_is_endp_xfering(acm->dev, acm->out_ep->bEndpointAddress)) return false;
@@ -329,7 +329,7 @@ bool cdch_acm_write(acmh_handle_t *acm, const void *buf, size_t length, uint32_t
     return true;
 }
 
-void cdch_acm_set_dtr(acmh_handle_t *acm, bool dtr)
+void cdch_acm_set_dtr(cdch_acm_handle_t *acm, bool dtr)
 {
     if (!acm || !acm->is_open) return;
     USB_LOGI("Handle %p set DTR to %d", acm, dtr);
@@ -337,7 +337,7 @@ void cdch_acm_set_dtr(acmh_handle_t *acm, bool dtr)
     acm->line_state = (dtr ? acm->line_state | CDC_LINE_STATE_DTR_MASK : acm->line_state & ~CDC_LINE_STATE_DTR_MASK);
 }
 
-void cdch_acm_set_rts(acmh_handle_t *acm, bool rts)
+void cdch_acm_set_rts(cdch_acm_handle_t *acm, bool rts)
 {
     if (!acm || !acm->is_open) return;
     USB_LOGI("Handle %p set RTS to %d", acm, rts);
@@ -345,7 +345,7 @@ void cdch_acm_set_rts(acmh_handle_t *acm, bool rts)
     acm->line_state = (rts ? acm->line_state | CDC_LINE_STATE_RTS_MASK : acm->line_state & ~CDC_LINE_STATE_RTS_MASK);
 }
 
-void cdch_acm_set_break(acmh_handle_t *acm, bool brk)
+void cdch_acm_set_break(cdch_acm_handle_t *acm, bool brk)
 {
     if (!acm || !acm->is_open) return;
     USB_LOGI("Handle %p set BREAK to %d", acm, brk);
@@ -353,7 +353,7 @@ void cdch_acm_set_break(acmh_handle_t *acm, bool brk)
     acm->duration = brk ? 0xFFFF : 0;
 }
 
-void cdch_acm_send_break(acmh_handle_t *acm, uint16_t duration)
+void cdch_acm_send_break(cdch_acm_handle_t *acm, uint16_t duration)
 {
     if (!acm || !acm->is_open) return;
     USB_LOGI("Handle %p send BREAK with duration %d", acm, duration);
@@ -361,28 +361,28 @@ void cdch_acm_send_break(acmh_handle_t *acm, uint16_t duration)
     acm->duration = duration;
 }
 
-bool cdch_acm_get_dtr(acmh_handle_t *acm)
+bool cdch_acm_get_dtr(cdch_acm_handle_t *acm)
 {
     if (!acm || !acm->is_open) return false;
     USB_LOGI("Handle %p get DTR state %d", acm, (acm->line_state & CDC_LINE_STATE_DTR_MASK) ? 1 : 0);
     return acm->line_state & CDC_LINE_STATE_DTR_MASK;
 }
 
-bool cdch_acm_get_rts(acmh_handle_t *acm)
+bool cdch_acm_get_rts(cdch_acm_handle_t *acm)
 {
     if (!acm || !acm->is_open) return false;
     USB_LOGI("Handle %p get RTS state %d", acm, (acm->line_state & CDC_LINE_STATE_RTS_MASK) ? 1 : 0);
     return acm->line_state & CDC_LINE_STATE_RTS_MASK;
 }
 
-static acmh_handle_t *handle_alloc(void)
+static cdch_acm_handle_t *handle_alloc(void)
 {
     for (size_t i = 0; i < USB_ARRAY_SIZE(handle_pool); i++)
     {
-        acmh_handle_t *acm = &handle_pool[i];
+        cdch_acm_handle_t *acm = &handle_pool[i];
         if (acm->dev == NULL)
         {
-            memset(acm, 0, sizeof(acmh_handle_t));
+            memset(acm, 0, sizeof(cdch_acm_handle_t));
             return acm;
         }
     }
@@ -500,7 +500,7 @@ static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
     if (!ctrl_itf || !data_itf || !notify_ep || !in_ep || !out_ep || !acm_desc) return false;
 
     /* Allocate and initialize a new cdc acm handle */
-    acmh_handle_t *acm = handle_alloc();
+    cdch_acm_handle_t *acm = handle_alloc();
     if (!acm)
     {
         USB_LOGE("Handle %p: Failed to allocate cdc acm handle", dev);
@@ -520,17 +520,17 @@ static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
 static bool acm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
 {
-    acmh_handle_t *acm = acm_list;
+    cdch_acm_handle_t *acm = acm_list;
     while (acm)
     {
-        acmh_handle_t *next = acm->next;
+        cdch_acm_handle_t *next = acm->next;
         if (acm->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || acm->ctrl_itf->bInterfaceNumber == itf_num))
         {
             usbh_endp_close(acm->dev, acm->notify_ep->bEndpointAddress);
             usbh_endp_close(acm->dev, acm->in_ep->bEndpointAddress);
             usbh_endp_close(acm->dev, acm->out_ep->bEndpointAddress);
             usbh_list_remove((void **)&acm_list, acm);
-            memset(acm, 0, sizeof(acmh_handle_t));
+            memset(acm, 0, sizeof(cdch_acm_handle_t));
         }
         acm = next;
     }
@@ -539,7 +539,7 @@ static bool acm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
 
 static void acm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
-    acmh_handle_t *acm = (acmh_handle_t *)handle;
+    cdch_acm_handle_t *acm = (cdch_acm_handle_t *)handle;
     if (rst && acm->is_open)
     {
         USB_LOGI("Handle %p: Read %u bytes", acm, len);
@@ -552,7 +552,7 @@ static void acm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void 
 
 static void acm_drv_write_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
-    acmh_handle_t *acm = (acmh_handle_t *)handle;
+    cdch_acm_handle_t *acm = (cdch_acm_handle_t *)handle;
     if (rst && acm->is_open)
     {
         USB_LOGI("Handle %p: Write %u bytes", acm, len);

@@ -178,24 +178,24 @@ static void arp_protocol_process(const void *buf, size_t length)
     arp_stage = ETH_COMM_STAGE_DONE;
 }
 
-static void ecm_open_cb(ecmh_handle_t *ecm, bool rst)
+static void ecm_open_cb(cdch_ecm_handle_t *ecm, bool rst)
 {
     printf("CDC-ECM0: Opened: %s\n", rst ? "Success" : "Failed");
 }
 
-static void ecm_connect_change_cb(ecmh_handle_t *ecm, bool connected)
+static void ecm_connect_change_cb(cdch_ecm_handle_t *ecm, bool connected)
 {
     ping_seq = 0;
     arp_stage = connected ? ETH_COMM_STAGE_REQUEST : ETH_COMM_STAGE_IDLE;
     printf("CDC-ECM0: Connection status changed: %s\n", connected ? "Connected" : "Disconnected");
 }
 
-static void ecm_speed_change_cb(ecmh_handle_t *ecm, uint32_t upload_speed, uint32_t download_speed)
+static void ecm_speed_change_cb(cdch_ecm_handle_t *ecm, uint32_t upload_speed, uint32_t download_speed)
 {
     printf("CDC-ECM0: Speed changed: Upload %u bps, Download %u bps\n", upload_speed, download_speed);
 }
 
-static void ecm_read_cb(ecmh_handle_t *ecm, const void *buf, size_t length)
+static void ecm_read_cb(cdch_ecm_handle_t *ecm, const void *buf, size_t length)
 {
     size_t header_len = sizeof(ethernet_header_t);
     if (length < header_len) return;
@@ -215,7 +215,7 @@ static void ecm_read_cb(ecmh_handle_t *ecm, const void *buf, size_t length)
     }
 }
 
-static void ecm_write_cb(ecmh_handle_t *ecm, const void *buf, size_t length)
+static void ecm_write_cb(cdch_ecm_handle_t *ecm, const void *buf, size_t length)
 {
 }
 
@@ -248,7 +248,7 @@ int main(void)
         }
 
         /* Get the handle for the first CDC-ECM device */
-        ecmh_handle_t *ecm = cdch_ecm_get_handle(0);
+        cdch_ecm_handle_t *ecm = cdch_ecm_get_handle(0);
 
         /* Update LED status based on CDC-ECM open state */
         led_write(ecm ? (cdch_ecm_is_open(ecm) ? LED_1 : 0) | LED_0 : 0);

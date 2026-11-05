@@ -41,9 +41,9 @@ typedef enum
 } enum_stage_t;
 
 /* @struct */
-typedef struct ecmh_handle
+typedef struct cdch_ecm_handle
 {
-    struct ecmh_handle *next;
+    struct cdch_ecm_handle *next;
     usbh_device_t *dev;
 
     /* CDC_ECM interface information */
@@ -73,11 +73,11 @@ typedef struct ecmh_handle
     __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) uint8_t notify_buf[16];
     __attribute__((aligned(4))) uint8_t mac_desc_buf[26];
-} ecmh_handle_t;
+} cdch_ecm_handle_t;
 
 /* @global */
-static ecmh_handle_t *ecm_list = NULL;
-static ecmh_handle_t handle_pool[CDCH_ECM_HANDLE_POOL_SIZE] = {0};
+static cdch_ecm_handle_t *ecm_list = NULL;
+static cdch_ecm_handle_t handle_pool[CDCH_ECM_HANDLE_POOL_SIZE] = {0};
 
 /* @function declarations */
 static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
@@ -100,7 +100,7 @@ static const usbh_drv_info_t ecm_drv_info = {
     .unbind = ecm_drv_unbind_cb,
 };
 
-static bool mac_addr_desc_parse(ecmh_handle_t *ecm, const void *buf, uint16_t length)
+static bool mac_addr_desc_parse(cdch_ecm_handle_t *ecm, const void *buf, uint16_t length)
 {
     const uint8_t *buf_ptr = (const uint8_t *)buf;
     if (buf_ptr[0] != length || buf_ptr[0] != 26 || buf_ptr[1] != USB_DESC_STRING) return false;
@@ -121,7 +121,7 @@ static bool mac_addr_desc_parse(ecmh_handle_t *ecm, const void *buf, uint16_t le
 
 static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
 {
-    ecmh_handle_t *ecm = (ecmh_handle_t *)handle;
+    cdch_ecm_handle_t *ecm = (cdch_ecm_handle_t *)handle;
     if (!rst)
     {
         USB_LOGE("Handle %p: Enumeration control transfer failed at stage %d", ecm, ecm->enum_stage);
@@ -175,7 +175,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     }
 }
 
-static void ecm_enum_task(ecmh_handle_t *ecm)
+static void ecm_enum_task(cdch_ecm_handle_t *ecm)
 {
     switch (ecm->enum_stage)
     {
@@ -202,7 +202,7 @@ static void ecm_enum_task(ecmh_handle_t *ecm)
 
 static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
 {
-    ecmh_handle_t *ecm = (ecmh_handle_t *)handle;
+    cdch_ecm_handle_t *ecm = (cdch_ecm_handle_t *)handle;
     if (ecm->target_state == ecm->is_open) return;
 
     if (ecm->is_open)
@@ -246,7 +246,7 @@ static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, c
     ecm->target_state = ecm->is_open;
 }
 
-static void ecm_run_task(ecmh_handle_t *ecm)
+static void ecm_run_task(cdch_ecm_handle_t *ecm)
 {
     if (ecm->target_state != ecm->is_open && !usbh_is_ctrl_xfering(ecm->dev))
     {
@@ -268,10 +268,10 @@ static void ecm_run_task(ecmh_handle_t *ecm)
 
 void cdch_ecm_drv_task(void)
 {
-    ecmh_handle_t *ecm = ecm_list;
+    cdch_ecm_handle_t *ecm = ecm_list;
     while (ecm)
     {
-        ecmh_handle_t *next = ecm->next;
+        cdch_ecm_handle_t *next = ecm->next;
         if (!ecm->dev->suspended)
         {
             if (ecm->enum_stage < ENUM_STAGE_END)
@@ -302,7 +302,7 @@ bool cdch_ecm_drv_close(usbh_handle_t *h)
 size_t cdch_ecm_get_count(void)
 {
     size_t count = 0;
-    ecmh_handle_t *ecm = ecm_list;
+    cdch_ecm_handle_t *ecm = ecm_list;
     while (ecm)
     {
         if (ecm->enum_stage >= ENUM_STAGE_END) count++;
@@ -311,10 +311,10 @@ size_t cdch_ecm_get_count(void)
     return count;
 }
 
-ecmh_handle_t *cdch_ecm_get_handle(size_t index)
+cdch_ecm_handle_t *cdch_ecm_get_handle(size_t index)
 {
     size_t i = 0;
-    ecmh_handle_t *ecm = ecm_list;
+    cdch_ecm_handle_t *ecm = ecm_list;
     while (ecm)
     {
         if (ecm->enum_stage >= ENUM_STAGE_END)
@@ -327,7 +327,7 @@ ecmh_handle_t *cdch_ecm_get_handle(size_t index)
     return NULL;
 }
 
-void cdch_ecm_open(ecmh_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connect_change_cb connect_cb,
+void cdch_ecm_open(cdch_ecm_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connect_change_cb connect_cb,
                    cdch_ecm_speed_change_cb speed_cb)
 {
     if (!ecm)
@@ -342,31 +342,31 @@ void cdch_ecm_open(ecmh_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connec
     ecm->target_state = true;
 }
 
-void cdch_ecm_close(ecmh_handle_t *ecm)
+void cdch_ecm_close(cdch_ecm_handle_t *ecm)
 {
     if (!ecm) return;
     ecm->target_state = false;
 }
 
-const uint8_t *cdch_ecm_get_mac_addr(ecmh_handle_t *ecm)
+const uint8_t *cdch_ecm_get_mac_addr(cdch_ecm_handle_t *ecm)
 {
     if (!ecm) return NULL;
     return ecm->mac_addr;
 }
 
-bool cdch_ecm_is_open(ecmh_handle_t *ecm)
+bool cdch_ecm_is_open(cdch_ecm_handle_t *ecm)
 {
     if (!ecm) return false;
     return ecm->is_open;
 }
 
-bool cdch_ecm_is_connected(ecmh_handle_t *ecm)
+bool cdch_ecm_is_connected(cdch_ecm_handle_t *ecm)
 {
     if (!ecm) return false;
     return ecm->connected;
 }
 
-bool cdch_ecm_get_speed(ecmh_handle_t *ecm, uint32_t *upload_speed, uint32_t *download_speed)
+bool cdch_ecm_get_speed(cdch_ecm_handle_t *ecm, uint32_t *upload_speed, uint32_t *download_speed)
 {
     if (!ecm || !upload_speed || !download_speed) return false;
     *upload_speed = ecm->upload_speed;
@@ -374,7 +374,7 @@ bool cdch_ecm_get_speed(ecmh_handle_t *ecm, uint32_t *upload_speed, uint32_t *do
     return true;
 }
 
-bool cdch_ecm_read(ecmh_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb)
+bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb)
 {
     if (!ecm || !buf || length == 0 || !ecm->is_open || !ecm->connected) return false;
     if (usbh_is_endp_xfering(ecm->dev, ecm->in_ep->bEndpointAddress)) return false;
@@ -383,7 +383,7 @@ bool cdch_ecm_read(ecmh_handle_t *ecm, void *buf, size_t length, uint32_t timeou
     return true;
 }
 
-bool cdch_ecm_write(ecmh_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb)
+bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb)
 {
     if (!ecm || !buf || length == 0 || !ecm->is_open || !ecm->connected) return false;
     if (usbh_is_endp_xfering(ecm->dev, ecm->out_ep->bEndpointAddress)) return false;
@@ -393,14 +393,14 @@ bool cdch_ecm_write(ecmh_handle_t *ecm, const void *buf, size_t length, uint32_t
     return true;
 }
 
-static ecmh_handle_t *handle_alloc(void)
+static cdch_ecm_handle_t *handle_alloc(void)
 {
     for (size_t i = 0; i < USB_ARRAY_SIZE(handle_pool); i++)
     {
-        ecmh_handle_t *ecm = &handle_pool[i];
+        cdch_ecm_handle_t *ecm = &handle_pool[i];
         if (ecm->dev == NULL)
         {
-            memset(ecm, 0, sizeof(ecmh_handle_t));
+            memset(ecm, 0, sizeof(cdch_ecm_handle_t));
             return ecm;
         }
     }
@@ -514,7 +514,7 @@ static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
         return false;
 
     /* Allocate and initialize a new cdc ecm handle */
-    ecmh_handle_t *ecm = handle_alloc();
+    cdch_ecm_handle_t *ecm = handle_alloc();
     if (!ecm)
     {
         USB_LOGE("Handle %p: Failed to allocate cdc ecm handle", dev);
@@ -535,17 +535,17 @@ static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
 static bool ecm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
 {
-    ecmh_handle_t *ecm = ecm_list;
+    cdch_ecm_handle_t *ecm = ecm_list;
     while (ecm)
     {
-        ecmh_handle_t *next = ecm->next;
+        cdch_ecm_handle_t *next = ecm->next;
         if (ecm->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || ecm->ctrl_itf->bInterfaceNumber == itf_num))
         {
             usbh_endp_close(ecm->dev, ecm->notify_ep->bEndpointAddress);
             usbh_endp_close(ecm->dev, ecm->in_ep->bEndpointAddress);
             usbh_endp_close(ecm->dev, ecm->out_ep->bEndpointAddress);
             usbh_list_remove((void **)&ecm_list, ecm);
-            memset(ecm, 0, sizeof(ecmh_handle_t));
+            memset(ecm, 0, sizeof(cdch_ecm_handle_t));
         }
         ecm = next;
     }
@@ -556,7 +556,7 @@ static void ecm_drv_notify_cb(void *handle, bool rst, usb_endp_t endp, const voi
 {
     if (!rst || len < sizeof(usb_setup_t)) return;
 
-    ecmh_handle_t *ecm = (ecmh_handle_t *)handle;
+    cdch_ecm_handle_t *ecm = (cdch_ecm_handle_t *)handle;
     usb_setup_t *setup = (usb_setup_t *)ecm->notify_buf;
 
     if (setup->bmRequestType != USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE)) return;
@@ -591,7 +591,7 @@ static void ecm_drv_notify_cb(void *handle, bool rst, usb_endp_t endp, const voi
 
 static void ecm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
-    ecmh_handle_t *ecm = (ecmh_handle_t *)handle;
+    cdch_ecm_handle_t *ecm = (cdch_ecm_handle_t *)handle;
     if (rst && ecm->is_open && ecm->connected)
     {
         if (ecm->read_cb)
@@ -603,7 +603,7 @@ static void ecm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void 
 
 static void ecm_drv_write_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
-    ecmh_handle_t *ecm = (ecmh_handle_t *)handle;
+    cdch_ecm_handle_t *ecm = (cdch_ecm_handle_t *)handle;
     if (rst && ecm->is_open && ecm->connected)
     {
         if (len && len % USB_ENDP_GET_MPS(ecm->out_ep->wMaxPacketSize) == 0)

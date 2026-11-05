@@ -1435,7 +1435,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
 3. 通过 ``cdch_acm_get_count()`` / ``cdch_acm_get_handle()`` 获取已枚举的 CDC-ACM 实例；
 4. 使用 ``cdch_acm_open()`` 配置线路参数并打开实例，然后进行异步读写。
 
-.. c:type:: acmh_handle_t
+.. c:type:: cdch_acm_handle_t
 
    CDC-ACM 主机实例句柄，类型不透明。由类驱动在设备枚举完成后创建，应用通过 ``cdch_acm_get_handle()`` 获取。
 
@@ -1449,7 +1449,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``rst``
         - ``bool``
@@ -1465,7 +1465,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``buf``
         - ``const void *``
@@ -1484,7 +1484,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``buf``
         - ``const void *``
@@ -1556,7 +1556,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - ``0``
         - 未连接设备。
 
-.. c:function:: acmh_handle_t *cdch_acm_get_handle(size_t index)
+.. c:function:: cdch_acm_handle_t *cdch_acm_get_handle(size_t index)
 
    按索引获取 CDC-ACM 实例句柄。
 
@@ -1574,11 +1574,11 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - 返回值
         - 说明
       * - 实例句柄
-        - 索引有效时返回对应的 ``acmh_handle_t *``。
+        - 索引有效时返回对应的 ``cdch_acm_handle_t *``。
       * - ``NULL``
         - 索引无效。
 
-.. c:function:: void cdch_acm_open(acmh_handle_t *acm, const cdc_line_coding_t *line_coding, cdch_acm_open_cb cb)
+.. c:function:: void cdch_acm_open(cdch_acm_handle_t *acm, const cdc_line_coding_t *line_coding, cdch_acm_open_cb cb)
 
    以指定线路参数打开 CDC-ACM 实例。该函数仅记录请求，实际 ``SET_LINE_CODING`` 请求由 ``cdch_acm_drv_task()`` 异步完成，完成后调用 ``cb``。该函数无返回值。
 
@@ -1588,7 +1588,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``line_coding``
         - ``const cdc_line_coding_t *``
@@ -1597,7 +1597,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - ``cdch_acm_open_cb``
         - 打开完成回调；参数非法时以 ``rst = false`` 调用。
 
-.. c:function:: void cdch_acm_close(acmh_handle_t *acm)
+.. c:function:: void cdch_acm_close(cdch_acm_handle_t *acm)
 
    关闭 CDC-ACM 实例。该函数无返回值。
 
@@ -1607,10 +1607,10 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
 
-.. c:function:: bool cdch_acm_is_open(acmh_handle_t *acm)
+.. c:function:: bool cdch_acm_is_open(cdch_acm_handle_t *acm)
 
    查询 CDC-ACM 实例是否已打开。
 
@@ -1620,7 +1620,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
 
    .. list-table::
@@ -1632,7 +1632,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - ``false``
         - 实例未打开。
 
-.. c:function:: bool cdch_acm_read(acmh_handle_t *acm, void *buf, size_t length, uint32_t timeout, cdch_acm_read_cb cb)
+.. c:function:: bool cdch_acm_read(cdch_acm_handle_t *acm, void *buf, size_t length, uint32_t timeout, cdch_acm_read_cb cb)
 
    从 CDC-ACM 实例发起一次异步读取。
 
@@ -1642,7 +1642,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``buf``
         - ``void *``
@@ -1668,7 +1668,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
 
    ``cb`` 在传输成功时由类驱动调用。
 
-.. c:function:: bool cdch_acm_write(acmh_handle_t *acm, const void *buf, size_t length, uint32_t timeout, cdch_acm_write_cb cb)
+.. c:function:: bool cdch_acm_write(cdch_acm_handle_t *acm, const void *buf, size_t length, uint32_t timeout, cdch_acm_write_cb cb)
 
    向 CDC-ACM 实例发起一次异步写入。
 
@@ -1678,7 +1678,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``buf``
         - ``const void *``
@@ -1704,7 +1704,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
 
    ``cb`` 在传输成功时由类驱动调用。
 
-.. c:function:: void cdch_acm_set_dtr(acmh_handle_t *acm, bool dtr)
+.. c:function:: void cdch_acm_set_dtr(cdch_acm_handle_t *acm, bool dtr)
 
    设置 DTR 信号。该状态与 RTS 一起在下一次 ``cdch_acm_drv_task()`` 中通过 ``SET_CONTROL_LINE_STATE`` 请求发送。该函数无返回值。
 
@@ -1714,13 +1714,13 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``dtr``
         - ``bool``
         - 为 ``true`` 时置位 DTR，为 ``false`` 时清除。
 
-.. c:function:: void cdch_acm_set_rts(acmh_handle_t *acm, bool rts)
+.. c:function:: void cdch_acm_set_rts(cdch_acm_handle_t *acm, bool rts)
 
    设置 RTS 信号。该函数无返回值。
 
@@ -1730,13 +1730,13 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``rts``
         - ``bool``
         - 为 ``true`` 时置位 RTS，为 ``false`` 时清除。
 
-.. c:function:: void cdch_acm_set_break(acmh_handle_t *acm, bool brk)
+.. c:function:: void cdch_acm_set_break(cdch_acm_handle_t *acm, bool brk)
 
    设置 break 状态。为 ``true`` 时发送持续时间为 ``0xFFFF`` 的 break，为 ``false`` 时发送持续时间为 0 的 break。该函数无返回值。
 
@@ -1746,13 +1746,13 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``brk``
         - ``bool``
         - break 状态。
 
-.. c:function:: void cdch_acm_send_break(acmh_handle_t *acm, uint16_t duration)
+.. c:function:: void cdch_acm_send_break(cdch_acm_handle_t *acm, uint16_t duration)
 
    发送指定持续时间的 break 信号。该函数无返回值。
 
@@ -1762,13 +1762,13 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
       * - ``duration``
         - ``uint16_t``
         - break 持续时间。
 
-.. c:function:: bool cdch_acm_get_dtr(acmh_handle_t *acm)
+.. c:function:: bool cdch_acm_get_dtr(cdch_acm_handle_t *acm)
 
    获取当前 DTR 状态。
 
@@ -1778,7 +1778,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
 
    .. list-table::
@@ -1790,7 +1790,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - ``false``
         - DTR 未置位。
 
-.. c:function:: bool cdch_acm_get_rts(acmh_handle_t *acm)
+.. c:function:: bool cdch_acm_get_rts(cdch_acm_handle_t *acm)
 
    获取当前 RTS 状态。
 
@@ -1800,7 +1800,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
         - 类型
         - 说明
       * - ``acm``
-        - ``acmh_handle_t *``
+        - ``cdch_acm_handle_t *``
         - CDC-ACM 实例句柄。
 
    .. list-table::
@@ -1824,7 +1824,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
 
 驱动按接口类 ``USB_CLASS_CDC`` 和子类 ``CDC_SUBCLASS_ETHERNET_CONTROL_MODEL`` 匹配设备。绑定后驱动依次读取 MAC 地址字符串描述符、将数据接口切换到关闭状态并设置以太网包过滤器；打开实例时再切换到数据接口的启用设置并打开通知、IN 和 OUT 端点。
 
-.. c:type:: ecmh_handle_t
+.. c:type:: cdch_ecm_handle_t
 
    CDC-ECM 主机实例句柄，类型不透明。由类驱动在设备枚举完成后创建，应用通过 ``cdch_ecm_get_handle()`` 获取。
 
@@ -1838,7 +1838,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``rst``
         - ``bool``
@@ -1854,7 +1854,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``connected``
         - ``bool``
@@ -1870,7 +1870,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``upload_speed``
         - ``uint32_t``
@@ -1889,7 +1889,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``buf``
         - ``const void *``
@@ -1908,7 +1908,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``buf``
         - ``const void *``
@@ -1978,7 +1978,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``0``
         - 未连接设备。
 
-.. c:function:: ecmh_handle_t *cdch_ecm_get_handle(size_t index)
+.. c:function:: cdch_ecm_handle_t *cdch_ecm_get_handle(size_t index)
 
    按索引获取 CDC-ECM 实例句柄。
 
@@ -1996,11 +1996,11 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - 返回值
         - 说明
       * - 实例句柄
-        - 索引有效时返回对应的 ``ecmh_handle_t *``。
+        - 索引有效时返回对应的 ``cdch_ecm_handle_t *``。
       * - ``NULL``
         - 索引无效。
 
-.. c:function:: void cdch_ecm_open(ecmh_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connect_change_cb connect_cb, cdch_ecm_speed_change_cb speed_cb)
+.. c:function:: void cdch_ecm_open(cdch_ecm_handle_t *ecm, cdch_ecm_open_cb open_cb, cdch_ecm_connect_change_cb connect_cb, cdch_ecm_speed_change_cb speed_cb)
 
    打开 CDC-ECM 实例。该函数仅记录目标状态和回调，实际数据接口切换与端点打开由 ``cdch_ecm_drv_task()`` 异步完成，完成后调用 ``open_cb``。该函数无返回值。
 
@@ -2010,7 +2010,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``open_cb``
         - ``cdch_ecm_open_cb``
@@ -2022,7 +2022,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - ``cdch_ecm_speed_change_cb``
         - 连接速度变化回调。
 
-.. c:function:: void cdch_ecm_close(ecmh_handle_t *ecm)
+.. c:function:: void cdch_ecm_close(cdch_ecm_handle_t *ecm)
 
    关闭 CDC-ECM 实例。该函数仅记录目标状态，实际接口切换和端点关闭由 ``cdch_ecm_drv_task()`` 异步完成。该函数无返回值。
 
@@ -2032,10 +2032,10 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
 
-.. c:function:: const uint8_t *cdch_ecm_get_mac_addr(ecmh_handle_t *ecm)
+.. c:function:: const uint8_t *cdch_ecm_get_mac_addr(cdch_ecm_handle_t *ecm)
 
    获取实例的 MAC 地址。该地址由设备提供的 MAC 地址字符串描述符解析得到。
 
@@ -2045,7 +2045,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
 
    .. list-table::
@@ -2057,7 +2057,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``NULL``
         - 句柄为空。
 
-.. c:function:: bool cdch_ecm_is_open(ecmh_handle_t *ecm)
+.. c:function:: bool cdch_ecm_is_open(cdch_ecm_handle_t *ecm)
 
    查询 CDC-ECM 实例是否已打开。
 
@@ -2067,7 +2067,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
 
    .. list-table::
@@ -2079,7 +2079,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``false``
         - 实例未打开。
 
-.. c:function:: bool cdch_ecm_is_connected(ecmh_handle_t *ecm)
+.. c:function:: bool cdch_ecm_is_connected(cdch_ecm_handle_t *ecm)
 
    查询 CDC-ECM 实例的网络连接状态。
 
@@ -2089,7 +2089,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
 
    .. list-table::
@@ -2101,7 +2101,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``false``
         - 网络未连接。
 
-.. c:function:: bool cdch_ecm_get_speed(ecmh_handle_t *ecm, uint32_t *upload_speed, uint32_t *download_speed)
+.. c:function:: bool cdch_ecm_get_speed(cdch_ecm_handle_t *ecm, uint32_t *upload_speed, uint32_t *download_speed)
 
    获取最近一次连接速度变化通知中的速率。未收到通知前，速率为 0。
 
@@ -2111,7 +2111,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``upload_speed``
         - ``uint32_t *``
@@ -2129,7 +2129,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``false``
         - 参数为空。
 
-.. c:function:: bool cdch_ecm_read(ecmh_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb)
+.. c:function:: bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb)
 
    从 CDC-ECM 实例发起一次异步读取，接收设备发来的以太网帧。
 
@@ -2139,7 +2139,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``buf``
         - ``void *``
@@ -2165,7 +2165,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
 
    ``cb`` 在传输成功时由类驱动调用。
 
-.. c:function:: bool cdch_ecm_write(ecmh_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb)
+.. c:function:: bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb)
 
    向 CDC-ECM 实例发起一次异步写入，发送以太网帧。
 
@@ -2175,7 +2175,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
         - 类型
         - 说明
       * - ``ecm``
-        - ``ecmh_handle_t *``
+        - ``cdch_ecm_handle_t *``
         - CDC-ECM 实例句柄。
       * - ``buf``
         - ``const void *``

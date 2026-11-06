@@ -131,30 +131,30 @@ static uint16_t checksum(uint8_t *data, size_t len)
     return (uint16_t)~sum;
 }
 
-static void icmp_protocol_process(const void *buf, size_t length)
+static void icmp_protocol_process(const void *buf, size_t len)
 {
-    if (length < sizeof(icmp_echo_header_t)) return;
+    if (len < sizeof(icmp_echo_header_t)) return;
 
     const icmp_echo_header_t *recv_icmp = (const icmp_echo_header_t *)buf;
     if (recv_icmp->type != NET_ICMP_ECHO_REPLY || recv_icmp->code != 0) return;
-    if (checksum((uint8_t *)buf, length) != 0) return;
+    if (checksum((uint8_t *)buf, len) != 0) return;
 
     printf("Received ICMP echo reply: seq=%u\n", recv_icmp->seq);
     ping_stage = ETH_COMM_STAGE_DONE;
 }
 
-static void ipv4_protocol_process(const void *buf, size_t length)
+static void ipv4_protocol_process(const void *buf, size_t len)
 {
-    if (length < sizeof(ipv4_header_t)) return;
+    if (len < sizeof(ipv4_header_t)) return;
 
     const ipv4_header_t *recv_ip = (const ipv4_header_t *)buf;
     if (recv_ip->version != NET_IPV4_VERSION) return;
 
     size_t ip_hdr_len = (size_t)recv_ip->ihl * 4;
-    if (ip_hdr_len < sizeof(ipv4_header_t) || ip_hdr_len > length) return;
+    if (ip_hdr_len < sizeof(ipv4_header_t) || ip_hdr_len > len) return;
 
     size_t ip_total_len = recv_ip->total_len;
-    if (ip_total_len < ip_hdr_len || ip_total_len > length) return;
+    if (ip_total_len < ip_hdr_len || ip_total_len > len) return;
     if (recv_ip->fragment_offset != 0 || (recv_ip->flags & NET_IPV4_FLAG_MF) != 0) return;
     if (memcmp(recv_ip->dst_ip, local_ip_addr, sizeof(local_ip_addr)) != 0) return;
     if (checksum((uint8_t *)buf, ip_hdr_len) != 0) return;
@@ -162,10 +162,10 @@ static void ipv4_protocol_process(const void *buf, size_t length)
     icmp_protocol_process(buf + ip_hdr_len, ip_total_len - ip_hdr_len);
 }
 
-static void arp_protocol_process(const void *buf, size_t length)
+static void arp_protocol_process(const void *buf, size_t len)
 {
     size_t header_len = sizeof(arp_header_t);
-    if (length < header_len) return;
+    if (len < header_len) return;
 
     const arp_header_t *recv_arp = (const arp_header_t *)buf;
     if (recv_arp->hw_type != NET_ARP_HW_ETHERNET || recv_arp->proto_type != NET_ETH_TYPE_IPV4) return;
@@ -195,10 +195,10 @@ static void ecm_speed_change_cb(cdch_ecm_handle_t *ecm, uint32_t upload_speed, u
     printf("CDC-ECM0: Speed changed: Upload %u bps, Download %u bps\n", upload_speed, download_speed);
 }
 
-static void ecm_read_cb(cdch_ecm_handle_t *ecm, const void *buf, size_t length)
+static void ecm_read_cb(cdch_ecm_handle_t *ecm, const void *buf, size_t len)
 {
     size_t header_len = sizeof(ethernet_header_t);
-    if (length < header_len) return;
+    if (len < header_len) return;
 
     const ethernet_header_t *recv_eth = (const ethernet_header_t *)buf;
     if (memcmp(recv_eth->dst_mac, local_mac_addr, 6) != 0) return;
@@ -206,16 +206,16 @@ static void ecm_read_cb(cdch_ecm_handle_t *ecm, const void *buf, size_t length)
     switch (recv_eth->eth_type)
     {
     case NET_ETH_TYPE_ARP:
-        arp_protocol_process(buf + header_len, length - header_len);
+        arp_protocol_process(buf + header_len, len - header_len);
         break;
 
     case NET_ETH_TYPE_IPV4:
-        ipv4_protocol_process(buf + header_len, length - header_len);
+        ipv4_protocol_process(buf + header_len, len - header_len);
         break;
     }
 }
 
-static void ecm_write_cb(cdch_ecm_handle_t *ecm, const void *buf, size_t length)
+static void ecm_write_cb(cdch_ecm_handle_t *ecm, const void *buf, size_t len)
 {
 }
 

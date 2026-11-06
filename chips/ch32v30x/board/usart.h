@@ -40,8 +40,8 @@ typedef enum
 /* @function declarations */
 void usart_init(void);
 bool usart_config(uint32_t baudrate, usart_stop_bits_t stop_bits, usart_parity_t parity);
-size_t usart_read(uint8_t *buffer, size_t length);
-bool usart_write(const uint8_t *buffer, size_t length);
+size_t usart_read(uint8_t *buffer, size_t len);
+bool usart_write(const uint8_t *buffer, size_t len);
 
 #ifdef __cplusplus
 }

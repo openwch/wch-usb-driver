@@ -1470,7 +1470,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - ``buf``
         - ``const void *``
         - 本次接收到的数据。
-      * - ``length``
+      * - ``len``
         - ``size_t``
         - 本次接收到的字节数。
 
@@ -1489,7 +1489,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - ``buf``
         - ``const void *``
         - 本次发送的数据。
-      * - ``length``
+      * - ``len``
         - ``size_t``
         - 本次发送的字节数。
 
@@ -1632,7 +1632,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - ``false``
         - 实例未打开。
 
-.. c:function:: bool cdch_acm_read(cdch_acm_handle_t *acm, void *buf, size_t length, uint32_t timeout, cdch_acm_read_cb cb)
+.. c:function:: bool cdch_acm_read(cdch_acm_handle_t *acm, void *buf, size_t len, uint32_t timeout, cdch_acm_read_cb cb)
 
    从 CDC-ACM 实例发起一次异步读取。
 
@@ -1647,7 +1647,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - ``buf``
         - ``void *``
         - 接收数据的缓冲区。
-      * - ``length``
+      * - ``len``
         - ``size_t``
         - 期望读取的最大字节数，不能为 0。
       * - ``timeout``
@@ -1668,7 +1668,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
 
    ``cb`` 在传输成功时由类驱动调用。
 
-.. c:function:: bool cdch_acm_write(cdch_acm_handle_t *acm, const void *buf, size_t length, uint32_t timeout, cdch_acm_write_cb cb)
+.. c:function:: bool cdch_acm_write(cdch_acm_handle_t *acm, const void *buf, size_t len, uint32_t timeout, cdch_acm_write_cb cb)
 
    向 CDC-ACM 实例发起一次异步写入。
 
@@ -1683,7 +1683,7 @@ CDC-ACM 主机类驱动实现 USB 虚拟串口主机端。典型使用流程如�
       * - ``buf``
         - ``const void *``
         - 待发送数据的缓冲区。
-      * - ``length``
+      * - ``len``
         - ``size_t``
         - 待发送的字节数，不能为 0。
       * - ``timeout``
@@ -1894,7 +1894,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``buf``
         - ``const void *``
         - 本次接收到的以太网帧。
-      * - ``length``
+      * - ``len``
         - ``size_t``
         - 本次接收到的字节数。
 
@@ -1913,7 +1913,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``buf``
         - ``const void *``
         - 本次发送的以太网帧。
-      * - ``length``
+      * - ``len``
         - ``size_t``
         - 本次发送的字节数。
 
@@ -2129,7 +2129,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``false``
         - 参数为空。
 
-.. c:function:: bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb)
+.. c:function:: bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t len, uint32_t timeout, cdch_ecm_read_cb cb)
 
    从 CDC-ECM 实例发起一次异步读取，接收设备发来的以太网帧。
 
@@ -2144,7 +2144,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``buf``
         - ``void *``
         - 接收数据的缓冲区。
-      * - ``length``
+      * - ``len``
         - ``size_t``
         - 期望读取的最大字节数，不能为 0。
       * - ``timeout``
@@ -2165,7 +2165,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
 
    ``cb`` 在传输成功时由类驱动调用。
 
-.. c:function:: bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb)
+.. c:function:: bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t len, uint32_t timeout, cdch_ecm_write_cb cb)
 
    向 CDC-ECM 实例发起一次异步写入，发送以太网帧。
 
@@ -2180,7 +2180,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``buf``
         - ``const void *``
         - 待发送数据的缓冲区。
-      * - ``length``
+      * - ``len``
         - ``size_t``
         - 待发送的字节数，不能为 0。
       * - ``timeout``
@@ -2199,7 +2199,7 @@ CDC-ECM 主机类驱动实现以太网控制模型的主机端。典型使用流
       * - ``false``
         - 实例未打开、网络未连接、参数非法或端点忙。
 
-   ``cb`` 在传输成功时由类驱动调用。若发送长度恰为端点最大包长的整数倍，驱动会自动追加零长度包，回调中的 ``length`` 仍为原始长度。
+   ``cb`` 在传输成功时由类驱动调用。若发送长度恰为端点最大包长的整数倍，驱动会自动追加零长度包，回调中的 ``len`` 仍为原始长度。
 
 UAC类驱动
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

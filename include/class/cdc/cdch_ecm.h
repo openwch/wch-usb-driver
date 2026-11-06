@@ -29,8 +29,8 @@ typedef struct cdch_ecm_handle cdch_ecm_handle_t;
 typedef void (*cdch_ecm_open_cb)(cdch_ecm_handle_t *ecm, bool rst);
 typedef void (*cdch_ecm_connect_change_cb)(cdch_ecm_handle_t *ecm, bool connected);
 typedef void (*cdch_ecm_speed_change_cb)(cdch_ecm_handle_t *ecm, uint32_t upload_speed, uint32_t download_speed);
-typedef void (*cdch_ecm_read_cb)(cdch_ecm_handle_t *ecm, const void *buf, size_t length);
-typedef void (*cdch_ecm_write_cb)(cdch_ecm_handle_t *ecm, const void *buf, size_t length);
+typedef void (*cdch_ecm_read_cb)(cdch_ecm_handle_t *ecm, const void *buf, size_t len);
+typedef void (*cdch_ecm_write_cb)(cdch_ecm_handle_t *ecm, const void *buf, size_t len);
 
 /* @function declarations */
 
@@ -135,26 +135,26 @@ bool cdch_ecm_get_speed(cdch_ecm_handle_t *ecm, uint32_t *upload_speed, uint32_t
  * 
  * @param ecm CDC-ECM instance handle
  * @param buf The buffer to store the read data
- * @param length The length of the data to read
+ * @param len The length of the data to read
  * @param timeout The timeout for the read operation in milliseconds
  * @param cb The callback function to be called when the read operation is complete
  * 
  * @return Operation result
  */
-bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb);
+bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t len, uint32_t timeout, cdch_ecm_read_cb cb);
 
 /**
  * @brief Write data to the USB CDC-ECM host driver instance
  * 
  * @param ecm CDC-ECM instance handle
  * @param buf The buffer containing the data to write
- * @param length The length of the data to write
+ * @param len The length of the data to write
  * @param timeout The timeout for the write operation in milliseconds
  * @param cb The callback function to be called when the write operation is complete
  * 
  * @return Operation result
  */
-bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb);
+bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t len, uint32_t timeout, cdch_ecm_write_cb cb);
 
 #ifdef __cplusplus
 }

@@ -71,7 +71,7 @@ static cdch_acm_handle_t *acm_list = NULL;
 static cdch_acm_handle_t handle_pool[CDCH_ACM_HANDLE_POOL_SIZE] = {0};
 
 /* @function declarations */
-static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
+static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len);
 static bool acm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
 static void acm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
 static void acm_drv_write_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
@@ -90,7 +90,7 @@ static const usbh_drv_info_t acm_drv_info = {
     .unbind = acm_drv_unbind_cb,
 };
 
-static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     cdch_acm_handle_t *acm = (cdch_acm_handle_t *)handle;
     if (!rst)
@@ -173,7 +173,7 @@ static void acm_enum_task(cdch_acm_handle_t *acm)
     }
 }
 
-static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     cdch_acm_handle_t *acm = (cdch_acm_handle_t *)handle;
     if (!acm->opening) return;
@@ -311,21 +311,21 @@ bool cdch_acm_is_open(cdch_acm_handle_t *acm)
     return acm->is_open;
 }
 
-bool cdch_acm_read(cdch_acm_handle_t *acm, void *buf, size_t length, uint32_t timeout, cdch_acm_read_cb cb)
+bool cdch_acm_read(cdch_acm_handle_t *acm, void *buf, size_t len, uint32_t timeout, cdch_acm_read_cb cb)
 {
-    if (!acm || !buf || length == 0 || !acm->is_open) return false;
+    if (!acm || !buf || len == 0 || !acm->is_open) return false;
     if (usbh_is_endp_xfering(acm->dev, acm->in_ep->bEndpointAddress)) return false;
     acm->read_cb = cb;
-    usbh_endp_read(acm->dev, acm->in_ep->bEndpointAddress, buf, length, timeout);
+    usbh_endp_read(acm->dev, acm->in_ep->bEndpointAddress, buf, len, timeout);
     return true;
 }
 
-bool cdch_acm_write(cdch_acm_handle_t *acm, const void *buf, size_t length, uint32_t timeout, cdch_acm_write_cb cb)
+bool cdch_acm_write(cdch_acm_handle_t *acm, const void *buf, size_t len, uint32_t timeout, cdch_acm_write_cb cb)
 {
-    if (!acm || !buf || length == 0 || !acm->is_open) return false;
+    if (!acm || !buf || len == 0 || !acm->is_open) return false;
     if (usbh_is_endp_xfering(acm->dev, acm->out_ep->bEndpointAddress)) return false;
     acm->write_cb = cb;
-    usbh_endp_write(acm->dev, acm->out_ep->bEndpointAddress, buf, length, timeout);
+    usbh_endp_write(acm->dev, acm->out_ep->bEndpointAddress, buf, len, timeout);
     return true;
 }
 
@@ -389,9 +389,9 @@ static cdch_acm_handle_t *handle_alloc(void)
     return NULL;
 }
 
-static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length)
+static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 {
-    if (!dev || dev->speed == USB_SPEED_LOW || !desc || length == 0) return false;
+    if (!dev || dev->speed == USB_SPEED_LOW || !desc || len == 0) return false;
 
     const usb_desc_interface_t *ctrl_itf = NULL;
     const usb_desc_interface_t *data_itf = NULL;
@@ -405,7 +405,7 @@ static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
     const cdc_desc_call_management_t *cm_desc = NULL;
     const cdc_desc_union_t *union_desc = NULL;
     const uint8_t *curr = (const uint8_t *)desc;
-    const uint8_t *end = curr + length;
+    const uint8_t *end = curr + len;
 
     while (curr < end)
     {

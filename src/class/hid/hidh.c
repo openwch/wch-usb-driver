@@ -125,7 +125,7 @@ static hidh_handle_t handle_pool[HIDH_HANDLE_POOL_SIZE] = {0};
 static report_item_t report_item_pool[HIDH_REPORT_ITEM_POOL_SIZE] = {0};
 
 /* @function declarations */
-static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
+static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len);
 static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
 static void hid_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
 
@@ -407,7 +407,7 @@ static bool hid_report_desc_parse(hidh_handle_t *hid, const void *buf, size_t le
     return true;
 }
 
-static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     hidh_handle_t *hid = (hidh_handle_t *)handle;
     if (!rst && hid->enum_stage != ENUM_STAGE_SET_IDLE)
@@ -445,14 +445,14 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         break;
     }
     case ENUM_STAGE_GET_DESC:
-        if (length != setup->wLength)
+        if (len != setup->wLength)
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
-            USB_LOGE("Handle %p: Get descriptor failed: expected length %d, got %d", hid, setup->wLength, length);
+            USB_LOGE("Handle %p: Get descriptor failed: expected length %d, got %d", hid, setup->wLength, len);
             break;
         }
 
-        if (!hid_report_desc_parse(hid, &hid->report_desc_buf, length))
+        if (!hid_report_desc_parse(hid, &hid->report_desc_buf, len))
         {
             hid->enum_stage = ENUM_STAGE_ENUM_FAILED;
             USB_LOGE("Handle %p: Failed to parse HID report descriptor", hid);
@@ -795,9 +795,9 @@ static void hid_handle_free(hidh_handle_t *hid)
     }
 }
 
-static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length)
+static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 {
-    if (!dev || !desc || length == 0) return false;
+    if (!dev || !desc || len == 0) return false;
 
     const usb_desc_interface_t *itf_desc = NULL;
     const hid_desc_hid_t *hid_desc = NULL;
@@ -806,7 +806,7 @@ static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
     uint8_t endp_count = 0;
     const uint8_t *curr = (const uint8_t *)desc;
-    const uint8_t *end = curr + length;
+    const uint8_t *end = curr + len;
 
     while (curr < end)
     {

@@ -67,7 +67,7 @@ static hubh_handle_t *hub_list = {0};
 static hubh_handle_t handle_pool[HUBH_HANDLE_POOL_SIZE] = {0};
 
 /* @function declarations */
-static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
+static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len);
 static bool hub_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
 
 static const usbh_drv_info_t hub_drv_info = {
@@ -92,7 +92,7 @@ static uint8_t check_hub_desc(const hub_desc_hub_t *hub_desc)
     return 0;
 }
 
-static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     hubh_handle_t *hub = (hubh_handle_t *)handle;
     if (!rst)
@@ -482,16 +482,16 @@ static hubh_handle_t *handle_alloc(void)
     return NULL;
 }
 
-static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length)
+static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 {
-    if (!dev || dev->speed == USB_SPEED_LOW || !desc || length == 0) return false;
+    if (!dev || dev->speed == USB_SPEED_LOW || !desc || len == 0) return false;
 
     const usb_desc_interface_t *itf_desc = NULL;
     const usb_desc_endpoint_t *in_ep = NULL;
 
     uint8_t endp_count = 0;
     const uint8_t *curr = (const uint8_t *)desc;
-    const uint8_t *end = curr + length;
+    const uint8_t *end = curr + len;
 
     while (curr < end)
     {

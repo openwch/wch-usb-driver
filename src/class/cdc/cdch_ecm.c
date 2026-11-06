@@ -80,7 +80,7 @@ static cdch_ecm_handle_t *ecm_list = NULL;
 static cdch_ecm_handle_t handle_pool[CDCH_ECM_HANDLE_POOL_SIZE] = {0};
 
 /* @function declarations */
-static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
+static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len);
 static bool ecm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
 static void ecm_drv_notify_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
 static void ecm_drv_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
@@ -100,10 +100,10 @@ static const usbh_drv_info_t ecm_drv_info = {
     .unbind = ecm_drv_unbind_cb,
 };
 
-static bool mac_addr_desc_parse(cdch_ecm_handle_t *ecm, const void *buf, uint16_t length)
+static bool mac_addr_desc_parse(cdch_ecm_handle_t *ecm, const void *buf, uint16_t len)
 {
     const uint8_t *buf_ptr = (const uint8_t *)buf;
-    if (buf_ptr[0] != length || buf_ptr[0] != 26 || buf_ptr[1] != USB_DESC_STRING) return false;
+    if (buf_ptr[0] != len || buf_ptr[0] != 26 || buf_ptr[1] != USB_DESC_STRING) return false;
 
     for (size_t i = 0; i < 6; i++)
     {
@@ -119,7 +119,7 @@ static bool mac_addr_desc_parse(cdch_ecm_handle_t *ecm, const void *buf, uint16_
     return true;
 }
 
-static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     cdch_ecm_handle_t *ecm = (cdch_ecm_handle_t *)handle;
     if (!rst)
@@ -133,7 +133,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     {
     case ENUM_STAGE_GET_MAC_ADDR:
     {
-        if (!mac_addr_desc_parse(ecm, buf, length))
+        if (!mac_addr_desc_parse(ecm, buf, len))
         {
             USB_LOGE("Handle %p: Failed to parse MAC address descriptor", ecm);
             ecm->enum_stage = ENUM_STAGE_ENUM_FAILED;
@@ -200,7 +200,7 @@ static void ecm_enum_task(cdch_ecm_handle_t *ecm)
     }
 }
 
-static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     cdch_ecm_handle_t *ecm = (cdch_ecm_handle_t *)handle;
     if (ecm->target_state == ecm->is_open) return;
@@ -374,22 +374,22 @@ bool cdch_ecm_get_speed(cdch_ecm_handle_t *ecm, uint32_t *upload_speed, uint32_t
     return true;
 }
 
-bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t length, uint32_t timeout, cdch_ecm_read_cb cb)
+bool cdch_ecm_read(cdch_ecm_handle_t *ecm, void *buf, size_t len, uint32_t timeout, cdch_ecm_read_cb cb)
 {
-    if (!ecm || !buf || length == 0 || !ecm->is_open || !ecm->connected) return false;
+    if (!ecm || !buf || len == 0 || !ecm->is_open || !ecm->connected) return false;
     if (usbh_is_endp_xfering(ecm->dev, ecm->in_ep->bEndpointAddress)) return false;
     ecm->read_cb = cb;
-    usbh_endp_read(ecm->dev, ecm->in_ep->bEndpointAddress, buf, length, timeout);
+    usbh_endp_read(ecm->dev, ecm->in_ep->bEndpointAddress, buf, len, timeout);
     return true;
 }
 
-bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t length, uint32_t timeout, cdch_ecm_write_cb cb)
+bool cdch_ecm_write(cdch_ecm_handle_t *ecm, const void *buf, size_t len, uint32_t timeout, cdch_ecm_write_cb cb)
 {
-    if (!ecm || !buf || length == 0 || !ecm->is_open || !ecm->connected) return false;
+    if (!ecm || !buf || len == 0 || !ecm->is_open || !ecm->connected) return false;
     if (usbh_is_endp_xfering(ecm->dev, ecm->out_ep->bEndpointAddress)) return false;
     ecm->write_cb = cb;
     ecm->write_timeout = timeout;
-    usbh_endp_write(ecm->dev, ecm->out_ep->bEndpointAddress, buf, length, timeout);
+    usbh_endp_write(ecm->dev, ecm->out_ep->bEndpointAddress, buf, len, timeout);
     return true;
 }
 
@@ -407,9 +407,9 @@ static cdch_ecm_handle_t *handle_alloc(void)
     return NULL;
 }
 
-static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length)
+static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 {
-    if (!dev || dev->speed == USB_SPEED_LOW || !desc || length == 0) return false;
+    if (!dev || dev->speed == USB_SPEED_LOW || !desc || len == 0) return false;
 
     const usb_desc_interface_t *ctrl_itf = NULL;
     const usb_desc_interface_t *data_enable_itf = NULL;
@@ -423,7 +423,7 @@ static bool ecm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
     uint8_t endp_count = 0;
     const cdc_desc_union_t *union_desc = NULL;
     const uint8_t *curr = (const uint8_t *)desc;
-    const uint8_t *end = curr + length;
+    const uint8_t *end = curr + len;
 
     while (curr < end)
     {

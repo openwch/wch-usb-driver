@@ -96,9 +96,9 @@ typedef enum
  * @param rst Transfer result
  * @param setup USB setup packet
  * @param buf Data buffer
- * @param length Actual Transfer length
+ * @param len Actual Transfer length
  */
-typedef void (*usbh_ctrl_xfer_cb)(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length);
+typedef void (*usbh_ctrl_xfer_cb)(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len);
 
 /**
  * @brief USB host data transfer callback function
@@ -116,11 +116,11 @@ typedef void (*usbh_data_xfer_cb)(void *handle, bool rst, usb_endp_t endp, const
  * 
  * @param dev USB host driver device handle
  * @param desc Descriptor buffer
- * @param length Length of the descriptor buffer
+ * @param len Length of the descriptor buffer
  * 
  * @return Bind result
  */
-typedef bool (*usbh_drv_bind_cb)(usbh_device_t *dev, const void *desc, uint16_t length);
+typedef bool (*usbh_drv_bind_cb)(usbh_device_t *dev, const void *desc, uint16_t len);
 
 /**
  * @brief USB host driver unbind callback function
@@ -219,7 +219,7 @@ typedef struct usbh_xfer_ctx
     uint8_t toggle;
     uint8_t ctrl_stage;
     uint32_t tick;
-    uint32_t length;
+    uint32_t len;
     uint32_t offset;
     uint32_t timestamp;
     uint32_t timeout;

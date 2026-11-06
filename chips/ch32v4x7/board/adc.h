@@ -24,7 +24,7 @@ extern "C" {
 
 /* @function declarations */
 void adc_init(void);
-size_t adc_read(uint16_t *buffer, size_t length);
+size_t adc_read(uint16_t *buffer, size_t len);
 
 #ifdef __cplusplus
 }

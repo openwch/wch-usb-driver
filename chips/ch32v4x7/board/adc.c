@@ -77,13 +77,13 @@ void adc_init(void)
     TIM_Cmd(TIM8, ENABLE);
 }
 
-size_t adc_read(uint16_t *buffer, size_t length)
+size_t adc_read(uint16_t *buffer, size_t len)
 {
-    if (!buffer || !length) return 0;
+    if (!buffer || !len) return 0;
 
     DMA_Cmd(DMA1_Channel12, DISABLE);
     size_t xfer_len = sizeof(dma_buf) / sizeof(dma_buf[0]) - DMA1_Channel12->CNTR;
-    size_t copy_len = xfer_len > length ? length : xfer_len;
+    size_t copy_len = xfer_len > len ? len : xfer_len;
     memcpy(buffer, dma_buf, copy_len << 1);
     DMA1_Channel12->MADDR = (uint32_t)dma_buf;
     DMA1_Channel12->CNTR = sizeof(dma_buf) / sizeof(dma_buf[0]);

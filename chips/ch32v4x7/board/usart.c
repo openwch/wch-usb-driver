@@ -123,16 +123,16 @@ bool usart_config(uint32_t baudrate, usart_stop_bits_t stop_bits, usart_parity_t
     return true;
 }
 
-size_t usart_read(uint8_t *buffer, size_t length)
+size_t usart_read(uint8_t *buffer, size_t len)
 {
-    if (!buffer || !length) return 0;
+    if (!buffer || !len) return 0;
 
     const size_t write_pos = sizeof(dma_buffer) - DMA_GetCurrDataCounter(DMA1_Channel3);
     size_t read_pos = dma_offset;
     if (write_pos == read_pos) return 0;
 
     const size_t avail = write_pos > read_pos ? write_pos - read_pos : sizeof(dma_buffer) - read_pos + write_pos;
-    const size_t to_copy = avail < length ? avail : length;
+    const size_t to_copy = avail < len ? avail : len;
     const size_t first_len = to_copy < sizeof(dma_buffer) - read_pos ? to_copy : sizeof(dma_buffer) - read_pos;
     memcpy(buffer, &dma_buffer[read_pos], first_len);
 
@@ -146,15 +146,15 @@ size_t usart_read(uint8_t *buffer, size_t length)
     return to_copy;
 }
 
-bool usart_write(const uint8_t *buffer, size_t length)
+bool usart_write(const uint8_t *buffer, size_t len)
 {
-    if (!buffer || !length) return true;
+    if (!buffer || !len) return true;
 
     if (!DMA_GetCurrDataCounter(DMA1_Channel2))
     {
         DMA_Cmd(DMA1_Channel2, DISABLE);
         DMA1_Channel2->MADDR = (uint32_t)buffer;
-        DMA1_Channel2->CNTR = length;
+        DMA1_Channel2->CNTR = len;
         DMA_Cmd(DMA1_Channel2, ENABLE);
         return true;
     }

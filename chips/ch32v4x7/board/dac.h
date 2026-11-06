@@ -24,7 +24,7 @@ extern "C" {
 
 /* @function declarations */
 void dac_init(void);
-bool dac_write(const void *ch1_buf, const void *ch2_buf, size_t length);
+bool dac_write(const void *ch1_buf, const void *ch2_buf, size_t len);
 
 #ifdef __cplusplus
 }

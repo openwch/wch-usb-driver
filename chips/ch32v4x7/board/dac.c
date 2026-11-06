@@ -116,9 +116,9 @@ void dac_init(void)
     TIM_Cmd(TIM7, ENABLE);
 }
 
-bool dac_write(const void *ch1_buf, const void *ch2_buf, size_t length)
+bool dac_write(const void *ch1_buf, const void *ch2_buf, size_t len)
 {
-    if (!ch1_buf || !ch2_buf || !length || length > MAX_CHANNELS_BUF_SIZE) return false;
+    if (!ch1_buf || !ch2_buf || !len || len > MAX_CHANNELS_BUF_SIZE) return false;
     if (xfer_manage[0].count >= MAX_CHANNELS_BUF_COUNT || xfer_manage[1].count >= MAX_CHANNELS_BUF_COUNT) return false;
 
     for (uint8_t ch = 0; ch < MAX_CHANNELS_COUNT; ch++)
@@ -126,13 +126,13 @@ bool dac_write(const void *ch1_buf, const void *ch2_buf, size_t length)
         xfer_manage_t *manage = &xfer_manage[ch];
         if (ch == 0)
         {
-            memcpy(dma_buf[ch][manage->load], ch1_buf, length << 1);
+            memcpy(dma_buf[ch][manage->load], ch1_buf, len << 1);
         }
         else
         {
-            memcpy(dma_buf[ch][manage->load], ch2_buf, length << 1);
+            memcpy(dma_buf[ch][manage->load], ch2_buf, len << 1);
         }
-        buf_size[ch][manage->load] = length;
+        buf_size[ch][manage->load] = len;
         manage->load = (manage->load + 1) % MAX_CHANNELS_BUF_COUNT;
         manage->count++;
     }

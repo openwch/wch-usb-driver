@@ -92,7 +92,7 @@ static uach_handle_t *uac_list = NULL;
 static uach_handle_t handle_pool[UACH_HANDLE_POOL_SIZE] = {0};
 
 /* @function declarations */
-static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length);
+static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len);
 static bool uac_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num);
 static void uac_drv_stream_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
 static void uac_drv_stream_write_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len);
@@ -111,7 +111,7 @@ static const usbh_drv_info_t uac_drv_info = {
     .unbind = uac_drv_unbind_cb,
 };
 
-static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     uach_handle_t *uac = (uach_handle_t *)handle;
     if (!rst)
@@ -165,7 +165,7 @@ static void uac_enum_task(uach_handle_t *uac)
     }
 }
 
-static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
 
@@ -671,9 +671,9 @@ static void stream_itf_parse(uach_handle_t *uac, const void **element_desc_array
     }
 }
 
-static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t length)
+static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 {
-    if (!dev || dev->speed == USB_SPEED_LOW || !desc || length == 0) return false;
+    if (!dev || dev->speed == USB_SPEED_LOW || !desc || len == 0) return false;
 
     const void *element_desc_array[256] = {0};
     const usb_desc_interface_t *ctrl_itf = NULL;
@@ -681,7 +681,7 @@ static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
     const usb_desc_interface_t *curr_itf = NULL;
     const uint8_t *curr = (const uint8_t *)desc;
-    const uint8_t *end = curr + length;
+    const uint8_t *end = curr + len;
 
     while (curr < end)
     {

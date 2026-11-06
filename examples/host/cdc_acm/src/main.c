@@ -46,14 +46,14 @@ static void acm_open_cb(cdch_acm_handle_t *acm, bool rst)
     printf("CDC-ACM0: Set baud rate to %u %s\n", line_coding.bit_rate, rst ? "success" : "fail");
 }
 
-static void acm_read_cb(cdch_acm_handle_t *acm, const void *buf, size_t length)
+static void acm_read_cb(cdch_acm_handle_t *acm, const void *buf, size_t len)
 {
-    printf("CDC-ACM0: Read %u bytes\n", length);
+    printf("CDC-ACM0: Read %u bytes\n", len);
 }
 
-static void acm_write_cb(cdch_acm_handle_t *acm, const void *buf, size_t length)
+static void acm_write_cb(cdch_acm_handle_t *acm, const void *buf, size_t len)
 {
-    printf("CDC-ACM0: Wrote %u bytes\n", length);
+    printf("CDC-ACM0: Wrote %u bytes\n", len);
 }
 
 int main(void)

@@ -272,10 +272,10 @@ static void cdc_acm_application_handle(void)
     /* Handle data read from USART and prepare it for writing to USB */
     if (write_xfer_manage.count + 1 < WRITE_BUF_COUNT)
     {
-        size_t length = usart_read(write_bufs[write_xfer_manage.load], WRITE_BUF_SIZE);
-        if (length)
+        size_t len = usart_read(write_bufs[write_xfer_manage.load], WRITE_BUF_SIZE);
+        if (len)
         {
-            write_length[write_xfer_manage.load] = length;
+            write_length[write_xfer_manage.load] = len;
             write_xfer_manage.load = (write_xfer_manage.load + 1) % WRITE_BUF_COUNT;
             write_xfer_manage.count++;
         }

@@ -27,8 +27,8 @@ typedef struct cdch_acm_handle cdch_acm_handle_t;
 
 /* @function pointer */
 typedef void (*cdch_acm_open_cb)(cdch_acm_handle_t *acm, bool rst);
-typedef void (*cdch_acm_read_cb)(cdch_acm_handle_t *acm, const void *buf, size_t length);
-typedef void (*cdch_acm_write_cb)(cdch_acm_handle_t *acm, const void *buf, size_t length);
+typedef void (*cdch_acm_read_cb)(cdch_acm_handle_t *acm, const void *buf, size_t len);
+typedef void (*cdch_acm_write_cb)(cdch_acm_handle_t *acm, const void *buf, size_t len);
 
 /* @function declarations */
 
@@ -102,26 +102,26 @@ bool cdch_acm_is_open(cdch_acm_handle_t *acm);
  * 
  * @param acm CDC-ACM instance handle
  * @param buf The buffer to store the read data
- * @param length The length of the data to read
+ * @param len The length of the data to read
  * @param timeout The timeout for the read operation in milliseconds
  * @param cb The callback function to be called when the read operation is complete
  * 
  * @return Operation result
  */
-bool cdch_acm_read(cdch_acm_handle_t *acm, void *buf, size_t length, uint32_t timeout, cdch_acm_read_cb cb);
+bool cdch_acm_read(cdch_acm_handle_t *acm, void *buf, size_t len, uint32_t timeout, cdch_acm_read_cb cb);
 
 /**
  * @brief Write data to the USB CDC-ACM host driver instance
  * 
  * @param acm CDC-ACM instance handle
  * @param buf The buffer containing the data to write
- * @param length The length of the data to write
+ * @param len The length of the data to write
  * @param timeout The timeout for the write operation in milliseconds
  * @param cb The callback function to be called when the write operation is complete
  * 
  * @return Operation result
  */
-bool cdch_acm_write(cdch_acm_handle_t *acm, const void *buf, size_t length, uint32_t timeout, cdch_acm_write_cb cb);
+bool cdch_acm_write(cdch_acm_handle_t *acm, const void *buf, size_t len, uint32_t timeout, cdch_acm_write_cb cb);
 
 /**
  * @brief Set the Data Terminal Ready (DTR) signal for the USB CDC-ACM host driver instance

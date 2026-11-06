@@ -181,9 +181,9 @@ static uint8_t check_device_desc(usbh_device_t *dev, const usb_desc_device_t *de
     return 0;
 }
 
-static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint16_t length)
+static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint16_t len)
 {
-    if (!dev || !dev->address || dev->speed == USB_SPEED_UNKNOWN || !desc_coll || length < sizeof(usb_desc_config_t))
+    if (!dev || !dev->address || dev->speed == USB_SPEED_UNKNOWN || !desc_coll || len < sizeof(usb_desc_config_t))
         return 1;
 
     const usb_desc_config_t *config_desc = (const usb_desc_config_t *)desc_coll;
@@ -203,7 +203,7 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
     uint16_t itf_used_bitmap[2] = {0};
     uint16_t endp_used_bitmap[2] = {0};
     const uint8_t *curr = (const uint8_t *)desc_coll + sizeof(usb_desc_config_t);
-    const uint8_t *end = (const uint8_t *)desc_coll + length;
+    const uint8_t *end = (const uint8_t *)desc_coll + len;
 
     while (curr < end)
     {
@@ -319,7 +319,7 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
     return 0;
 }
 
-static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t length)
+static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
     usbh_device_t *dev = (usbh_device_t *)handle;
 
@@ -453,16 +453,16 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     {
         usb_desc_config_t *config_desc = (usb_desc_config_t *)dev->config_desc;
         /* Check if the configuration descriptor size matches the expected length */
-        if (config_desc->wTotalLength != length)
+        if (config_desc->wTotalLength != len)
         {
             dev->enum_stage = ENUM_STAGE_ENUM_FAILED;
             USB_LOGE("Device Handle %p: Configuration descriptor size mismatch: expected %d, got %d", dev,
-                     config_desc->wTotalLength, length);
+                     config_desc->wTotalLength, len);
             break;
         }
 
         /* Validate the configuration descriptor */
-        uint8_t check_rst = check_config_desc(dev, dev->config_desc, length);
+        uint8_t check_rst = check_config_desc(dev, dev->config_desc, len);
         if (check_rst == 0)
         {
             dev->enum_stage = ENUM_STAGE_BIND_DRIVER;
@@ -886,7 +886,7 @@ static void xfer_completed_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit
         /* Process non-control transfer transactions */
         if (ep->type != USB_ENDP_TYPE_CTRL)
         {
-            if (xfer_ctx->offset >= xfer_ctx->length || xfer_unit->xfer_len < ep->mps ||
+            if (xfer_ctx->offset >= xfer_ctx->len || xfer_unit->xfer_len < ep->mps ||
                 ep->type == USB_ENDP_TYPE_ISOC || ep->type == USB_ENDP_TYPE_INTR)
             {
                 rst = true;
@@ -897,11 +897,11 @@ static void xfer_completed_process(usbh_handle_t *h, usbh_xfer_unit_t *xfer_unit
         {
             xfer_ctx->offset = 0;
             xfer_ctx->toggle = USBH_TOGGLE_DATA1;
-            xfer_ctx->ctrl_stage = xfer_ctx->length ? USB_CTRL_STAGE_DATA : USB_CTRL_STAGE_STATUS;
+            xfer_ctx->ctrl_stage = xfer_ctx->len ? USB_CTRL_STAGE_DATA : USB_CTRL_STAGE_STATUS;
         }
         else if (xfer_ctx->ctrl_stage == USB_CTRL_STAGE_DATA)
         {
-            if (xfer_ctx->offset >= xfer_ctx->length || xfer_unit->xfer_len < ep->mps)
+            if (xfer_ctx->offset >= xfer_ctx->len || xfer_unit->xfer_len < ep->mps)
             {
                 xfer_ctx->toggle = USBH_TOGGLE_DATA1;
                 xfer_ctx->ctrl_stage = USB_CTRL_STAGE_STATUS;
@@ -989,7 +989,7 @@ static bool before_xfer_process(usbh_handle_t *h, usbh_endpoint_t *ep, usbh_xfer
             if (xfer_unit->endpoint->type == USB_ENDP_TYPE_ISOC && xfer_unit->token == USBH_PID_OUT)
             {
                 usbh_xfer_ctx_t *xfer_ctx = &xfer_unit->endpoint->xfer_ctx;
-                xfer_unit->split_iso_out_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, 1023);
+                xfer_unit->split_iso_out_len = USB_MIN(xfer_ctx->len - xfer_ctx->offset, 1023);
                 xfer_unit->split_iso_out_ofs = 0;
                 split->s = 1;
                 split->e = xfer_unit->split_iso_out_len <= SPLIT_ISO_OUT_MAX_SIZE ? 1 : 0;
@@ -1034,7 +1034,7 @@ static usbh_xfer_unit_t **ctrl_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
             case USB_CTRL_STAGE_DATA:
                 xfer_unit->token = USB_ENDP_DIR(xfer_ctx->setup->bmRequestType) ? USBH_PID_IN : USBH_PID_OUT;
                 xfer_unit->toggle = xfer_ctx->toggle;
-                xfer_unit->xfer_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, ep->mps);
+                xfer_unit->xfer_len = USB_MIN(xfer_ctx->len - xfer_ctx->offset, ep->mps);
                 xfer_unit->buf = (void *)xfer_ctx->buf + xfer_ctx->offset;
                 break;
 
@@ -1075,7 +1075,7 @@ static usbh_xfer_unit_t **isoc_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
                 xfer_unit->toggle = USBH_TOGGLE_DATA0;
                 xfer_unit->xfer_len = xfer_unit->split_iso_out_len
                                           ? USB_MIN(xfer_unit->split_iso_out_len, SPLIT_ISO_OUT_MAX_SIZE)
-                                          : USB_MIN(xfer_ctx->length - xfer_ctx->offset, ep->mps);
+                                          : USB_MIN(xfer_ctx->len - xfer_ctx->offset, ep->mps);
                 xfer_unit->buf = (uint8_t *)xfer_ctx->buf + xfer_ctx->offset;
 
                 /* Append the transfer unit to the linked list */
@@ -1112,7 +1112,7 @@ static usbh_xfer_unit_t **bulk_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
 
             /* Prepare the transfer unit for bulk transfer */
             xfer_unit->toggle = xfer_ctx->toggle;
-            xfer_unit->xfer_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, ep->mps);
+            xfer_unit->xfer_len = USB_MIN(xfer_ctx->len - xfer_ctx->offset, ep->mps);
             xfer_unit->buf = (uint8_t *)xfer_ctx->buf + xfer_ctx->offset;
 
             /* Append the transfer unit to the linked list */
@@ -1143,7 +1143,7 @@ static usbh_xfer_unit_t **intr_xfer_process(usbh_handle_t *h, usbh_xfer_unit_t *
 
                 /* Prepare the transfer unit for interrupt transfer */
                 xfer_unit->toggle = xfer_ctx->toggle;
-                xfer_unit->xfer_len = USB_MIN(xfer_ctx->length - xfer_ctx->offset, ep->mps);
+                xfer_unit->xfer_len = USB_MIN(xfer_ctx->len - xfer_ctx->offset, ep->mps);
                 xfer_unit->buf = (uint8_t *)xfer_ctx->buf + xfer_ctx->offset;
 
                 /* Append the transfer unit to the linked list */
@@ -1538,7 +1538,7 @@ bool usbh_endp_read(usbh_device_t *dev, usb_endp_t endp, void *buf, size_t len, 
 
     xfer_ctx->is_busy = true;
     xfer_ctx->buf = buf;
-    xfer_ctx->length = len;
+    xfer_ctx->len = len;
     xfer_ctx->timeout = timeout;
     xfer_ctx->offset = 0;
     xfer_ctx->timestamp = usbh_drv_get_timestamp(dev->host);
@@ -1558,7 +1558,7 @@ bool usbh_endp_write(usbh_device_t *dev, usb_endp_t endp, const void *buf, size_
 
     xfer_ctx->is_busy = true;
     xfer_ctx->buf = (void *)buf;
-    xfer_ctx->length = len;
+    xfer_ctx->len = len;
     xfer_ctx->timeout = timeout;
     xfer_ctx->offset = 0;
     xfer_ctx->timestamp = usbh_drv_get_timestamp(dev->host);
@@ -1576,7 +1576,7 @@ bool usbh_ctrl_xfer(usbh_device_t *dev, void *handle, const usb_setup_t *setup, 
         memset(xfer_ctx, 0, sizeof(usbh_xfer_ctx_t));
         xfer_ctx->is_busy = true;
         xfer_ctx->buf = buf;
-        xfer_ctx->length = setup->wLength;
+        xfer_ctx->len = setup->wLength;
         xfer_ctx->timeout = timeout;
         xfer_ctx->offset = 0;
         xfer_ctx->setup = setup;

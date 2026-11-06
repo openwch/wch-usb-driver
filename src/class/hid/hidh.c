@@ -105,7 +105,7 @@ typedef struct hidh_handle
 
     /* HID interface information */
     const usb_desc_interface_t *itf_desc;
-    const usb_desc_hid_t *hid_desc;
+    const hid_desc_hid_t *hid_desc;
     const usb_desc_endpoint_t *in_ep;
     const usb_desc_endpoint_t *out_ep;
     __attribute__((aligned(4))) uint8_t report_desc_buf[HIDH_REPORT_DESC_BUF_SIZE];
@@ -800,7 +800,7 @@ static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
     if (!dev || !desc || length == 0) return false;
 
     const usb_desc_interface_t *itf_desc = NULL;
-    const usb_desc_hid_t *hid_desc = NULL;
+    const hid_desc_hid_t *hid_desc = NULL;
     const usb_desc_endpoint_t *in_ep = NULL;
     const usb_desc_endpoint_t *out_ep = NULL;
 
@@ -840,7 +840,7 @@ static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t lengt
 
         case HID_DESC_HID:
         {
-            hid_desc = (const usb_desc_hid_t *)curr;
+            hid_desc = (const hid_desc_hid_t *)curr;
             if (hid_desc->bcdHID > SUPPORTED_PROTOCOL_VERSION) return false;
             size_t index = 0;
             for (index = 0; index < hid_desc->bNumDescriptors; index++)

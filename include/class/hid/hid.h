@@ -658,7 +658,7 @@ typedef struct __attribute__((packed))
         uint8_t bReportType;
         uint16_t wReportLength;
     } descriptor[];
-} usb_desc_hid_t;
+} hid_desc_hid_t;
 
 #ifdef __cplusplus
 }

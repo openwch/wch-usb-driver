@@ -84,7 +84,7 @@ static const usbh_drv_info_t hub_drv_info = {
     .unbind = hub_drv_unbind_cb,
 };
 
-static uint8_t check_hub_desc(const usb_desc_hub_t *hub_desc)
+static uint8_t check_hub_desc(const hub_desc_hub_t *hub_desc)
 {
     if (!hub_desc) return 1;
     if (hub_desc->bDescriptorType != HUB_DESC_HUB) return 2;
@@ -106,7 +106,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     {
     case ENUM_STAGE_GET_HUB_DESC:
     {
-        usb_desc_hub_t *hub_desc = (usb_desc_hub_t *)hub->ctrl_buf;
+        hub_desc_hub_t *hub_desc = (hub_desc_hub_t *)hub->ctrl_buf;
         uint8_t check_rst = check_hub_desc(hub_desc);
         if (check_rst == 0)
         {

@@ -144,7 +144,7 @@ typedef struct __attribute__((packed))
     uint8_t bHubContrCurrent;
     uint8_t DeviceRemovable;
     uint8_t PortPwrCtrlMask[];
-} usb_desc_hub_t;
+} hub_desc_hub_t;
 
 #ifdef __cplusplus
 }

@@ -827,14 +827,14 @@ static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 
         case USB_DESC_ENDPOINT:
         {
-            const usb_desc_endpoint_t *endp_desc = (const usb_desc_endpoint_t *)curr;
-            uint8_t endp_dir = USB_ENDP_DIR(endp_desc->bEndpointAddress);
-            uint8_t endp_type = USB_ENDP_GET_TYPE(endp_desc->bmAttributes);
+            const usb_desc_endpoint_t *ep_desc = (const usb_desc_endpoint_t *)curr;
+            uint8_t endp_dir = USB_ENDP_DIR(ep_desc->bEndpointAddress);
+            uint8_t endp_type = USB_ENDP_GET_TYPE(ep_desc->bmAttributes);
             if (endp_type != USB_ENDP_TYPE_INTR) return false;
             if (!endp_count) break;
             endp_count--;
             const usb_desc_endpoint_t **target_ep = endp_dir ? &in_ep : &out_ep;
-            *target_ep = endp_desc;
+            *target_ep = ep_desc;
             break;
         }
 

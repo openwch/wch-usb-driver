@@ -264,19 +264,19 @@ static uint8_t check_config_desc(usbh_device_t *dev, const void *desc_coll, uint
             };
 
             if (len != sizeof(usb_desc_endpoint_t) && len != 9) return 16;
-            const usb_desc_endpoint_t *endp_desc = (usb_desc_endpoint_t *)curr;
-            uint8_t endp_dir = USB_ENDP_DIR(endp_desc->bEndpointAddress);
-            uint8_t endp_num = USB_ENDP_NUM(endp_desc->bEndpointAddress);
-            uint8_t endp_type = USB_ENDP_GET_TYPE(endp_desc->bmAttributes);
+            const usb_desc_endpoint_t *ep_desc = (usb_desc_endpoint_t *)curr;
+            uint8_t endp_dir = USB_ENDP_DIR(ep_desc->bEndpointAddress);
+            uint8_t endp_num = USB_ENDP_NUM(ep_desc->bEndpointAddress);
+            uint8_t endp_type = USB_ENDP_GET_TYPE(ep_desc->bmAttributes);
             if (endp_num == 0 || endp_type == USB_ENDP_TYPE_CTRL) return 17;
-            uint8_t additional = USB_ENDP_GET_ADDITIONAL(endp_desc->wMaxPacketSize);
-            uint16_t mps = USB_ENDP_GET_MPS(endp_desc->wMaxPacketSize);
-            if (endp_desc->wMaxPacketSize & 0xE000) return 18;
+            uint8_t additional = USB_ENDP_GET_ADDITIONAL(ep_desc->wMaxPacketSize);
+            uint16_t mps = USB_ENDP_GET_MPS(ep_desc->wMaxPacketSize);
+            if (ep_desc->wMaxPacketSize & 0xE000) return 18;
             if (additional == 0x03 || mps == 0 || mps > valid_mps_table[dev->speed - 1][endp_type]) return 19;
             if (endp_type != USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_LOW) return 20;
-            if (endp_type == USB_ENDP_TYPE_ISOC && (endp_desc->bInterval == 0 || endp_desc->bInterval > 16)) return 21;
-            if (endp_type == USB_ENDP_TYPE_INTR && endp_desc->bInterval == 0) return 22;
-            if (endp_type == USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_HIGH && endp_desc->bInterval > 16) return 23;
+            if (endp_type == USB_ENDP_TYPE_ISOC && (ep_desc->bInterval == 0 || ep_desc->bInterval > 16)) return 21;
+            if (endp_type == USB_ENDP_TYPE_INTR && ep_desc->bInterval == 0) return 22;
+            if (endp_type == USB_ENDP_TYPE_INTR && dev->speed == USB_SPEED_HIGH && ep_desc->bInterval > 16) return 23;
             if (endp_type == USB_ENDP_TYPE_BULK && dev->speed == USB_SPEED_HIGH && mps != 512) return 24;
             if (endp_type == USB_ENDP_TYPE_BULK && dev->speed == USB_SPEED_FULL && mps != 8 && mps != 16 && mps != 32 &&
                 mps != 64)

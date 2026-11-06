@@ -527,10 +527,10 @@ bool usbd_unregister_dev_req_cb(usbd_handle_t *h, uint8_t bmRequestType, uint8_t
     return false;
 }
 
-bool usbd_unregister_itf_req_cb(usbd_handle_t *h, uint8_t interface_num)
+bool usbd_unregister_itf_req_cb(usbd_handle_t *h, uint8_t itf_num)
 {
-    if (!h || interface_num >= USB_ARRAY_SIZE(h->itf_req_cbs)) return false;
-    usbd_itf_req_cb_t *itf_req = &h->itf_req_cbs[interface_num];
+    if (!h || itf_num >= USB_ARRAY_SIZE(h->itf_req_cbs)) return false;
+    usbd_itf_req_cb_t *itf_req = &h->itf_req_cbs[itf_num];
     itf_req->class_handle = NULL;
     itf_req->cbs.setup = NULL;
     itf_req->cbs.data = NULL;

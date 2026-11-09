@@ -28,46 +28,66 @@
 #define UACH_MAX_STREAM_ITF_COUNT 2
 #endif
 
+#ifndef UACH_MAX_STREAM_ALT_SETTING_COUNT
+#define UACH_MAX_STREAM_ALT_SETTING_COUNT 2
+#endif
+
 #define CTRL_XFER_TIMEOUT          100
 #define SUPPORTED_PROTOCOL_VERSION 0x0100
+#define ELEMENT_MAX_DEPTH          16
+#define ELEMENT_MAX_COUNT          256
 
 /* @enum */
 typedef enum
 {
     ENUM_STAGE_IDLE,
-    ENUM_STAGE_CLOSE_STREAM_ITF,
+    ENUM_STAGE_CLOSE_INTERFACE,
     ENUM_STAGE_ENUM_FAILED,
     ENUM_STAGE_END,
 } enum_stage_t;
 
 typedef enum
 {
-    OPEN_STAGE_OPEN_STREAM_ITF,
-    OPEN_STAGE_SET_SAMPLE_RATE,
-    OPEN_STAGE_CLOSE_STREAM_ITF,
-    OPEN_STAGE_END,
-} open_stage_t;
+    REQ_STAGE_IDLE,
+    REQ_STAGE_SET_ALT,
+    REQ_STAGE_SET_ALT_BUSY,
+    REQ_STAGE_SET_RATE,
+    REQ_STAGE_SET_RATE_BUSY,
+} req_stage_t;
 
 /* @struct */
 typedef struct
 {
-    bool is_open;
-    bool target_state;
-    uint8_t stream_dir;
-    uint8_t open_stage;
-    uint16_t channel_config;
-    uint32_t target_sample_rate;
-
     const usb_desc_interface_t *itf;
-    const uac_desc_as_itf_t *stream_itf;
+    const uac_desc_as_itf_t *general;
     const uac_desc_as_format_t *format;
     const uac_desc_audio_endpoint_t *ep;
     const uac_desc_audio_as_endpoint_t *as_ep;
+    const uac_desc_audio_endpoint_t *sync_ep;
+} uach_stream_alt_setting_t;
 
+typedef struct uach_stream_handle
+{
     uach_handle_t *uac;
-    uach_stream_open_cb open_cb;
-    uach_stream_transfer_cb xfer_cb;
-} stream_ctx_t;
+
+    /* Stream interface information */
+    uint8_t itf_num;
+    uint8_t dir;
+    uint8_t terminal_link;
+    uint8_t alt_count;
+    uint16_t channel_config;
+    uach_stream_alt_setting_t alt_settings[UACH_MAX_STREAM_ALT_SETTING_COUNT];
+
+    /* Run-time context */
+    uint8_t req_stage;
+    uint8_t req_alt;
+    bool req_rollback;
+    uint32_t req_rate;
+    uint32_t cur_sample_rate;
+    const uach_stream_alt_setting_t *cur_alt;
+    uach_stream_ctrl_cb ctrl_cb;
+    uach_stream_xfer_cb xfer_cb;
+} uach_stream_handle_t;
 
 typedef struct uach_handle
 {
@@ -76,15 +96,14 @@ typedef struct uach_handle
 
     /* UAC interface information */
     const usb_desc_interface_t *ctrl_itf;
-    const uac_desc_header_t *header_desc;
 
     /* Run-time context */
-    uint8_t itf_idx;
     uint8_t enum_stage;
-    size_t stream_count;
-    stream_ctx_t stream_ctxs[UACH_MAX_STREAM_ITF_COUNT];
+    uint8_t cur_stream;
+    uint8_t stream_count;
+    uach_stream_handle_t streams[UACH_MAX_STREAM_ITF_COUNT];
     __attribute__((aligned(4))) usb_setup_t ctrl_setup;
-    __attribute__((aligned(4))) uint8_t ctrl_buf[16];
+    __attribute__((aligned(4))) uint8_t ctrl_buf[4];
 } uach_handle_t;
 
 /* @global */
@@ -123,31 +142,17 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
 
     switch (uac->enum_stage)
     {
-    case ENUM_STAGE_CLOSE_STREAM_ITF:
-        USB_LOGI("Handle %p: Closed stream interface %d", uac, uac->header_desc->baInterfaceNr[uac->itf_idx]);
-        uac->itf_idx++;
-        break;
-    }
-}
-
-static void uac_enum_task(uach_handle_t *uac)
-{
-    switch (uac->enum_stage)
+    case ENUM_STAGE_CLOSE_INTERFACE:
     {
-    case ENUM_STAGE_IDLE:
-        uac->itf_idx = 0;
-        uac->enum_stage = ENUM_STAGE_CLOSE_STREAM_ITF;
-        break;
-
-    case ENUM_STAGE_CLOSE_STREAM_ITF:
-        if (usbh_is_ctrl_xfering(uac->dev)) return;
-        if (uac->itf_idx < uac->header_desc->bInCollection)
+        USB_LOGI("Handle %p: Closing interface %d", uac, uac->streams[uac->cur_stream].itf_num);
+        uac->cur_stream++;
+        if (uac->cur_stream < uac->stream_count)
         {
             usb_setup_t *request = &uac->ctrl_setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
             request->bRequest = USB_REQ_SET_INTERFACE;
             request->wValue = 0;
-            request->wIndex = uac->header_desc->baInterfaceNr[uac->itf_idx];
+            request->wIndex = uac->streams[uac->cur_stream].itf_num;
             request->wLength = 0;
             usbh_ctrl_xfer(uac->dev, uac, request, NULL, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
         }
@@ -157,6 +162,28 @@ static void uac_enum_task(uach_handle_t *uac)
             USB_LOGI("Handle %p: Enumeration completed", uac);
         }
         break;
+    }
+    }
+}
+
+static void uac_enum_task(uach_handle_t *uac)
+{
+    switch (uac->enum_stage)
+    {
+    case ENUM_STAGE_IDLE:
+    {
+        if (usbh_is_ctrl_xfering(uac->dev)) return;
+        uac->cur_stream = 0;
+        uac->enum_stage = ENUM_STAGE_CLOSE_INTERFACE;
+        usb_setup_t *request = &uac->ctrl_setup;
+        request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
+        request->bRequest = USB_REQ_SET_INTERFACE;
+        request->wValue = 0;
+        request->wIndex = uac->streams[uac->cur_stream].itf_num;
+        request->wLength = 0;
+        usbh_ctrl_xfer(uac->dev, uac, request, NULL, CTRL_XFER_TIMEOUT, enum_ctrl_xfer_cb);
+        break;
+    }
 
     case ENUM_STAGE_ENUM_FAILED:
         uac->enum_stage = ENUM_STAGE_END;
@@ -165,49 +192,121 @@ static void uac_enum_task(uach_handle_t *uac)
     }
 }
 
+static const uach_stream_alt_setting_t *stream_alt_find(const uach_stream_handle_t *stream, uint8_t alt_setting)
+{
+    for (size_t i = 0; i < stream->alt_count; i++)
+    {
+        if (stream->alt_settings[i].itf->bAlternateSetting == alt_setting) return &stream->alt_settings[i];
+    }
+    return NULL;
+}
+
+static void stream_endp_close(uach_stream_handle_t *stream)
+{
+    if (stream->cur_alt)
+    {
+        usbh_endp_close(stream->uac->dev, stream->cur_alt->ep->bEndpointAddress);
+        stream->cur_alt = NULL;
+    }
+    stream->cur_sample_rate = 0;
+}
+
+static bool stream_endp_open(uach_stream_handle_t *stream, const uach_stream_alt_setting_t *alt)
+{
+    if (!usbh_endp_open(stream->uac->dev, stream, (const usb_desc_endpoint_t *)alt->ep,
+                        stream->dir == UACH_STREAM_DIR_CAPTURE ? uac_drv_stream_read_cb : uac_drv_stream_write_cb))
+    {
+        return false;
+    }
+    stream->cur_alt = alt;
+
+    /* The sample rate is fixed if the format only advertises a single discrete rate */
+    if (alt->format->bSamFreqType == 1)
+    {
+        memcpy(&stream->cur_sample_rate, &alt->format->tSamFreq[0], 3);
+    }
+    return true;
+}
+
 static void run_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, const void *buf, uint16_t len)
 {
-    stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
+    uach_stream_handle_t *stream = (uach_stream_handle_t *)handle;
 
-    if (stream_ctx->target_state == false)
+    switch (stream->req_stage)
     {
-        stream_ctx->is_open = false;
-        usbh_endp_close(stream_ctx->uac->dev, stream_ctx->ep->bEndpointAddress);
-        USB_LOGI("Handle %p: Stream interface %d closed", stream_ctx->uac, stream_ctx->itf->bInterfaceNumber);
-    }
-    else if (!rst)
+    case REQ_STAGE_SET_ALT_BUSY:
     {
-        stream_ctx->target_state = false;
-        USB_LOGW("Handle %p: Failed to open stream interface %d", stream_ctx->uac, stream_ctx->itf->bInterfaceNumber);
-        if (stream_ctx->open_cb)
+        if (!rst)
         {
-            stream_ctx->open_cb(stream_ctx, false);
-        }
-    }
-    else if (stream_ctx->open_stage == OPEN_STAGE_END)
-    {
-        if (stream_ctx->ep)
-        {
-            rst = usbh_endp_open(stream_ctx->uac->dev, stream_ctx, (const usb_desc_endpoint_t *)stream_ctx->ep,
-                                 stream_ctx->stream_dir == UACH_STREAM_DIR_CAPTURE ? uac_drv_stream_read_cb
-                                                                                   : uac_drv_stream_write_cb);
+            USB_LOGW("Handle %p: Failed to set stream interface %d alternate setting %d", stream->uac, stream->itf_num,
+                     stream->req_alt);
+            stream->req_rollback = false;
+            stream->req_stage = REQ_STAGE_IDLE;
+            if (stream->ctrl_cb)
+            {
+                stream->ctrl_cb(stream, rst);
+            }
+            break;
         }
 
-        if (rst)
+        /* The data endpoint of the previous alternate setting is no longer valid */
+        stream_endp_close(stream);
+        if (stream->req_alt != 0 && !stream_endp_open(stream, stream_alt_find(stream, stream->req_alt)))
         {
-            stream_ctx->is_open = true;
-            USB_LOGI("Handle %p: Stream interface %d opened", stream_ctx->uac, stream_ctx->itf->bInterfaceNumber);
+            USB_LOGE("Handle %p: Failed to open stream interface %d endpoint, fall back to alternate setting 0",
+                     stream->uac, stream->itf_num);
+            if (!stream->req_rollback)
+            {
+                stream->req_rollback = true;
+                stream->req_alt = 0;
+                stream->req_stage = REQ_STAGE_SET_ALT;
+                break;
+            }
+            rst = false;
+        }
+        else if (stream->req_alt != 0)
+        {
+            USB_LOGI("Handle %p: Stream interface %d alternate setting %d selected", stream->uac, stream->itf_num,
+                     stream->req_alt);
         }
         else
         {
-            stream_ctx->target_state = false;
-            USB_LOGW("Handle %p: Failed to open stream endpoint %02x", stream_ctx->uac,
-                     stream_ctx->ep->bEndpointAddress);
+            USB_LOGI("Handle %p: Stream interface %d closed", stream->uac, stream->itf_num);
         }
-        if (stream_ctx->open_cb)
+
+        if (stream->req_rollback)
         {
-            stream_ctx->open_cb(stream_ctx, rst);
+            stream->req_rollback = false;
+            rst = false;
         }
+        stream->req_stage = REQ_STAGE_IDLE;
+        if (stream->ctrl_cb)
+        {
+            stream->ctrl_cb(stream, rst);
+        }
+        break;
+    }
+
+    case REQ_STAGE_SET_RATE_BUSY:
+    {
+        if (rst)
+        {
+            stream->cur_sample_rate = stream->req_rate;
+            USB_LOGI("Handle %p: Stream interface %d sample rate set to %u", stream->uac, stream->itf_num,
+                     (unsigned int)stream->req_rate);
+        }
+        else
+        {
+            USB_LOGW("Handle %p: Failed to set stream interface %d sample rate %u", stream->uac, stream->itf_num,
+                     (unsigned int)stream->req_rate);
+        }
+        stream->req_stage = REQ_STAGE_IDLE;
+        if (stream->ctrl_cb)
+        {
+            stream->ctrl_cb(stream, rst);
+        }
+        break;
+    }
     }
 }
 
@@ -215,64 +314,32 @@ static void uac_run_task(uach_handle_t *uac)
 {
     for (size_t i = 0; i < uac->stream_count; i++)
     {
-        stream_ctx_t *stream_ctx = &uac->stream_ctxs[i];
         if (usbh_is_ctrl_xfering(uac->dev)) return;
-        if (stream_ctx->target_state == stream_ctx->is_open) continue;
-        switch (stream_ctx->open_stage)
+        usb_setup_t *request = &uac->ctrl_setup;
+        uach_stream_handle_t *stream = &uac->streams[i];
+
+        switch (stream->req_stage)
         {
-        case OPEN_STAGE_OPEN_STREAM_ITF:
-        {
-            if (stream_ctx->as_ep && stream_ctx->target_sample_rate &&
-                (stream_ctx->as_ep->bmAttributes & UAC_ENDP_SELECT_SAMPLING_FREQ))
-            {
-                stream_ctx->open_stage = OPEN_STAGE_SET_SAMPLE_RATE;
-            }
-            else
-            {
-                stream_ctx->open_stage = OPEN_STAGE_END;
-            }
-            usb_setup_t *request = &uac->ctrl_setup;
+        case REQ_STAGE_SET_ALT:
+            stream->req_stage = REQ_STAGE_SET_ALT_BUSY;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
             request->bRequest = USB_REQ_SET_INTERFACE;
-            request->wValue = stream_ctx->itf->bAlternateSetting;
-            request->wIndex = stream_ctx->itf->bInterfaceNumber;
+            request->wValue = stream->req_alt;
+            request->wIndex = stream->itf_num;
             request->wLength = 0;
-            usbh_ctrl_xfer(uac->dev, stream_ctx, request, NULL, CTRL_XFER_TIMEOUT, run_ctrl_xfer_cb);
+            usbh_ctrl_xfer(uac->dev, stream, request, NULL, CTRL_XFER_TIMEOUT, run_ctrl_xfer_cb);
             break;
-        }
 
-        case OPEN_STAGE_SET_SAMPLE_RATE:
-        {
-            stream_ctx->open_stage = OPEN_STAGE_END;
-            usb_setup_t *request = &uac->ctrl_setup;
+        case REQ_STAGE_SET_RATE:
+            stream->req_stage = REQ_STAGE_SET_RATE_BUSY;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_ENDPOINT);
             request->bRequest = UAC_REQ_SET_CUR;
             request->wValue = UAC_ENDP_SELECT_SAMPLING_FREQ << 8;
-            request->wIndex = stream_ctx->ep->bEndpointAddress;
+            request->wIndex = stream->cur_alt->ep->bEndpointAddress;
             request->wLength = 3;
-            memcpy(uac->ctrl_buf, &stream_ctx->target_sample_rate, 3);
-            usbh_ctrl_xfer(uac->dev, stream_ctx, request, uac->ctrl_buf, CTRL_XFER_TIMEOUT, run_ctrl_xfer_cb);
+            memcpy(uac->ctrl_buf, &stream->req_rate, 3);
+            usbh_ctrl_xfer(uac->dev, stream, request, uac->ctrl_buf, CTRL_XFER_TIMEOUT, run_ctrl_xfer_cb);
             break;
-        }
-
-        case OPEN_STAGE_CLOSE_STREAM_ITF:
-        {
-            stream_ctx->open_stage = OPEN_STAGE_END;
-            usb_setup_t *request = &uac->ctrl_setup;
-            request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
-            request->bRequest = USB_REQ_SET_INTERFACE;
-            request->wValue = 0;
-            request->wIndex = stream_ctx->itf->bInterfaceNumber;
-            request->wLength = 0;
-            usbh_ctrl_xfer(uac->dev, stream_ctx, request, NULL, CTRL_XFER_TIMEOUT, run_ctrl_xfer_cb);
-            break;
-        }
-        case OPEN_STAGE_END:
-        {
-            /* Never reached during normal operation */
-            stream_ctx->target_state = stream_ctx->is_open;
-            break;
-        }
         }
     }
 }
@@ -338,220 +405,442 @@ uach_handle_t *uach_get_handle(size_t index)
     return NULL;
 }
 
-size_t uach_get_stream_info(uach_handle_t *uac, uach_stream_info_t *info, size_t max_count)
+size_t uach_get_stream_count(uach_handle_t *uac)
 {
-    if (!uac || !info || !max_count) return 0;
+    if (!uac || uac->enum_stage < ENUM_STAGE_END) return 0;
+    return uac->stream_count;
+}
 
-    size_t count = 0;
-    for (size_t i = 0; i < USB_MIN(max_count, uac->stream_count); i++)
+uach_stream_handle_t *uach_get_stream_handle(uach_handle_t *uac, size_t index)
+{
+    if (!uac || uac->enum_stage < ENUM_STAGE_END || index >= uac->stream_count) return NULL;
+    return &uac->streams[index];
+}
+
+bool uach_stream_get_info(uach_stream_handle_t *stream, uach_stream_info_t *info)
+{
+    if (!stream || !info) return false;
+
+    memset(info, 0, sizeof(uach_stream_info_t));
+    info->itf_num = stream->itf_num;
+    info->dir = stream->dir;
+    info->terminal_link = stream->terminal_link;
+    info->alt_count = stream->alt_count;
+    info->cur_alt = stream->cur_alt ? stream->cur_alt->itf->bAlternateSetting : 0;
+    info->channel_config = stream->channel_config;
+    info->cur_sample_freq = stream->cur_sample_rate;
+    return true;
+}
+
+bool uach_stream_get_alt_info(uach_stream_handle_t *stream, size_t index, uach_stream_alt_info_t *info)
+{
+    if (!stream || !info || index >= stream->alt_count) return false;
+
+    const uach_stream_alt_setting_t *alt = &stream->alt_settings[index];
+    const uac_desc_as_format_t *format = alt->format;
+    memset(info, 0, sizeof(uach_stream_alt_info_t));
+    info->alt_setting = alt->itf->bAlternateSetting;
+    info->delay = alt->general->bDelay;
+    info->format_tag = alt->general->wFormatTag;
+    info->format_type = format->bFormatType;
+    info->channels = format->bNrChannels;
+    info->sub_frame_size = format->bSubframeSize;
+    info->bit_resolution = format->bBitResolution;
+    info->sample_freq_type = format->bSamFreqType;
+    info->endp_addr = alt->ep->bEndpointAddress;
+    info->sync_endp_addr = alt->sync_ep ? alt->sync_ep->bEndpointAddress : 0;
+    info->sync_type = alt->ep->bmAttributes & UAC_ENDP_ATTR_SYNC_TYPE_MASK;
+    info->interval = alt->ep->bInterval;
+    info->max_packet_size = USB_ENDP_GET_MPS(alt->ep->wMaxPacketSize);
+    info->lock_delay_units = alt->as_ep->bLockDelayUnits;
+    info->lock_delay = alt->as_ep->wLockDelay;
+    info->freq_ctrl = alt->as_ep->bmAttributes & UAC_AS_ENDP_ATTR_SAMPLING_FREQ ? true : false;
+    info->pitch_ctrl = alt->as_ep->bmAttributes & UAC_AS_ENDP_ATTR_PITCH ? true : false;
+    info->max_packets_only = alt->as_ep->bmAttributes & UAC_AS_ENDP_ATTR_MAX_PACKETS_ONLY ? true : false;
+
+    if (format->bSamFreqType == 0)
     {
-        stream_ctx_t *stream_ctx = &uac->stream_ctxs[i];
-        uach_stream_info_t *stream_info = &info[count];
-        if (!stream_ctx->stream_itf || !stream_ctx->format) continue;
-        memset(stream_info, 0, sizeof(uach_stream_info_t));
-        stream_info->dir = stream_ctx->stream_dir;
-        stream_info->channel_config = stream_ctx->channel_config;
-        stream_info->delay = stream_ctx->stream_itf->bDelay;
-        stream_info->format_tag = stream_ctx->stream_itf->wFormatTag;
-        stream_info->format_type = stream_ctx->format->bFormatType;
-        stream_info->channels = stream_ctx->format->bNrChannels;
-        stream_info->sub_frame_size = stream_ctx->format->bSubframeSize;
-        stream_info->bit_resolution = stream_ctx->format->bBitResolution;
-        stream_info->sample_freq_type = stream_ctx->format->bSamFreqType;
-        if (stream_ctx->format->bSamFreqType == 0)
-        {
-            if (stream_ctx->format->bLength - sizeof(uac_desc_as_format_t) == 6)
-            {
-                memcpy(&stream_info->min_sample_freq, &stream_ctx->format->tSamFreq[0], 3);
-                memcpy(&stream_info->max_sample_freq, &stream_ctx->format->tSamFreq[3], 3);
-            }
-        }
-        else
-        {
-            size_t sample_count = USB_MIN((stream_ctx->format->bLength - sizeof(uac_desc_as_format_t)) / 3,
-                                          USB_ARRAY_SIZE(stream_info->sample_freq));
-            for (size_t j = 0; j < sample_count; j++)
-            {
-                memcpy(&stream_info->sample_freq[j], &stream_ctx->format->tSamFreq[j * 3], 3);
-            }
-        }
-        stream_info->stream_handle = stream_ctx;
-        count++;
+        memcpy(&info->min_sample_freq, &format->tSamFreq[0], 3);
+        memcpy(&info->max_sample_freq, &format->tSamFreq[3], 3);
     }
-    return count;
-}
-
-void uach_stream_open(void *handle, uint32_t sample_rate, uach_stream_open_cb cb)
-{
-    if (!handle)
+    else
     {
-        if (cb) cb(handle, false);
-        return;
-    }
-    stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
-    stream_ctx->open_cb = cb;
-    stream_ctx->target_state = true;
-    stream_ctx->target_sample_rate = sample_rate;
-    stream_ctx->open_stage = OPEN_STAGE_OPEN_STREAM_ITF;
-}
-
-void uach_stream_close(void *handle)
-{
-    if (!handle) return;
-    stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
-    stream_ctx->target_state = false;
-    stream_ctx->open_stage = OPEN_STAGE_CLOSE_STREAM_ITF;
-}
-
-bool uach_stream_is_open(void *handle)
-{
-    if (!handle) return false;
-    stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
-    return stream_ctx->is_open;
-}
-
-bool uach_stream_capture(void *handle, void *buf, size_t size, uach_stream_transfer_cb cb)
-{
-    if (!handle || !buf || !size) return false;
-    stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
-    if (!stream_ctx->is_open || stream_ctx->stream_dir != UACH_STREAM_DIR_CAPTURE) return false;
-    stream_ctx->xfer_cb = cb;
-    return usbh_endp_read(stream_ctx->uac->dev, stream_ctx->ep->bEndpointAddress, buf, size, 0);
-}
-
-bool uach_stream_playback(void *handle, void *buf, size_t size, uach_stream_transfer_cb cb)
-{
-    if (!handle || !buf || !size) return false;
-    stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
-    if (!stream_ctx->is_open || stream_ctx->stream_dir != UACH_STREAM_DIR_PLAYBACK) return false;
-    stream_ctx->xfer_cb = cb;
-    return usbh_endp_write(stream_ctx->uac->dev, stream_ctx->ep->bEndpointAddress, buf, size, 0);
-}
-
-static bool element_array_parse(const void **element_desc_array, const uac_desc_header_t *header_desc)
-{
-    const uint8_t *curr = (const uint8_t *)header_desc + header_desc->bLength;
-    const uint8_t *end = (const uint8_t *)header_desc + header_desc->wTotalLength;
-
-    while (curr < end)
-    {
-        uint8_t len = curr[0];
-        uint8_t type = curr[1];
-        uint8_t sub_type = curr[2];
-        if (type != USB_DESC_CS_INTERFACE) return false;
-
-        switch (sub_type)
+        info->sample_freq_count = USB_MIN(format->bSamFreqType, USB_ARRAY_SIZE(info->sample_freq));
+        for (size_t i = 0; i < info->sample_freq_count; i++)
         {
-        case UAC_AC_DESC_INPUT_TERMINAL:
-        {
-            const uac_desc_input_terminal_t *input_terminal = (const uac_desc_input_terminal_t *)curr;
-            if (element_desc_array[input_terminal->bTerminalID]) return false;
-            element_desc_array[input_terminal->bTerminalID] = input_terminal;
-            break;
+            memcpy(&info->sample_freq[i], &format->tSamFreq[i * 3], 3);
         }
-        case UAC_AC_DESC_OUTPUT_TERMINAL:
-        {
-            const uac_desc_output_terminal_t *output_terminal = (const uac_desc_output_terminal_t *)curr;
-            if (element_desc_array[output_terminal->bTerminalID]) return false;
-            element_desc_array[output_terminal->bTerminalID] = output_terminal;
-            break;
-        }
-        case UAC_AC_DESC_MIXER_UNIT:
-        {
-            const uac_desc_mixer_unit_t *mixer_unit = (const uac_desc_mixer_unit_t *)curr;
-            if (element_desc_array[mixer_unit->bUnitID]) return false;
-            element_desc_array[mixer_unit->bUnitID] = mixer_unit;
-            break;
-        }
-        case UAC_AC_DESC_SELECTOR_UNIT:
-        {
-            const uac_desc_select_unit_t *select_unit = (const uac_desc_select_unit_t *)curr;
-            if (element_desc_array[select_unit->bUnitID]) return false;
-            element_desc_array[select_unit->bUnitID] = select_unit;
-            break;
-        }
-        case UAC_AC_DESC_FEATURE_UNIT:
-        {
-            const uac_desc_feature_unit_t *feature_unit = (const uac_desc_feature_unit_t *)curr;
-            if (element_desc_array[feature_unit->bUnitID]) return false;
-            element_desc_array[feature_unit->bUnitID] = feature_unit;
-            break;
-        }
-        default:
-            return false;
-        }
-        curr += len;
     }
     return true;
 }
 
-static bool element_desc_check(const void **array, const void *element, uint8_t *ch, uint16_t *ch_config, uint8_t depth)
+bool uach_stream_set_alt_setting(uach_stream_handle_t *stream, uint8_t alt_setting, uach_stream_ctrl_cb cb)
 {
-    if (!element || depth > 12) return false;
+    if (!stream || stream->req_stage != REQ_STAGE_IDLE) return false;
+    if (alt_setting != 0 && !stream_alt_find(stream, alt_setting)) return false;
 
-    const uint8_t *desc = (const uint8_t *)element;
-    switch (desc[2])
+    stream->ctrl_cb = cb;
+    stream->req_alt = alt_setting;
+    stream->req_rollback = false;
+    stream->req_stage = REQ_STAGE_SET_ALT;
+    return true;
+}
+
+bool uach_stream_set_sample_rate(uach_stream_handle_t *stream, uint32_t sample_rate, uach_stream_ctrl_cb cb)
+{
+    if (!stream || stream->req_stage != REQ_STAGE_IDLE || !stream->cur_alt) return false;
+    if (!(stream->cur_alt->as_ep->bmAttributes & UAC_AS_ENDP_ATTR_SAMPLING_FREQ)) return false;
+
+    /* The sample rate shall be one of the rates advertised by the format type descriptor */
+    const uac_desc_as_format_t *format = stream->cur_alt->format;
+    if (format->bSamFreqType == 0)
+    {
+        uint32_t min_sample_freq;
+        uint32_t max_sample_freq;
+        memcpy(&min_sample_freq, &format->tSamFreq[0], 3);
+        memcpy(&max_sample_freq, &format->tSamFreq[3], 3);
+        if (sample_rate < min_sample_freq || sample_rate > max_sample_freq) return false;
+    }
+    else
+    {
+        size_t i = 0;
+        for (; i < format->bSamFreqType; i++)
+        {
+            uint32_t freq;
+            memcpy(&freq, &format->tSamFreq[i * 3], 3);
+            if (freq == sample_rate) break;
+        }
+        if (i == format->bSamFreqType) return false;
+    }
+
+    stream->ctrl_cb = cb;
+    stream->req_rate = sample_rate;
+    stream->req_stage = REQ_STAGE_SET_RATE;
+    return true;
+}
+
+bool uach_stream_capture(uach_stream_handle_t *stream, void *buf, size_t size, uach_stream_xfer_cb cb)
+{
+    if (!stream || !buf || !size || !stream->cur_alt || stream->req_stage != REQ_STAGE_IDLE) return false;
+    if (stream->dir != UACH_STREAM_DIR_CAPTURE) return false;
+
+    uint8_t endp = stream->cur_alt->ep->bEndpointAddress;
+    if (size < USB_ENDP_GET_MPS(stream->cur_alt->ep->wMaxPacketSize)) return false;
+    if (usbh_is_endp_xfering(stream->uac->dev, endp)) return false;
+
+    stream->xfer_cb = cb;
+    return usbh_endp_read(stream->uac->dev, endp, buf, size, 0);
+}
+
+bool uach_stream_playback(uach_stream_handle_t *stream, const void *buf, size_t size, uach_stream_xfer_cb cb)
+{
+    if (!stream || !buf || !size || !stream->cur_alt || stream->req_stage != REQ_STAGE_IDLE) return false;
+    if (stream->dir != UACH_STREAM_DIR_PLAYBACK) return false;
+
+    uint8_t endp = stream->cur_alt->ep->bEndpointAddress;
+    if (size > USB_ENDP_GET_MPS(stream->cur_alt->ep->wMaxPacketSize)) return false;
+    if (usbh_is_endp_xfering(stream->uac->dev, endp)) return false;
+
+    stream->xfer_cb = cb;
+    return usbh_endp_write(stream->uac->dev, endp, buf, size, 0);
+}
+
+static bool element_parse(const uac_desc_header_t *header, const uint8_t **elements)
+{
+    const uint8_t *curr = (const uint8_t *)header + header->bLength;
+    const uint8_t *end = (const uint8_t *)header + header->wTotalLength;
+
+    while (curr < end)
+    {
+        if (curr[0] < 4) return false;
+        if (curr[1] != USB_DESC_CS_INTERFACE) return false;
+        if (curr[2] != UAC_AC_DESC_INPUT_TERMINAL && curr[2] != UAC_AC_DESC_OUTPUT_TERMINAL &&
+            curr[2] != UAC_AC_DESC_MIXER_UNIT && curr[2] != UAC_AC_DESC_SELECTOR_UNIT &&
+            curr[2] != UAC_AC_DESC_FEATURE_UNIT && curr[2] != UAC_AC_DESC_PROCESSING_UNIT &&
+            curr[2] != UAC_AC_DESC_EXTENSION_UNIT)
+            return false;
+        if (elements[curr[3]]) return false;
+        elements[curr[3]] = (const uint8_t *)curr;
+        curr += curr[0];
+    }
+    return curr == end;
+}
+
+static bool recursive_check(const uint8_t **elems, const uint8_t *curr, uint8_t *ch, uint16_t *config, uint8_t depth)
+{
+    if (!curr || depth > ELEMENT_MAX_DEPTH) return false;
+
+    switch (curr[2])
     {
     case UAC_AC_DESC_INPUT_TERMINAL:
     {
-        const uac_desc_input_terminal_t *input_terminal = (const uac_desc_input_terminal_t *)desc;
-        *ch = input_terminal->bNrChannels;
-        *ch_config = input_terminal->wChannelConfig;
+        const uac_desc_input_terminal_t *input = (const uac_desc_input_terminal_t *)curr;
+        if (input->bLength != sizeof(uac_desc_input_terminal_t)) return false;
+        *ch = input->bNrChannels;
+        *config = input->wChannelConfig;
         return true;
     }
     case UAC_AC_DESC_OUTPUT_TERMINAL:
     {
-        const uac_desc_output_terminal_t *output_terminal = (const uac_desc_output_terminal_t *)desc;
-        return element_desc_check(array, array[output_terminal->bSourceID], ch, ch_config, depth + 1);
+        const uac_desc_output_terminal_t *output = (const uac_desc_output_terminal_t *)curr;
+        if (output->bLength != sizeof(uac_desc_output_terminal_t)) return false;
+        return recursive_check(elems, elems[output->bSourceID], ch, config, depth + 1);
     }
     case UAC_AC_DESC_MIXER_UNIT:
     {
-        const uac_desc_mixer_unit_t *mixer_unit = (const uac_desc_mixer_unit_t *)desc;
-        if (!mixer_unit->bNrInPins) return false;
-        for (size_t i = 0; i < mixer_unit->bNrInPins; i++)
+        const uac_desc_mixer_unit_t *mixer = (const uac_desc_mixer_unit_t *)curr;
+        if (!mixer->bNrInPins) return false;
+        for (size_t i = 0; i < mixer->bNrInPins; i++)
         {
-            if (!element_desc_check(array, array[desc[5 + i]], ch, ch_config, depth + 1)) return false;
+            if (!recursive_check(elems, elems[curr[5 + i]], ch, config, depth + 1)) return false;
         }
-        *ch = ((const uint8_t *)mixer_unit)[5 + mixer_unit->bNrInPins];
-        *ch_config = ((const uint8_t *)mixer_unit)[6 + mixer_unit->bNrInPins];
+        const uint8_t *mixer_bytes = (const uint8_t *)mixer;
+        *ch = mixer_bytes[5 + mixer->bNrInPins];
+        *config = mixer_bytes[6 + mixer->bNrInPins] | (mixer_bytes[7 + mixer->bNrInPins] << 8);
         return true;
     }
     case UAC_AC_DESC_SELECTOR_UNIT:
     {
-        const uac_desc_select_unit_t *select_unit = (const uac_desc_select_unit_t *)desc;
-        if (!select_unit->bNrInPins) return false;
-        for (size_t i = 0; i < select_unit->bNrInPins; i++)
+        const uac_desc_select_unit_t *select = (const uac_desc_select_unit_t *)curr;
+        if (!select->bNrInPins) return false;
+        if (select->bLength != sizeof(uac_desc_select_unit_t) + select->bNrInPins) return false;
+        uint8_t first_channels;
+        uint16_t first_channel_config;
+        for (size_t i = 0; i < select->bNrInPins; i++)
         {
-            if (!element_desc_check(array, array[desc[5 + i]], ch, ch_config, depth + 1)) return false;
+            uint8_t channels = 0;
+            uint16_t channel_config = 0;
+            if (!recursive_check(elems, elems[curr[5 + i]], &channels, &channel_config, depth + 1)) return false;
+            if (i == 0)
+            {
+                first_channels = channels;
+                first_channel_config = channel_config;
+            }
+            else if (channels != first_channels || channel_config != first_channel_config)
+            {
+                return false;
+            }
         }
+        *ch = first_channels;
+        *config = first_channel_config;
         return true;
     }
     case UAC_AC_DESC_FEATURE_UNIT:
     {
-        const uac_desc_feature_unit_t *feature_unit = (const uac_desc_feature_unit_t *)desc;
-        if (!element_desc_check(array, array[feature_unit->bSourceID], ch, ch_config, depth + 1)) return false;
-        uint8_t feature_unit_length = sizeof(uac_desc_feature_unit_t) + ((*ch) + 1) * feature_unit->bControlSize;
-        if (feature_unit->bLength != feature_unit_length) return false;
+        const uac_desc_feature_unit_t *feature = (const uac_desc_feature_unit_t *)curr;
+        if (!recursive_check(elems, elems[feature->bSourceID], ch, config, depth + 1)) return false;
+        if (feature->bLength != sizeof(uac_desc_feature_unit_t) + ((*ch) + 1) * feature->bControlSize) return false;
+        return true;
+    }
+    case UAC_AC_DESC_PROCESSING_UNIT:
+    {
+        const uac_desc_processing_unit_t *processing = (const uac_desc_processing_unit_t *)curr;
+        if (!processing->bNrInPins) return false;
+        for (size_t i = 0; i < processing->bNrInPins; i++)
+        {
+            if (!recursive_check(elems, elems[curr[7 + i]], ch, config, depth + 1)) return false;
+        }
+        return true;
+    }
+    case UAC_AC_DESC_EXTENSION_UNIT:
+    {
+        const uac_desc_extension_unit_t *extension = (const uac_desc_extension_unit_t *)curr;
+        if (!extension->bNrInPins) return false;
+        for (size_t i = 0; i < extension->bNrInPins; i++)
+        {
+            if (!recursive_check(elems, elems[curr[7 + i]], ch, config, depth + 1)) return false;
+        }
         return true;
     }
     }
     return false;
 }
 
-static bool topology_structure_check(const void **element_desc_array)
+static bool topology_check(const uint8_t **elems)
 {
-    for (size_t i = 0; i < 256; i++)
+    for (size_t i = 1; i < ELEMENT_MAX_COUNT; i++)
     {
-        if (element_desc_array[i] && ((const uint8_t *)element_desc_array[i])[2] == UAC_AC_DESC_OUTPUT_TERMINAL)
+        if (elems[i] && ((const uint8_t *)elems[i])[2] == UAC_AC_DESC_OUTPUT_TERMINAL)
         {
             uint8_t channels = 0;
             uint16_t channel_config = 0;
-            if (!element_desc_check(element_desc_array, element_desc_array[i], &channels, &channel_config, 0))
+            if (!recursive_check(elems, elems[i], &channels, &channel_config, 0))
             {
                 return false;
             }
         }
     }
+    return true;
+}
+
+static bool stream_alt_commit(uach_stream_handle_t *stream, const uach_stream_alt_setting_t *alt, const uint8_t **elems)
+{
+    if (!alt->general || !alt->format || !alt->ep || !alt->as_ep) return false;
+    if (stream_alt_find(stream, alt->itf->bAlternateSetting)) return false;
+
+    /* Only Type I and Type III formats are supported, skip the alternate settings of other formats */
+    const uac_desc_as_format_t *format = alt->format;
+    if (format->bFormatType == UAC_FORMAT_TYPE_II) return true;
+    if (format->bFormatType != UAC_FORMAT_TYPE_I && format->bFormatType != UAC_FORMAT_TYPE_III) return false;
+
+    uint8_t freq_count = format->bSamFreqType ? format->bSamFreqType : 2;
+    if (format->bLength != sizeof(uac_desc_as_format_t) + freq_count * 3) return false;
+    if (format->bNrChannels == 0 || format->bSubframeSize < 1 || format->bSubframeSize > 4) return false;
+    if (format->bBitResolution == 0 || format->bBitResolution > format->bSubframeSize * 8) return false;
+    if (format->bSamFreqType == 0)
+    {
+        uint32_t min_sample_freq;
+        uint32_t max_sample_freq;
+        memcpy(&min_sample_freq, &format->tSamFreq[0], 3);
+        memcpy(&max_sample_freq, &format->tSamFreq[3], 3);
+        if (min_sample_freq > max_sample_freq) return false;
+    }
+
+    /* The data endpoint is isochronous, and the optional synch endpoint is the one it refers to */
+    const uac_desc_audio_endpoint_t *ep = alt->ep;
+    uint8_t sync_addr = alt->sync_ep ? alt->sync_ep->bEndpointAddress : 0;
+    if (ep->bLength != 9) return false;
+    if (USB_ENDP_GET_TYPE(ep->bmAttributes) != USB_ENDP_TYPE_ISOC) return false;
+    if (USB_ENDP_GET_USAGE_TYPE(ep->bmAttributes) == USB_ENDP_USAGE_TYPE_FEEDBACK) return false;
+    if (ep->bSynchAddress != sync_addr) return false;
+    if (alt->sync_ep && USB_ENDP_GET_TYPE(alt->sync_ep->bmAttributes) != USB_ENDP_TYPE_ISOC) return false;
+
+    /* The terminal link shall be a USB streaming terminal, which determines the stream direction */
+    const uint8_t *term = elems[alt->general->bTerminalLink];
+    if (!term || (uint16_t)(term[4] | (term[5] << 8)) != UAC_TERMINAL_USB_TYPE_STREAMING) return false;
+    if (term[2] != UAC_AC_DESC_INPUT_TERMINAL && term[2] != UAC_AC_DESC_OUTPUT_TERMINAL) return false;
+    uach_stream_dir_t dir = term[2] == UAC_AC_DESC_INPUT_TERMINAL ? UACH_STREAM_DIR_PLAYBACK : UACH_STREAM_DIR_CAPTURE;
+    if ((USB_ENDP_DIR(ep->bEndpointAddress) != 0) != (dir == UACH_STREAM_DIR_CAPTURE)) return false;
+
+    uint8_t channels = 0;
+    uint16_t channel_config = 0;
+    if (!recursive_check(elems, term, &channels, &channel_config, 0)) return false;
+    if (stream->terminal_link && stream->terminal_link != alt->general->bTerminalLink) return false;
+    if (channels != format->bNrChannels)
+    {
+        USB_LOGW("Stream interface %d alternate setting %d: channels %d mismatch terminal %d", stream->itf_num,
+                 alt->itf->bAlternateSetting, format->bNrChannels, channels);
+    }
+
+    stream->dir = dir;
+    stream->terminal_link = alt->general->bTerminalLink;
+    stream->channel_config = channel_config;
+    if (stream->alt_count >= USB_ARRAY_SIZE(stream->alt_settings))
+    {
+        USB_LOGW("Stream interface %d: Alternate setting %d ignored, too many alternate settings", stream->itf_num,
+                 alt->itf->bAlternateSetting);
+        return true;
+    }
+    stream->alt_settings[stream->alt_count] = *alt;
+    stream->alt_count++;
+    return true;
+}
+
+static bool stream_parse(usbh_device_t *dev, uach_stream_handle_t *stream, const uint8_t **elems, bool *usable)
+{
+    bool has_alt0 = false;
+    bool in_alt = false;
+    uint8_t endp_index = 0;
+    uint8_t endp_count = 0;
+    uach_stream_alt_setting_t alt = {0};
+
+    const uint8_t *curr = (const uint8_t *)dev->config_desc;
+    const uint8_t *end = curr + ((const usb_desc_config_t *)dev->config_desc)->wTotalLength;
+    while (curr < end)
+    {
+        uint8_t len = curr[0];
+        uint8_t type = curr[1];
+
+        switch (type)
+        {
+        case USB_DESC_INTERFACE:
+        {
+            if (in_alt)
+            {
+                if (endp_count == 2 && alt.sync_ep == NULL) return false;
+                if (endp_index != endp_count || !stream_alt_commit(stream, &alt, elems)) return false;
+                in_alt = false;
+            }
+
+            const usb_desc_interface_t *itf = (const usb_desc_interface_t *)curr;
+            if (itf->bInterfaceNumber != stream->itf_num)
+            {
+                break;
+            }
+            if (itf->bInterfaceClass != USB_CLASS_AUDIO || itf->bInterfaceSubClass != UAC_SUBCLASS_AUDIO_STREAMING ||
+                itf->bInterfaceProtocol != UAC_PROTOCOL_UNDEFINED)
+                return false;
+
+            if (itf->bAlternateSetting == 0)
+            {
+                /* The zero bandwidth alternate setting has no endpoint */
+                if (itf->bNumEndpoints != 0) return false;
+                has_alt0 = true;
+            }
+            else
+            {
+                if (!itf->bNumEndpoints || itf->bNumEndpoints > 2) return false;
+                memset(&alt, 0, sizeof(alt));
+                alt.itf = itf;
+                endp_index = 0;
+                endp_count = itf->bNumEndpoints;
+                in_alt = true;
+            }
+            break;
+        }
+        case USB_DESC_CS_INTERFACE:
+        {
+            if (!in_alt) break;
+            uint8_t sub_type = curr[2];
+            if (sub_type == UAC_AS_DESC_GENERAL)
+            {
+                if (alt.general || len != sizeof(uac_desc_as_itf_t)) return false;
+                alt.general = (const uac_desc_as_itf_t *)curr;
+            }
+            else if (sub_type == UAC_AS_DESC_FORMAT_TYPE)
+            {
+                if (!alt.general || alt.format || len < sizeof(uac_desc_as_format_t)) return false;
+                alt.format = (const uac_desc_as_format_t *)curr;
+            }
+            break;
+        }
+        case USB_DESC_ENDPOINT:
+        {
+            if (!in_alt) break;
+            if (endp_index == 0)
+            {
+                alt.ep = (const uac_desc_audio_endpoint_t *)curr;
+            }
+            else
+            {
+                alt.sync_ep = (const uac_desc_audio_endpoint_t *)curr;
+            }
+            endp_index++;
+            break;
+        }
+        case USB_DESC_CS_ENDPOINT:
+        {
+            if (!in_alt) break;
+            uint8_t sub_type = curr[2];
+
+            /* The class-specific descriptor belongs to the data endpoint */
+            if (endp_index != 1 || alt.as_ep || len != sizeof(uac_desc_audio_as_endpoint_t)) return false;
+            if (sub_type != UAC_ENDP_SUBTYPE_GENERAL) return false;
+            alt.as_ep = (const uac_desc_audio_as_endpoint_t *)curr;
+            break;
+        }
+        }
+        curr += len;
+    }
+
+    if (in_alt)
+    {
+        if (endp_count == 2 && alt.sync_ep == NULL) return false;
+        if (endp_index != endp_count || !stream_alt_commit(stream, &alt, elems)) return false;
+    }
+
+    if (!has_alt0) return false;
+    *usable = stream->alt_count > 0;
     return true;
 }
 
@@ -569,117 +858,13 @@ static uach_handle_t *handle_alloc(void)
     return NULL;
 }
 
-static void stream_itf_parse(uach_handle_t *uac, const void **element_desc_array)
-{
-    uac->stream_count = 0;
-    stream_ctx_t *stream = NULL;
-    uint32_t stream_itf_bitmap[8] = {0};
-    const uac_desc_audio_endpoint_t *ep = NULL;
-
-    for (size_t i = 0; i < uac->header_desc->bInCollection; i++)
-    {
-        uint8_t itf_num = uac->header_desc->baInterfaceNr[i];
-        stream_itf_bitmap[itf_num >> 5] |= (1U << (itf_num & 0x1F));
-    }
-
-    const uint8_t *curr = (const uint8_t *)uac->dev->config_desc;
-    const uint8_t *end = curr + ((const usb_desc_config_t *)uac->dev->config_desc)->wTotalLength;
-    while (curr < end)
-    {
-        uint8_t len = curr[0];
-        uint8_t type = curr[1];
-        switch (type)
-        {
-        case USB_DESC_INTERFACE:
-        {
-            const usb_desc_interface_t *itf = (const usb_desc_interface_t *)curr;
-            if (stream_itf_bitmap[itf->bInterfaceNumber >> 5] & (1U << (itf->bInterfaceNumber & 0x1F)) &&
-                itf->bAlternateSetting > 0 && uac->stream_count < USB_ARRAY_SIZE(uac->stream_ctxs))
-            {
-                stream = &uac->stream_ctxs[uac->stream_count++];
-                stream->itf = itf;
-                stream->uac = uac;
-                ep = NULL;
-            }
-            else
-            {
-                stream = NULL;
-            }
-            break;
-        }
-
-        case USB_DESC_ENDPOINT:
-        {
-            if (stream && ep == NULL)
-            {
-                ep = (const uac_desc_audio_endpoint_t *)curr;
-                stream->ep = ep;
-            }
-            break;
-        }
-
-        case USB_DESC_CS_INTERFACE:
-        {
-            if (!stream) break;
-            uint8_t sub_type = curr[2];
-            if (sub_type == UAC_AS_DESC_GENERAL)
-            {
-                stream->stream_itf = (const uac_desc_as_itf_t *)curr;
-            }
-            else if (sub_type == UAC_AS_DESC_FORMAT_TYPE)
-            {
-                stream->format = (const uac_desc_as_format_t *)curr;
-            }
-            break;
-        }
-
-        case USB_DESC_CS_ENDPOINT:
-            if (stream)
-            {
-                stream->as_ep = (const uac_desc_audio_as_endpoint_t *)curr;
-            }
-            break;
-        }
-
-        curr += len;
-    }
-
-    for (int i = 0; i < uac->stream_count; i++)
-    {
-        stream = &uac->stream_ctxs[i];
-        if (!stream->stream_itf) continue;
-
-        const void *term_desc = element_desc_array[stream->stream_itf->bTerminalLink];
-        if (!term_desc) continue;
-
-        uint8_t channels = 0;
-        uint16_t channel_config = 0;
-        if (element_desc_check(element_desc_array, term_desc, &channels, &channel_config, 0))
-        {
-            stream->channel_config = channel_config;
-        }
-
-        uint8_t term_type = ((const uint8_t *)term_desc)[2];
-        if (term_type == UAC_AC_DESC_INPUT_TERMINAL)
-        {
-            stream->stream_dir = UACH_STREAM_DIR_PLAYBACK;
-        }
-        else if (term_type == UAC_AC_DESC_OUTPUT_TERMINAL)
-        {
-            stream->stream_dir = UACH_STREAM_DIR_CAPTURE;
-        }
-    }
-}
-
 static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 {
     if (!dev || dev->speed == USB_SPEED_LOW || !desc || len == 0) return false;
 
-    const void *element_desc_array[256] = {0};
     const usb_desc_interface_t *ctrl_itf = NULL;
     const uac_desc_header_t *header_desc = NULL;
 
-    const usb_desc_interface_t *curr_itf = NULL;
     const uint8_t *curr = (const uint8_t *)desc;
     const uint8_t *end = curr + len;
 
@@ -690,32 +875,79 @@ static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 
         if (type == USB_DESC_INTERFACE)
         {
-            curr_itf = (const usb_desc_interface_t *)curr;
-            if (curr_itf->bInterfaceSubClass == UAC_SUBCLASS_AUDIO_CONTROL)
-            {
-                ctrl_itf = curr_itf;
-            }
+            ctrl_itf = (const usb_desc_interface_t *)curr;
+            if (ctrl_itf->bAlternateSetting != 0 || ctrl_itf->bNumEndpoints > 1) return false;
         }
         else if (type == USB_DESC_CS_INTERFACE)
         {
-            uint8_t sub_type = curr[2];
-            if (curr_itf && curr_itf->bInterfaceSubClass == UAC_SUBCLASS_AUDIO_CONTROL &&
-                sub_type == UAC_AC_DESC_HEADER)
-            {
-                if (header_desc) return false;
-                header_desc = (const uac_desc_header_t *)curr;
-                if (header_desc->bLength < sizeof(uac_desc_header_t)) return false;
-                if (header_desc->bcdADC > SUPPORTED_PROTOCOL_VERSION) return false;
-                if (!header_desc->bInCollection) return false;
-                if (!element_array_parse(element_desc_array, header_desc)) return false;
-                if (!topology_structure_check(element_desc_array)) return false;
-            }
+            header_desc = (const uac_desc_header_t *)curr;
+            if (curr + sizeof(uac_desc_header_t) > end || header_desc->bDescriptorSubType != UAC_AC_DESC_HEADER)
+                return false;
+            if (header_desc->bcdADC != SUPPORTED_PROTOCOL_VERSION || header_desc->bInCollection == 0) return false;
+            if (header_desc->bLength != sizeof(uac_desc_header_t) + header_desc->bInCollection) return false;
+            if (header_desc->wTotalLength < header_desc->bLength || curr + header_desc->wTotalLength > end)
+                return false;
             break;
         }
         curr += len;
     }
 
     if (!ctrl_itf || !header_desc) return false;
+
+    const uint8_t *elements[ELEMENT_MAX_COUNT] = {0};
+    if (!element_parse(header_desc, elements) || !topology_check(elements))
+    {
+        USB_LOGE("Handle %p: Invalid AudioControl topology", dev);
+        return false;
+    }
+
+    size_t stream_count = 0;
+    uach_stream_handle_t streams[UACH_MAX_STREAM_ITF_COUNT] = {0};
+    for (size_t i = 0; i < header_desc->bInCollection; i++)
+    {
+        uint8_t itf_num = header_desc->baInterfaceNr[i];
+        if (stream_count >= USB_ARRAY_SIZE(streams))
+        {
+            USB_LOGW("Handle %p: Stream interface %d ignored, too many stream interfaces", dev, itf_num);
+            continue;
+        }
+
+        uach_stream_handle_t *stream = &streams[stream_count];
+        memset(stream, 0, sizeof(uach_stream_handle_t));
+        stream->itf_num = itf_num;
+        bool duplicate = false;
+        for (size_t j = 0; j < stream_count; j++)
+        {
+            if (streams[j].itf_num == itf_num)
+            {
+                USB_LOGE("Handle %p: Duplicate stream interface %d", dev, itf_num);
+                duplicate = true;
+                break;
+            }
+        }
+        if (duplicate) continue;
+
+        bool usable = false;
+        if (!stream_parse(dev, stream, elements, &usable))
+        {
+            USB_LOGE("Handle %p: Failed to parse stream interface %d", dev, itf_num);
+            return false;
+        }
+
+        if (usable)
+        {
+            stream_count++;
+        }
+        else
+        {
+            USB_LOGW("Handle %p: Stream interface %d has no supported format", dev, itf_num);
+        }
+    }
+    if (stream_count == 0)
+    {
+        USB_LOGE("Handle %p: No usable stream interface", dev);
+        return false;
+    }
 
     /* Allocate and initialize a new uac handle */
     uach_handle_t *uac = handle_alloc();
@@ -727,8 +959,12 @@ static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
 
     uac->dev = dev;
     uac->ctrl_itf = ctrl_itf;
-    uac->header_desc = header_desc;
-    stream_itf_parse(uac, element_desc_array);
+    uac->stream_count = stream_count;
+    for (size_t i = 0; i < stream_count; i++)
+    {
+        streams[i].uac = uac;
+        memcpy(&uac->streams[i], &streams[i], sizeof(uach_stream_handle_t));
+    }
     usbh_list_append((void **)&uac_list, uac);
     return true;
 }
@@ -743,8 +979,7 @@ static bool uac_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
         {
             for (size_t i = 0; i < uac->stream_count; i++)
             {
-                stream_ctx_t *stream_ctx = &uac->stream_ctxs[i];
-                if (stream_ctx->ep) usbh_endp_close(uac->dev, stream_ctx->ep->bEndpointAddress);
+                stream_endp_close(&uac->streams[i]);
             }
             usbh_list_remove((void **)&uac_list, uac);
             memset(uac, 0, sizeof(uach_handle_t));
@@ -756,21 +991,21 @@ static bool uac_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
 
 static void uac_drv_stream_read_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
-    stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
-    if (!stream_ctx || !stream_ctx->is_open) return;
-    if (stream_ctx->xfer_cb)
+    uach_stream_handle_t *stream = (uach_stream_handle_t *)handle;
+    if (!rst || !stream || !stream->cur_alt) return;
+    if (stream->xfer_cb)
     {
-        stream_ctx->xfer_cb(stream_ctx, (void *)buf, len);
+        stream->xfer_cb(stream, (void *)buf, len);
     }
 }
 
 static void uac_drv_stream_write_cb(void *handle, bool rst, usb_endp_t endp, const void *buf, size_t len)
 {
-    stream_ctx_t *stream_ctx = (stream_ctx_t *)handle;
-    if (!stream_ctx || !stream_ctx->is_open) return;
-    if (stream_ctx->xfer_cb)
+    uach_stream_handle_t *stream = (uach_stream_handle_t *)handle;
+    if (!rst || !stream || !stream->cur_alt) return;
+    if (stream->xfer_cb)
     {
-        stream_ctx->xfer_cb(stream_ctx, (void *)buf, len);
+        stream->xfer_cb(stream, (void *)buf, len);
     }
 }
 

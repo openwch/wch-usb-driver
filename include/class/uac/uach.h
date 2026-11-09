@@ -34,28 +34,64 @@ typedef enum
 
 /* @typedef */
 typedef struct uach_handle uach_handle_t;
+typedef struct uach_stream_handle uach_stream_handle_t;
 
 /* @function pointer */
-typedef void (*uach_stream_open_cb)(void *stream_handle, bool rst);
-typedef void (*uach_stream_transfer_cb)(void *stream_handle, void *buf, size_t size);
+
+/**
+ * @brief Stream control completion callback (set alternate setting / set sample rate)
+ * 
+ * @param stream Stream handle
+ * @param rst Operation result
+ */
+typedef void (*uach_stream_ctrl_cb)(uach_stream_handle_t *stream, bool rst);
+
+/**
+ * @brief Stream data transfer completion callback (capture / playback)
+ * 
+ * @param stream Stream handle
+ * @param buf Buffer used by the transfer
+ * @param len Actual transfer length
+ */
+typedef void (*uach_stream_xfer_cb)(uach_stream_handle_t *stream, void *buf, size_t len);
 
 /* @struct */
 typedef struct
 {
-    uint8_t dir;
-    uint8_t delay;
-    uint8_t format_type;
-    uint8_t channels;
-    uint8_t sub_frame_size;
-    uint8_t bit_resolution;
-    uint8_t sample_freq_type;
-    uint16_t format_tag;
-    uint16_t channel_config;
-    uint32_t min_sample_freq;
-    uint32_t max_sample_freq;
-    uint32_t sample_freq[UACH_MAX_SAMPLE_FREQ];
-    void *stream_handle;
+    uint8_t itf_num;          // AudioStreaming interface number
+    uint8_t dir;              // Stream direction, see uach_stream_dir_t
+    uint8_t terminal_link;    // ID of the USB streaming terminal linked to the stream
+    uint8_t alt_count;        // Number of usable non-zero alternate settings
+    uint8_t cur_alt;          // Current alternate setting, 0 means idle (zero bandwidth)
+    uint16_t channel_config;  // Spatial location bitmap of the linked terminal
+    uint32_t cur_sample_freq; // Current sample rate in Hz, 0 means unknown
 } uach_stream_info_t;
+
+typedef struct
+{
+    uint8_t alt_setting;                        // bAlternateSetting
+    uint8_t delay;                              // bDelay of AS_GENERAL, in frames
+    uint8_t format_type;                        // bFormatType, see uac_format_type_t
+    uint8_t channels;                           // bNrChannels
+    uint8_t sub_frame_size;                     // bSubframeSize, bytes per audio subframe
+    uint8_t bit_resolution;                     // bBitResolution
+    uint8_t sample_freq_type;                   // bSamFreqType: 0 continuous range, otherwise number of discrete rates
+    uint8_t sample_freq_count;                  // Valid entries in sample_freq, limited by UACH_MAX_SAMPLE_FREQ
+    uint8_t endp_addr;                          // Isochronous data endpoint address
+    uint8_t sync_endp_addr;                     // Isochronous synch endpoint address, 0 if none
+    uint8_t sync_type;                          // Endpoint synchronization type, UAC_ENDP_ATTR_SYNC_TYPE_*
+    uint8_t interval;                           // bInterval of the data endpoint
+    uint8_t lock_delay_units;                   // bLockDelayUnits
+    uint16_t lock_delay;                        // wLockDelay
+    uint16_t max_packet_size;                   // Max packet size of the data endpoint
+    uint16_t format_tag;                        // wFormatTag, see uac_format_tag_t
+    bool freq_ctrl;                             // Endpoint supports the sampling frequency control
+    bool pitch_ctrl;                            // Endpoint supports the pitch control
+    bool max_packets_only;                      // Endpoint requires packets of wMaxPacketSize only
+    uint32_t min_sample_freq;                   // Minimum sample rate, only valid if sample_freq_type is 0
+    uint32_t max_sample_freq;                   // Maximum sample rate, only valid if sample_freq_type is 0
+    uint32_t sample_freq[UACH_MAX_SAMPLE_FREQ]; // Discrete sample rates, only valid if sample_freq_type is not 0
+} uach_stream_alt_info_t;
 
 /* @function declarations */
 
@@ -100,64 +136,90 @@ size_t uach_get_count(void);
 uach_handle_t *uach_get_handle(size_t index);
 
 /**
- * @brief Get the stream information of the USB UAC host driver
+ * @brief Get the number of AudioStreaming interfaces of the USB UAC host driver instance
  * 
  * @param uac UAC instance handle
- * @param info Pointer to the array to store stream information
- * @param max_count Maximum number of stream information entries to retrieve
  * 
- * @return The number of stream information entries retrieved
+ * @return The number of stream interfaces
  */
-size_t uach_get_stream_info(uach_handle_t *uac, uach_stream_info_t *info, size_t max_count);
+size_t uach_get_stream_count(uach_handle_t *uac);
 
 /**
- * @brief Open a USB UAC stream interface
+ * @brief Get the stream interface handle by index
  * 
- * @param handle Stream handle
- * @param sample_rate Sample rate for the stream
- * @param cb Callback function to be called when the stream is opened
+ * @param uac UAC instance handle
+ * @param index The index of the stream interface
+ * 
+ * @return Stream handle, or NULL if the index is invalid
  */
-void uach_stream_open(void *handle, uint32_t sample_rate, uach_stream_open_cb cb);
+uach_stream_handle_t *uach_get_stream_handle(uach_handle_t *uac, size_t index);
 
 /**
- * @brief Close a USB UAC stream interface
+ * @brief Get the stream interface information
  * 
- * @param handle Stream handle to be closed
- */
-void uach_stream_close(void *handle);
-
-/**
- * @brief Check if a USB UAC stream interface is open
- * 
- * @param handle Stream handle to check
- * 
- * @return true if the stream is open, false otherwise
- */
-bool uach_stream_is_open(void *handle);
-
-/**
- * @brief Start a USB UAC capture stream
- * 
- * @param handle Stream handle
- * @param buf Buffer to store captured data
- * @param size Size of the buffer
- * @param cb Callback function to be called when the transfer is complete
+ * @param stream Stream handle
+ * @param info Pointer to store the stream interface information
  * 
  * @return Operation result
  */
-bool uach_stream_capture(void *handle, void *buf, size_t size, uach_stream_transfer_cb cb);
+bool uach_stream_get_info(uach_stream_handle_t *stream, uach_stream_info_t *info);
 
 /**
- * @brief Start a USB UAC playback stream
+ * @brief Get the information of a non-zero alternate setting of the stream interface
  * 
- * @param handle Stream handle
- * @param buf Buffer containing data to be played back
- * @param size Size of the buffer
- * @param cb Callback function to be called when the transfer is complete
+ * @param stream Stream handle
+ * @param index The index of the alternate setting, in range [0, uach_stream_info_t.alt_count)
+ * @param info Pointer to store the alternate setting information
  * 
  * @return Operation result
  */
-bool uach_stream_playback(void *handle, void *buf, size_t size, uach_stream_transfer_cb cb);
+bool uach_stream_get_alt_info(uach_stream_handle_t *stream, size_t index, uach_stream_alt_info_t *info);
+
+/**
+ * @brief Select the alternate setting of the stream interface
+ * 
+ * @param stream Stream handle
+ * @param alt_setting The alternate setting to select, 0 or bAlternateSetting of a usable alternate setting
+ * @param cb Callback invoked when the request is complete, can be NULL
+ * 
+ * @return true if the request is accepted, false if the parameter is invalid or another request is pending
+ */
+bool uach_stream_set_alt_setting(uach_stream_handle_t *stream, uint8_t alt_setting, uach_stream_ctrl_cb cb);
+
+/**
+ * @brief Set the sample rate of the active alternate setting through the endpoint sampling frequency control
+ * 
+ * @param stream Stream handle
+ * @param sample_rate Sample rate in Hz
+ * @param cb Callback invoked when the request is complete, can be NULL
+ * 
+ * @return true if the request is accepted, false if the parameter is invalid or another request is pending
+ */
+bool uach_stream_set_sample_rate(uach_stream_handle_t *stream, uint32_t sample_rate, uach_stream_ctrl_cb cb);
+
+/**
+ * @brief Capture one isochronous packet from the stream
+ * 
+ * @param stream Stream handle
+ * @param buf Buffer to store the captured data, its size shall not be less than the max packet size
+ * @param size Size of the buffer
+ * @param cb Callback invoked when the packet is received, can be NULL
+ * 
+ * @return true if the transfer is submitted, false if the stream is not capturing or the parameter is invalid
+ */
+bool uach_stream_capture(uach_stream_handle_t *stream, void *buf, size_t size, uach_stream_xfer_cb cb);
+
+/**
+ * @brief Play one isochronous packet to the stream
+ * 
+ * @param stream Stream handle
+ * @param buf Buffer containing the audio data, its size shall not exceed the max packet size
+ * @param size Size of the data
+ * @param cb Callback invoked when the packet is sent, can be NULL
+ * 
+ * @return true if the transfer is submitted, false if the stream is not playing or the parameter is invalid
+ */
+bool uach_stream_playback(uach_stream_handle_t *stream, const void *buf, size_t size, uach_stream_xfer_cb cb);
 
 #ifdef __cplusplus
 }

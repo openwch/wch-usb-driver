@@ -99,8 +99,9 @@ extern "C" {
 
 /* USB UAC host class driver configuration macros */
 #ifdef USB_CLASS_UACH_DRIVER_EN
-#define UACH_HANDLE_POOL_SIZE     2
-#define UACH_MAX_STREAM_ITF_COUNT 4
+#define UACH_HANDLE_POOL_SIZE             2
+#define UACH_MAX_STREAM_ITF_COUNT         4
+#define UACH_MAX_STREAM_ALT_SETTING_COUNT 4
 #endif
 
 #ifdef __cplusplus

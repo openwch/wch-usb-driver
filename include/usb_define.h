@@ -28,7 +28,9 @@ extern "C" {
 
 #define USB_ENDP_DIR(endp)              ((endp) & 0x80)
 #define USB_ENDP_NUM(endp)              ((endp) & 0x0F)
-#define USB_ENDP_GET_TYPE(attributes)   ((attributes) & 0x03)
+#define USB_ENDP_GET_TYPE(attr)         ((attr) & 0x03)
+#define USB_ENDP_GET_SYNC_TYPE(attr)    (((attr) >> 2) & 0x03)
+#define USB_ENDP_GET_USAGE_TYPE(attr)   (((attr) >> 4) & 0x03)
 #define USB_ENDP_GET_MPS(mps)           ((mps) & 0x07FF)
 #define USB_ENDP_GET_ADDITIONAL(mps)    (((mps) >> 11) & 0x03)
 #define USB_MAX_ENDP_NUM                (16)
@@ -213,6 +215,21 @@ typedef enum
     USB_ENDP_TYPE_BULK = 0x02,
     USB_ENDP_TYPE_INTR = 0x03,
 } usb_endp_type_t;
+
+typedef enum
+{
+    USB_ENDP_SYNC_TYPE_NO_SYNC = 0x00,
+    USB_ENDP_SYNC_TYPE_ASYNC = 0x01,
+    USB_ENDP_SYNC_TYPE_ADAPTIVE = 0x02,
+    USB_ENDP_SYNC_TYPE_SYNC = 0x03,
+} usb_endp_sync_type_t;
+
+typedef enum
+{
+    USB_ENDP_USAGE_TYPE_DATA = 0x00,
+    USB_ENDP_USAGE_TYPE_FEEDBACK = 0x01,
+    USB_ENDP_USAGE_TYPE_IMPLICIT_FEEDBACK = 0x02,
+} usb_endp_usage_type_t;
 
 typedef enum
 {

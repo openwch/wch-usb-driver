@@ -38,6 +38,18 @@ extern "C" {
 #define UAC_CHANNEL_CONFIG_TOP_REAR_LEFT   0x4000
 #define UAC_CHANNEL_CONFIG_TOP_REAR_RIGHT  0x8000
 
+/* Class-specific AS isochronous audio data endpoint bmAttributes */
+#define UAC_AS_ENDP_ATTR_SAMPLING_FREQ     0x01
+#define UAC_AS_ENDP_ATTR_PITCH             0x02
+#define UAC_AS_ENDP_ATTR_MAX_PACKETS_ONLY  0x80
+
+/* Standard AS isochronous audio data endpoint bmAttributes */
+#define UAC_ENDP_ATTR_SYNC_TYPE_MASK       0x0C
+#define UAC_ENDP_ATTR_SYNC_TYPE_NONE       0x00
+#define UAC_ENDP_ATTR_SYNC_TYPE_ASYNC      0x04
+#define UAC_ENDP_ATTR_SYNC_TYPE_ADAPTIVE   0x08
+#define UAC_ENDP_ATTR_SYNC_TYPE_SYNC       0x0C
+
 /* @enum */
 typedef enum
 {
@@ -74,6 +86,24 @@ typedef enum
 {
     UAC_ENDP_SUBTYPE_GENERAL = 0x01,
 } uac_endp_subtype_t;
+
+typedef enum
+{
+    UAC_FORMAT_TYPE_UNDEFINED = 0x00,
+    UAC_FORMAT_TYPE_I = 0x01,
+    UAC_FORMAT_TYPE_II = 0x02,
+    UAC_FORMAT_TYPE_III = 0x03,
+} uac_format_type_t;
+
+typedef enum
+{
+    UAC_FORMAT_TAG_TYPE_I_UNDEFINED = 0x0000,
+    UAC_FORMAT_TAG_TYPE_I_PCM = 0x0001,
+    UAC_FORMAT_TAG_TYPE_I_PCM8 = 0x0002,
+    UAC_FORMAT_TAG_TYPE_I_IEEE_FLOAT = 0x0003,
+    UAC_FORMAT_TAG_TYPE_I_ALAW = 0x0004,
+    UAC_FORMAT_TAG_TYPE_I_MULAW = 0x0005,
+} uac_format_tag_t;
 
 typedef enum
 {
@@ -220,6 +250,40 @@ typedef struct __attribute__((packed))
     // uint8_t bmaControls[];
     uint8_t iFeature;
 } uac_desc_feature_unit_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bUnitID;
+    uint16_t wProcessType;
+    uint8_t bNrInPins;
+    // uint8_t baSourceID[];
+    uint8_t bNrChannels;
+    uint16_t wChannelConfig;
+    uint8_t iChannelNames;
+    uint8_t bControlSize;
+    // uint8_t bmControls[];
+    uint8_t iProcessing;
+} uac_desc_processing_unit_t;
+
+typedef struct __attribute__((packed))
+{
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+    uint8_t bUnitID;
+    uint16_t wExtensionCode;
+    uint8_t bNrInPins;
+    // uint8_t baSourceID[];
+    uint8_t bNrChannels;
+    uint16_t wChannelConfig;
+    uint8_t iChannelNames;
+    uint8_t bControlSize;
+    // uint8_t bmControls[];
+    uint8_t iExtension;
+} uac_desc_extension_unit_t;
 
 typedef struct __attribute__((packed))
 {

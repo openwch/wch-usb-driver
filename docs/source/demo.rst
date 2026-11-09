@@ -31,7 +31,7 @@
      - 枚举 CDC-ECM 设备，通过 ARP 获取目标 MAC 并发送 ICMP echo 请求
    * - ``examples/host/uac_headset``
      - 主机
-     - 枚举 UAC 设备，打开采集 / 播放流并持续传输音频数据
+     - 枚举 UAC 设备，将采集流音频回环到播放流
    * - ``examples/dual_device/cdc_acm_bridge``
      - 双设备
      - 两个 CDC-ACM 实例间双向转发数据
@@ -177,8 +177,10 @@ UAC 耳机主机
 
 - 使能主机、HUB 和 UAC 主机类驱动，支持直连或经 HUB 连接的 UAC 设备。
 - 主循环中调用 ``usbh_drv_task()``、``hubh_drv_task()`` 和 ``uach_drv_task()``，并在 UAC 设备数量变化时打印新数量。
-- 使用第一个 UAC 设备的句柄，通过 ``uach_get_stream_info()`` 获取各音频流信息；对第一个采集流和第一个播放流分别调用 ``uach_stream_open()``，采样率取自流信息的 ``sample_freq[0]``。
-- 流打开后，采集回调持续以 1024 字节缓冲区调用 ``uach_stream_capture()``，播放回调持续调用 ``uach_stream_playback()``；播放长度按每毫秒音频数据计算，即 ``channels * sub_frame_size * sample_rate / 1000``。
+- 使用第一个 UAC 设备的句柄，通过 ``uach_get_stream_count()`` / ``uach_get_stream_handle()`` 遍历音频流，选择首个支持 16 位 PCM 的采集流和播放流。
+- 通过 ``uach_stream_get_alt_info()`` 遍历备用设置，优先选择 48000、44100、32000、16000 Hz 中两侧共同支持的采样率；随后分别调用 ``uach_stream_set_alt_setting()`` 切换到该备用设置，端点支持频率控制时再调用 ``uach_stream_set_sample_rate()`` 设置采样率。
+- 两个流均就绪后，采集回调以 1024 字节缓冲区持续调用 ``uach_stream_capture()``，把收到的音频包转换为播放流格式后调用 ``uach_stream_playback()``，实现麦克风到扬声器的回环；支持单声道与双声道互转，并用双缓冲避免覆盖正在发送的数据。
+- 设备断开或重新枚举时复位回环状态，重新连接后自动重新配置。
 
 双设备示例
 --------------------

@@ -185,3 +185,6 @@ UAC 主机类参数
    * - ``UACH_MAX_STREAM_ITF_COUNT``
      - 2
      - 单个 UAC 设备可管理的音频流接口数量上限
+   * - ``UACH_MAX_STREAM_ALT_SETTING_COUNT``
+     - 2
+     - 单个音频流接口可保存的可用备用设置数量上限

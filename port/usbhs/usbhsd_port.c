@@ -346,8 +346,8 @@ void usbhsd_event_handle(usbd_handle_t *h)
             /* Clear the transfer complete flag */
             ENDP_TX_CTRL(num) &= ~USBHS_UEP_T_DONE;
 
-            size_t tx_len = ENDP_TX_LEN(num);
             usbhs_xfer_ctx_t *ep_ctx = &port_ctx->endp_ctxs[USB_DIR_IN][num];
+            size_t tx_len = USBHSD->UEP_TX_BURST & (1 << num) ? ep_ctx->xfer_len : ENDP_TX_LEN(num);
 
             if (num == 0)
             {

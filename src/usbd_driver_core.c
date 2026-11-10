@@ -34,7 +34,7 @@ static bool endp_stand_request_setup(void *handle, const usb_setup_t *setup, voi
 
     case USB_REQ_SET_FEATURE:
     case USB_REQ_CLEAR_FEATURE:
-        if (USB_GET_REQ_DIR(setup->bmRequestType)) return false;
+        if (USB_GET_REQ_DIR(setup->bmRequestType) || !USB_ENDP_NUM(endp)) return false;
         if (setup->wValue == USB_FEATURE_EDPT_HALT)
         {
             return true;
@@ -47,16 +47,32 @@ static void endp_stand_request_status(void *handle, const usb_setup_t *setup, vo
 {
     usbd_handle_t *h = (usbd_handle_t *)handle;
     usb_endp_t endp = USB_U16_LOW(setup->wIndex);
+    uint8_t endp_dir = USB_ENDP_DIR(endp);
+    uint8_t endp_num = USB_ENDP_NUM(endp);
+    if (!endp_num) return;
+    usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
     switch (setup->bRequest)
     {
     case USB_REQ_SET_FEATURE:
-        h->endp_stall(h, endp, true);
-        USB_LOGI("Handle %p: Set endpoint 0x%02X stall", h, endp);
+        if (h->endp_stall(h, endp, true))
+        {
+            USB_LOGI("Handle %p: Set endpoint 0x%02X stall", h, endp);
+            if (endp_ctx->event_cb)
+            {
+                endp_ctx->event_cb(endp_ctx->class_handle, endp, USBD_ENDP_EVENT_SET_STALL);
+            }
+        }
         break;
 
     case USB_REQ_CLEAR_FEATURE:
-        h->endp_stall(h, endp, false);
-        USB_LOGI("Handle %p: Clear endpoint 0x%02X stall", h, endp);
+        if (h->endp_stall(h, endp, false))
+        {
+            USB_LOGI("Handle %p: Clear endpoint 0x%02X stall", h, endp);
+            if (endp_ctx->event_cb)
+            {
+                endp_ctx->event_cb(endp_ctx->class_handle, endp, USBD_ENDP_EVENT_CLEAR_STALL);
+            }
+        }
         break;
     }
 }
@@ -218,10 +234,10 @@ static void xfer_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
     /* Isochronous/interrupt/bulk transfer event handling */
     else
     {
-        usbd_data_xfer_cbs_t *xfer_cb = &h->xfer_cb_ctxs[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
-        if (xfer_cb->cb)
+        usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
+        if (endp_ctx->xfer_cb)
         {
-            xfer_cb->cb((void *)xfer_cb->class_handle, ctx->xfer.endp, ctx->xfer.buf, ctx->xfer.len);
+            endp_ctx->xfer_cb(endp_ctx->class_handle, ctx->xfer.endp, ctx->xfer.buf, ctx->xfer.len);
         }
     }
 }
@@ -432,8 +448,8 @@ void usbd_event_handle(usbd_handle_t *h, usbd_port_event_ctx_t *ctx)
         h->ctrl_handle = NULL;
         h->ctrl_xfer_zlp = false;
         h->ctrl_cbs = NULL;
+        memset(h->endp_ctxs, 0, sizeof(h->endp_ctxs));
         memset(h->itf_req_cbs, 0, sizeof(h->itf_req_cbs));
-        memset(h->xfer_cb_ctxs, 0, sizeof(h->xfer_cb_ctxs));
         memset(h->endp_req_cbs, 0, sizeof(h->endp_req_cbs));
         h->set_address(h, 0);
         h->endp_open(h, 0x80, USB_ENDP_TYPE_CTRL, h->ep0_mps);
@@ -491,7 +507,7 @@ bool usbd_register_itf_req_cb(usbd_handle_t *h, void *class_handle, uint8_t itf_
 
 bool usbd_register_endp_req_cb(usbd_handle_t *h, void *class_handle, usb_endp_t endp, usbd_ctrl_xfer_cbs_t *cbs)
 {
-    if (!h || !USB_ENDP_NUM(endp) || USB_ENDP_NUM(endp) >= USB_MAX_ENDP_NUM) return false;
+    if (!h || !USB_ENDP_NUM(endp)) return false;
     for (size_t i = 0; i < USB_ARRAY_SIZE(h->endp_req_cbs); i++)
     {
         usbd_endp_req_cb_t *endp_req = &h->endp_req_cbs[i];
@@ -540,7 +556,7 @@ bool usbd_unregister_itf_req_cb(usbd_handle_t *h, uint8_t itf_num)
 
 bool usbd_unregister_endp_req_cb(usbd_handle_t *h, usb_endp_t endp)
 {
-    if (!h || !USB_ENDP_NUM(endp) || USB_ENDP_NUM(endp) >= USB_MAX_ENDP_NUM) return false;
+    if (!h || !USB_ENDP_NUM(endp)) return false;
     for (size_t i = 0; i < USB_ARRAY_SIZE(h->endp_req_cbs); i++)
     {
         usbd_endp_req_cb_t *endp_req = &h->endp_req_cbs[i];
@@ -566,9 +582,9 @@ bool usbd_endp_open(usbd_handle_t *h, void *class_handle, const usb_desc_endpoin
     usb_endp_type_t endp_type = USB_ENDP_GET_TYPE(ep_desc->bmAttributes);
     uint16_t endp_mps = USB_ENDP_GET_MPS(ep_desc->wMaxPacketSize);
 
-    usbd_data_xfer_cbs_t *xfer_cb = &h->xfer_cb_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
-    xfer_cb->class_handle = class_handle;
-    xfer_cb->cb = cb;
+    usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
+    endp_ctx->class_handle = class_handle;
+    endp_ctx->xfer_cb = cb;
     return h->endp_open(h, endp, endp_type, endp_mps);
 }
 
@@ -579,26 +595,46 @@ bool usbd_endp_close(usbd_handle_t *h, usb_endp_t endp)
     if (endp_num == 0) return false;
     if (h->endp_close(h, endp))
     {
-        usbd_data_xfer_cbs_t *xfer_cb = &h->xfer_cb_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
-        xfer_cb->cb = NULL;
-        xfer_cb->class_handle = NULL;
+        usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
+        endp_ctx->class_handle = NULL;
+        endp_ctx->xfer_cb = NULL;
+        endp_ctx->event_cb = NULL;
         return true;
     }
     return false;
 }
 
+bool usbd_endp_event_register(usbd_handle_t *h, usb_endp_t endp, usbd_endp_event_cb cb)
+{
+    if (!h || !cb) return false;
+    uint8_t endp_num = USB_ENDP_NUM(endp);
+    if (!endp_num) return false;
+    usbd_endp_ctx_t *endp_ctx = &h->endp_ctxs[USB_ENDP_DIR(endp) ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1];
+    endp_ctx->event_cb = cb;
+    return true;
+}
+
+bool usbd_endp_stall(usbd_handle_t *h, usb_endp_t endp, bool stall)
+{
+    if (!h || !USB_ENDP_NUM(endp)) return false;
+    return h->endp_stall(h, endp, stall);
+}
+
 bool usbd_endp_is_busy(usbd_handle_t *h, usb_endp_t endp)
 {
+    if (!h || !USB_ENDP_NUM(endp)) return false;
     return h->endp_is_busy(h, endp);
 }
 
 bool usbd_endp_read(usbd_handle_t *h, usb_endp_t endp, void *buf, size_t len)
 {
+    if (!h || !USB_ENDP_NUM(endp)) return false;
     return h->endp_transfer(h, USB_ENDP_NUM(endp), buf, len);
 }
 
 bool usbd_endp_write(usbd_handle_t *h, usb_endp_t endp, const void *buf, size_t len)
 {
+    if (!h || !USB_ENDP_NUM(endp)) return false;
     return h->endp_transfer(h, 0x80 | endp, (void *)buf, len);
 }
 

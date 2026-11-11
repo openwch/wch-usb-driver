@@ -437,6 +437,19 @@ void usbhsd_event_handle(usbd_handle_t *h)
         USBHSD->INT_FG = USBHS_UDIF_BUS_RST;
         USBHSD->UEP_TX_EN = 0;
         USBHSD->UEP_RX_EN = 0;
+        USBHSD->UEP_TX_ISO = 0;
+        USBHSD->UEP_RX_ISO = 0;
+        USBHSD->UEP_TX_TOG_AUTO = 0;
+        USBHSD->UEP_RX_TOG_AUTO = 0;
+        USBHSD->UEP_TX_BURST = 0;
+        USBHSD->UEP_RX_BURST = 0;
+        USBHSD->UEP_TX_BURST_MODE = 0;
+        USBHSD->UEP_RX_RES_MODE = 0;
+        for (uint8_t i = 0; i < 8; i++)
+        {
+            ENDP_TX_CTRL(i) = 0;
+            ENDP_RX_CTRL(i) = 0;
+        }
         USBHSD->UEP0_DMA = (uint32_t)port_ctx->endp0_dma_buf;
         event_ctx.e = USBD_PORT_EVENT_RESET;
         usbd_event_handle(h, &event_ctx);

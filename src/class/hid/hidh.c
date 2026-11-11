@@ -198,15 +198,15 @@ static bool report_main_item_parse(hidh_handle_t *hid, parse_ctx_t *ctx, uint8_t
             switch (tag)
             {
             case HID_MAIN_ITEM_INPUT:
-                usbh_list_append(&ctx->instance->input_items, new_item);
+                usb_list_append(&ctx->instance->input_items, new_item);
                 break;
 
             case HID_MAIN_ITEM_OUTPUT:
-                usbh_list_append(&ctx->instance->output_items, new_item);
+                usb_list_append(&ctx->instance->output_items, new_item);
                 break;
 
             case HID_MAIN_ITEM_FEATURE:
-                usbh_list_append(&ctx->instance->feature_items, new_item);
+                usb_list_append(&ctx->instance->feature_items, new_item);
                 break;
             }
         }
@@ -871,7 +871,7 @@ static bool hid_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
     hid->hid_desc = hid_desc;
     hid->in_ep = in_ep;
     hid->out_ep = out_ep;
-    usbh_list_append((void **)&hid_list, hid);
+    usb_list_append((void **)&hid_list, hid);
     return true;
 }
 
@@ -885,7 +885,7 @@ static bool hid_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
         {
             if (hid->in_ep) usbh_endp_close(hid->dev, hid->in_ep->bEndpointAddress);
             if (hid->out_ep) usbh_endp_close(hid->dev, hid->out_ep->bEndpointAddress);
-            usbh_list_remove((void **)&hid_list, hid);
+            usb_list_remove((void **)&hid_list, hid);
             hid_handle_free(hid);
             memset(hid, 0, sizeof(hidh_handle_t));
         }

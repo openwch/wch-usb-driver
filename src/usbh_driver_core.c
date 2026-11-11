@@ -636,7 +636,7 @@ static void device_enum_task(usbh_handle_t *h, usbh_device_t *dev)
             ep->mps = ENDP0_DEFAULT_MPS;
             ep->interval = endpoint_interval_calc(h->speed, dev->speed, USB_ENDP_TYPE_CTRL, 0);
             ep->handle = dev;
-            usbh_list_append((void **)&h->endpoint_list[USB_ENDP_TYPE_CTRL], ep);
+            usb_list_append((void **)&h->endpoint_list[USB_ENDP_TYPE_CTRL], ep);
 
             /* Initialize the transfer unit for the control endpoint */
             usbh_xfer_unit_t *xfer_unit = &ep->xfer_unit;
@@ -1276,7 +1276,7 @@ void usbh_device_insert(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     dev->hub_port = hub_port;
 
     /* Append the new device to the device list */
-    usbh_list_append((void **)&h->device_list, dev);
+    usb_list_append((void **)&h->device_list, dev);
 
     USB_LOGI("Host Handle %p: Inserted device %p at hub_addr: %d, hub_port: %d", h, dev, hub_addr, hub_port);
 }
@@ -1312,7 +1312,7 @@ void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     unbind_class_driver(h, target);
 
     /* Close all endpoints of the target device */
-    usbh_list_remove((void **)&target->host->endpoint_list[USB_ENDP_TYPE_CTRL], &target->ctrl_endp);
+    usb_list_remove((void **)&target->host->endpoint_list[USB_ENDP_TYPE_CTRL], &target->ctrl_endp);
     for (size_t i = 0; i < USB_ARRAY_SIZE(target->data_endp); i++)
     {
         for (size_t j = 0; j < USB_ARRAY_SIZE(target->data_endp[i]); j++)
@@ -1328,7 +1328,7 @@ void usbh_device_remove(usbh_handle_t *h, uint8_t hub_addr, uint8_t hub_port)
     h->bus_address_bitmap[target->address >> 5] &= ~(1 << (target->address & 0x1F));
 
     /* Remove the target device from the device list */
-    usbh_list_remove((void **)&h->device_list, target);
+    usb_list_remove((void **)&h->device_list, target);
 
     memset(target, 0, sizeof(usbh_device_t));
 
@@ -1496,7 +1496,7 @@ bool usbh_endp_open(usbh_device_t *dev, void *handle, const usb_desc_endpoint_t 
     dev->data_endp[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1] = ep;
 
     /* Append the endpoint to the host's endpoint list based on its type */
-    usbh_list_append((void **)&dev->host->endpoint_list[USB_MIN(ep->type, 3)], ep);
+    usb_list_append((void **)&dev->host->endpoint_list[USB_MIN(ep->type, 3)], ep);
 
     return true;
 }
@@ -1514,7 +1514,7 @@ bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp)
         dev->data_endp[endp_dir ? USB_DIR_IN : USB_DIR_OUT][endp_num - 1] = NULL;
         if (ep)
         {
-            usbh_list_remove((void **)&dev->host->endpoint_list[USB_MIN(ep->type, 3)], ep);
+            usb_list_remove((void **)&dev->host->endpoint_list[USB_MIN(ep->type, 3)], ep);
             ep->xfer_ctx.is_busy = false;
             ep->is_used = false;
             ep->xfer_cb = NULL;

@@ -119,7 +119,7 @@ void hidh_keyboard_task(void)
 static void keyboard_delete_cb(hidh_instance_t *instance)
 {
     kb_handle_t *kb = (kb_handle_t *)instance->handle;
-    usbh_list_remove((void **)&kb_list, kb);
+    usb_list_remove((void **)&kb_list, kb);
     memset(kb, 0, sizeof(kb_handle_t));
 }
 
@@ -171,7 +171,7 @@ hidh_instance_t *hidh_keyboard_create_instance(hidh_handle_t *hid)
         if (!kb->used)
         {
             memset(kb, 0, sizeof(kb_handle_t));
-            usbh_list_append((void **)&kb_list, kb);
+            usb_list_append((void **)&kb_list, kb);
             kb->used = true;
             kb->hid = hid;
             kb->instance.handle = kb;

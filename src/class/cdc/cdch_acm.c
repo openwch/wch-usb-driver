@@ -514,7 +514,7 @@ static bool acm_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
     acm->in_ep = in_ep;
     acm->out_ep = out_ep;
     acm->acm_desc = acm_desc;
-    usbh_list_append((void **)&acm_list, acm);
+    usb_list_append((void **)&acm_list, acm);
     return true;
 }
 
@@ -529,7 +529,7 @@ static bool acm_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
             usbh_endp_close(acm->dev, acm->notify_ep->bEndpointAddress);
             usbh_endp_close(acm->dev, acm->in_ep->bEndpointAddress);
             usbh_endp_close(acm->dev, acm->out_ep->bEndpointAddress);
-            usbh_list_remove((void **)&acm_list, acm);
+            usb_list_remove((void **)&acm_list, acm);
             memset(acm, 0, sizeof(cdch_acm_handle_t));
         }
         acm = next;

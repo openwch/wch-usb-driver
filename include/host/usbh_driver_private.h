@@ -481,29 +481,6 @@ bool usbh_is_endp_xfering(usbh_device_t *dev, usb_endp_t endp);
  */
 uint32_t usbh_drv_get_timestamp(usbh_handle_t *h);
 
-/* @inline functions */
-static inline void usbh_list_append(void **list, void *node)
-{
-    while (*list != NULL && *list != node)
-    {
-        list = (void **)*list;
-    }
-    *list = node;
-}
-
-static inline void usbh_list_remove(void **list, void *node)
-{
-    while (*list != NULL)
-    {
-        if (*list == node)
-        {
-            *list = *((void **)node);
-            return;
-        }
-        list = (void **)*list;
-    }
-}
-
 #ifdef __cplusplus
 }
 #endif

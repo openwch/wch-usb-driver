@@ -124,8 +124,8 @@ static void bulk_only_cmd_handle(mscd_handle_t *msc, size_t len)
     {
         scsi_read_capacity_10_data_t *read_capacity_10_data = (scsi_read_capacity_10_data_t *)msc->temp_data;
         memset(read_capacity_10_data, 0, sizeof(scsi_read_capacity_10_data_t));
-        read_capacity_10_data->returned_logical_block_address = __builtin_bswap32(msc->sector_count - 1);
-        read_capacity_10_data->block_length_in_bytes = __builtin_bswap32(msc->sector_size);
+        read_capacity_10_data->returned_logical_block_address = bswap32(msc->sector_count - 1);
+        read_capacity_10_data->block_length_in_bytes = bswap32(msc->sector_size);
 
         buf = read_capacity_10_data;
         xfer_len = sizeof(scsi_read_capacity_10_data_t);
@@ -134,9 +134,9 @@ static void bulk_only_cmd_handle(mscd_handle_t *msc, size_t len)
     case SCSI_OPCODE_READ_10:
     {
         scsi_read_10_cmd_t *read_10_cmd = (scsi_read_10_cmd_t *)msc->cbw.CBWCB;
-        msc->sector_start = __builtin_bswap32(read_10_cmd->logical_block_address);
-        msc->sector_length = __builtin_bswap16(read_10_cmd->transfer_length);
         msc->sector_offset = 0;
+        msc->sector_start = bswap32(read_10_cmd->logical_block_address);
+        msc->sector_length = bswap16(read_10_cmd->transfer_length);
         if (!msc->sector_length)
         {
             scsi_set_sense(msc, SCSI_SENSE_KEY_ILLEGAL_REQUEST, SCSI_ASC_INVALID_FIELD_IN_CDB, 0);
@@ -171,8 +171,8 @@ static void bulk_only_cmd_handle(mscd_handle_t *msc, size_t len)
     {
         scsi_write_10_cmd_t *write_10_cmd = (scsi_write_10_cmd_t *)msc->cbw.CBWCB;
         msc->sector_offset = 0;
-        msc->sector_length = __builtin_bswap16(write_10_cmd->transfer_length);
-        msc->sector_start = __builtin_bswap32(write_10_cmd->logical_block_address);
+        msc->sector_start = bswap32(write_10_cmd->logical_block_address);
+        msc->sector_length = bswap16(write_10_cmd->transfer_length);
         if (!msc->sector_length)
         {
             scsi_set_sense(msc, SCSI_SENSE_KEY_ILLEGAL_REQUEST, SCSI_ASC_INVALID_FIELD_IN_CDB, 0);

@@ -336,6 +336,40 @@ typedef struct __attribute__((packed))
     uint8_t iFunction;
 } usb_desc_iad_t;
 
+/* @inline functions */
+static inline void usb_list_append(void **list, void *node)
+{
+    while (*list != NULL && *list != node)
+    {
+        list = (void **)*list;
+    }
+    *list = node;
+}
+
+static inline void usb_list_remove(void **list, void *node)
+{
+    while (*list != NULL)
+    {
+        if (*list == node)
+        {
+            *list = *((void **)node);
+            return;
+        }
+        list = (void **)*list;
+    }
+}
+
+static inline uint16_t bswap16(uint16_t value)
+{
+    return (value >> 8) | (value << 8);
+}
+
+static inline uint32_t bswap32(uint32_t value)
+{
+    return ((value & 0xFF000000) >> 24) | ((value & 0x00FF0000) >> 8) | ((value & 0x0000FF00) << 8) |
+           ((value & 0x000000FF) << 24);
+}
+
 #ifdef __cplusplus
 }
 #endif

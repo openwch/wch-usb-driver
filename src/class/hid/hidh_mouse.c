@@ -98,7 +98,7 @@ void hidh_mouse_task(void)
 static void mouse_delete_cb(hidh_instance_t *instance)
 {
     mouse_handle_t *mouse = (mouse_handle_t *)instance->handle;
-    usbh_list_remove((void **)&mouse_list, mouse);
+    usb_list_remove((void **)&mouse_list, mouse);
     memset(mouse, 0, sizeof(mouse_handle_t));
 }
 
@@ -151,7 +151,7 @@ hidh_instance_t *hidh_mouse_create_instance(hidh_handle_t *hid)
         if (!mouse->used)
         {
             memset(mouse, 0, sizeof(mouse_handle_t));
-            usbh_list_append((void **)&mouse_list, mouse);
+            usb_list_append((void **)&mouse_list, mouse);
             mouse->used = true;
             mouse->hid = hid;
             mouse->instance.handle = mouse;

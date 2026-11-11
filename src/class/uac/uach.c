@@ -965,7 +965,7 @@ static bool uac_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
         streams[i].uac = uac;
         memcpy(&uac->streams[i], &streams[i], sizeof(uach_stream_handle_t));
     }
-    usbh_list_append((void **)&uac_list, uac);
+    usb_list_append((void **)&uac_list, uac);
     return true;
 }
 
@@ -981,7 +981,7 @@ static bool uac_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
             {
                 stream_endp_close(&uac->streams[i]);
             }
-            usbh_list_remove((void **)&uac_list, uac);
+            usb_list_remove((void **)&uac_list, uac);
             memset(uac, 0, sizeof(uach_handle_t));
         }
         uac = next;

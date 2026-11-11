@@ -545,7 +545,7 @@ static bool hub_drv_bind_cb(usbh_device_t *dev, const void *desc, uint16_t len)
     hub->dev = dev;
     hub->itf_desc = itf_desc;
     hub->in_ep = in_ep;
-    usbh_list_append((void **)&hub_list, hub);
+    usb_list_append((void **)&hub_list, hub);
     return true;
 }
 
@@ -558,7 +558,7 @@ static bool hub_drv_unbind_cb(usbh_device_t *dev, uint8_t itf_num)
         if (hub->dev == dev && (itf_num == USBH_DRV_ALL_INTERFACE || hub->itf_desc->bInterfaceNumber == itf_num))
         {
             usbh_endp_close(hub->dev, hub->in_ep->bEndpointAddress);
-            usbh_list_remove((void **)&hub_list, hub);
+            usb_list_remove((void **)&hub_list, hub);
             memset(hub, 0, sizeof(hubh_handle_t));
         }
         hub = next;

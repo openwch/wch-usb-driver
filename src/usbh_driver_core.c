@@ -805,6 +805,10 @@ static void stall_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup,
     {
         dev->stall_stage = STALL_STAGE_IDLE;
         dev->stall_endp = 0;
+        if (ep && ep->event_cb)
+        {
+            ep->event_cb(ep->handle, ep->addr, USBH_ENDP_EVENT_OPERATION_FAILED);
+        }
         return;
     }
 
@@ -1604,11 +1608,6 @@ bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp)
         ep->event_cb = NULL;
         ep->xfer_cb = NULL;
         ep->handle = NULL;
-    }
-    if (dev->stall_endp == endp)
-    {
-        dev->stall_stage = STALL_STAGE_IDLE;
-        dev->stall_endp = 0;
     }
     return true;
 }

@@ -91,6 +91,7 @@ typedef enum
 {
     USBH_ENDP_EVENT_STALL,
     USBH_ENDP_EVENT_CLEAR_STALL,
+    USBH_ENDP_EVENT_OPERATION_FAILED,
 } usbh_endp_event_t;
 
 /* @function pointer */

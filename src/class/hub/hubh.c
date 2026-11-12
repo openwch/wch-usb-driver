@@ -58,7 +58,6 @@ typedef struct hubh_handle
     __attribute__((aligned(4))) hub_status_t hub_status;
     __attribute__((aligned(4))) hub_port_status_t port_status[HUBH_MAX_PORT_NUM];
     __attribute__((aligned(4))) uint32_t status_change_bitmap;
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) uint8_t ctrl_buf[16];
 } hubh_handle_t;
 
@@ -119,7 +118,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                 USB_LOGI("Handle %p: Setting alternate setting %d for interface %d", hub,
                          hub->itf_desc->bAlternateSetting, hub->itf_desc->bInterfaceNumber);
 
-                usb_setup_t *request = &hub->ctrl_setup;
+                usb_setup_t *request = &hub->dev->ctrl_setup;
                 request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
                 request->bRequest = USB_REQ_SET_INTERFACE;
                 request->wValue = hub->itf_desc->bAlternateSetting;
@@ -132,7 +131,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                 hub->enum_stage = ENUM_STAGE_SET_PORT_POWER;
                 USB_LOGI("Handle %p: Setting port 1 power", hub);
 
-                usb_setup_t *request = &hub->ctrl_setup;
+                usb_setup_t *request = &hub->dev->ctrl_setup;
                 request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
                 request->bRequest = USB_REQ_SET_FEATURE;
                 request->wValue = HUB_FEATURE_PORT_POWER;
@@ -153,7 +152,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         hub->enum_stage = ENUM_STAGE_SET_PORT_POWER;
         USB_LOGI("Handle %p: Setting port 1 power", hub);
 
-        usb_setup_t *request = &hub->ctrl_setup;
+        usb_setup_t *request = &hub->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
         request->bRequest = USB_REQ_SET_FEATURE;
         request->wValue = HUB_FEATURE_PORT_POWER;
@@ -169,7 +168,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
             hub->enum_stage = ENUM_STAGE_SET_PORT_POWER;
             USB_LOGI("Handle %p: Setting port %d power", hub, setup->wIndex + 1);
 
-            usb_setup_t *request = &hub->ctrl_setup;
+            usb_setup_t *request = &hub->dev->ctrl_setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
             request->bRequest = USB_REQ_SET_FEATURE;
             request->wValue = HUB_FEATURE_PORT_POWER;
@@ -195,7 +194,7 @@ static void hub_enum_task(hubh_handle_t *hub)
     {
         if (usbh_is_ctrl_xfering(hub->dev)) return;
         hub->enum_stage = ENUM_STAGE_GET_HUB_DESC;
-        usb_setup_t *request = &hub->ctrl_setup;
+        usb_setup_t *request = &hub->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_DEVICE);
         request->bRequest = USB_REQ_GET_DESCRIPTOR;
         request->wValue = HUB_DESC_HUB << 8;
@@ -250,7 +249,7 @@ static void hub_run_get_status(hubh_handle_t *hub, uint8_t index)
 {
     if (index == 0)
     {
-        usb_setup_t *request = &hub->ctrl_setup;
+        usb_setup_t *request = &hub->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_DEVICE);
         request->bRequest = USB_REQ_GET_STATUS;
         request->wValue = 0;
@@ -260,7 +259,7 @@ static void hub_run_get_status(hubh_handle_t *hub, uint8_t index)
     }
     else
     {
-        usb_setup_t *request = &hub->ctrl_setup;
+        usb_setup_t *request = &hub->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
         request->bRequest = USB_REQ_GET_STATUS;
         request->wValue = 0;
@@ -274,7 +273,7 @@ static void hub_run_set_feature(hubh_handle_t *hub, uint8_t index)
 {
     if (index)
     {
-        usb_setup_t *request = &hub->ctrl_setup;
+        usb_setup_t *request = &hub->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
         request->bRequest = USB_REQ_SET_FEATURE;
         request->wIndex = index;
@@ -290,7 +289,7 @@ static void hub_run_clear_feature(hubh_handle_t *hub, uint8_t index)
 {
     if (index == 0)
     {
-        usb_setup_t *request = &hub->ctrl_setup;
+        usb_setup_t *request = &hub->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_DEVICE);
         request->bRequest = USB_REQ_CLEAR_FEATURE;
         request->wIndex = 0;
@@ -310,7 +309,7 @@ static void hub_run_clear_feature(hubh_handle_t *hub, uint8_t index)
     else
     {
         hub_port_status_t *port_status = &hub->port_status[index - 1];
-        usb_setup_t *request = &hub->ctrl_setup;
+        usb_setup_t *request = &hub->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_OTHER);
         request->bRequest = USB_REQ_CLEAR_FEATURE;
         request->wIndex = index;

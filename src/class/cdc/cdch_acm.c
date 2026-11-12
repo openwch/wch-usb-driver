@@ -62,7 +62,6 @@ typedef struct cdch_acm_handle
     cdch_acm_open_cb open_cb;
     cdch_acm_read_cb read_cb;
     cdch_acm_write_cb write_cb;
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) cdc_line_coding_t line_coding;
 } cdch_acm_handle_t;
 
@@ -109,7 +108,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                  acm->line_coding.bit_rate, acm->line_coding.stop_bits, acm->line_coding.parity,
                  acm->line_coding.data_bits);
 
-        usb_setup_t *request = &acm->ctrl_setup;
+        usb_setup_t *request = &acm->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = CDC_REQ_SET_CONTROL_LINE_STATE;
         request->wValue = 0;
@@ -156,7 +155,7 @@ static void acm_enum_task(cdch_acm_handle_t *acm)
     {
         if (usbh_is_ctrl_xfering(acm->dev)) return;
         acm->enum_stage = ENUM_STAGE_GET_LINE_CODING;
-        usb_setup_t *request = &acm->ctrl_setup;
+        usb_setup_t *request = &acm->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = CDC_REQ_GET_LINE_CODING;
         request->wValue = 0;
@@ -191,7 +190,7 @@ static void acm_run_task(cdch_acm_handle_t *acm)
     if (usbh_is_ctrl_xfering(acm->dev)) return;
     if (acm->opening)
     {
-        usb_setup_t *request = &acm->ctrl_setup;
+        usb_setup_t *request = &acm->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = CDC_REQ_SET_LINE_CODING;
         request->wValue = 0;
@@ -204,7 +203,7 @@ static void acm_run_task(cdch_acm_handle_t *acm)
     if (acm->line_state_changed)
     {
         acm->line_state_changed = false;
-        usb_setup_t *request = &acm->ctrl_setup;
+        usb_setup_t *request = &acm->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = CDC_REQ_SET_CONTROL_LINE_STATE;
         request->wValue = acm->line_state;
@@ -215,7 +214,7 @@ static void acm_run_task(cdch_acm_handle_t *acm)
     else if (acm->break_changed)
     {
         acm->break_changed = false;
-        usb_setup_t *request = &acm->ctrl_setup;
+        usb_setup_t *request = &acm->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = CDC_REQ_SEND_BREAK;
         request->wValue = acm->duration;

@@ -70,7 +70,6 @@ typedef struct cdch_ecm_handle
     cdch_ecm_read_cb read_cb;
     cdch_ecm_write_cb write_cb;
     uint8_t mac_addr[6];
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) uint8_t notify_buf[16];
     __attribute__((aligned(4))) uint8_t mac_desc_buf[26];
 } cdch_ecm_handle_t;
@@ -144,7 +143,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                  ecm->mac_addr[2], ecm->mac_addr[3], ecm->mac_addr[4], ecm->mac_addr[5]);
 
         ecm->enum_stage = ENUM_STAGE_SET_INTERFACE;
-        usb_setup_t *request = &ecm->ctrl_setup;
+        usb_setup_t *request = &ecm->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
         request->bRequest = USB_REQ_SET_INTERFACE;
         request->wValue = ecm->data_disable_itf->bAlternateSetting;
@@ -157,7 +156,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
     case ENUM_STAGE_SET_INTERFACE:
     {
         ecm->enum_stage = ENUM_STAGE_SET_ETHERNET_PACKET_FILTER;
-        usb_setup_t *request = &ecm->ctrl_setup;
+        usb_setup_t *request = &ecm->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = CDC_REQ_SET_ETHERNET_PACKET_FILTER;
         request->wValue = CDC_ECM_ETH_PACK_FILTER_BROADCAST | CDC_ECM_ETH_PACK_FILTER_DIRECTED |
@@ -183,7 +182,7 @@ static void ecm_enum_task(cdch_ecm_handle_t *ecm)
     {
         if (usbh_is_ctrl_xfering(ecm->dev)) return;
         ecm->enum_stage = ENUM_STAGE_GET_MAC_ADDR;
-        usb_setup_t *request = &ecm->ctrl_setup;
+        usb_setup_t *request = &ecm->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_DEVICE);
         request->bRequest = USB_REQ_GET_DESCRIPTOR;
         request->wValue = (USB_DESC_STRING << 8) | (ecm->ecm_desc->iMACAddress);
@@ -250,7 +249,7 @@ static void ecm_run_task(cdch_ecm_handle_t *ecm)
 {
     if (ecm->target_state != ecm->is_open && !usbh_is_ctrl_xfering(ecm->dev))
     {
-        usb_setup_t *request = &ecm->ctrl_setup;
+        usb_setup_t *request = &ecm->dev->ctrl_setup;
         const usb_desc_interface_t *target_itf = ecm->is_open ? ecm->data_disable_itf : ecm->data_enable_itf;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
         request->bRequest = USB_REQ_SET_INTERFACE;

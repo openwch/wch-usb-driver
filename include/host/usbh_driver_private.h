@@ -87,6 +87,12 @@ typedef enum
     USBH_TOGGLE_MDATA,
 } usbh_toggle_t;
 
+typedef enum
+{
+    USBH_ENDP_EVENT_STALL,
+    USBH_ENDP_EVENT_CLEAR_STALL,
+} usbh_endp_event_t;
+
 /* @function pointer */
 
 /**
@@ -138,6 +144,15 @@ typedef bool (*usbh_drv_unbind_cb)(usbh_device_t *dev, uint8_t itf_num);
  * @param dev USB host driver device handle
  */
 typedef void (*usbh_drv_dev_wakeup_cb)(usbh_device_t *dev);
+
+/**
+ * @brief USB endpoint event callback function
+ * 
+ * @param handle USB device class driver handle
+ * @param endp Endpoint number
+ * @param event Endpoint event type
+ */
+typedef void (*usbh_endp_event_cb)(void *handle, usb_endp_t endp, usbh_endp_event_t event);
 
 /* @typedef */
 typedef struct usbh_endpoint usbh_endpoint_t;
@@ -240,6 +255,7 @@ typedef struct usbh_endpoint
     void *xfer_cb;
     usbh_xfer_ctx_t xfer_ctx;
     usbh_xfer_unit_t xfer_unit;
+    usbh_endp_event_cb event_cb;
 } usbh_endpoint_t;
 
 typedef struct usbh_device
@@ -257,12 +273,17 @@ typedef struct usbh_device
     uint8_t enum_stage;
     uint8_t speed;
     uint8_t suspend_stage;
+    uint8_t stall_stage;
+    usb_endp_t stall_endp;
     uint16_t language_id;
     usbh_drv_dev_wakeup_cb wakeup_cb;
 
     /* Endpoint context */
     usbh_endpoint_t ctrl_endp;
     usbh_endpoint_t *data_endp[2][USB_MAX_ENDP_NUM - 1];
+
+    /* Control transfer setup packet */
+    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
 
     /* Device descriptor */
     __attribute__((aligned(4))) usb_desc_device_t dev_desc;
@@ -312,9 +333,6 @@ typedef struct usbh_handle
     uint32_t xfer_tick;
     usbh_xfer_unit_t *xfer_unit_list;
     usbh_endpoint_t *endpoint_list[4];
-
-    /* Enumeration descriptor buffer */
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
 
     /* USB host port operations */
     bool (*open)(usbh_handle_t *h);
@@ -414,6 +432,28 @@ bool usbh_endp_open(usbh_device_t *dev, void *handle, const usb_desc_endpoint_t 
  * @return Operation result
  */
 bool usbh_endp_close(usbh_device_t *dev, usb_endp_t endp);
+
+/**
+ * @brief Register an event callback for a USB endpoint
+ * 
+ * @param dev USB host driver device handle
+ * @param endp Endpoint number
+ * @param cb Callback function for handling endpoint events
+ * 
+ * @return Operation result
+ */
+bool usbh_endp_event_register(usbh_device_t *dev, usb_endp_t endp, usbh_endp_event_cb cb);
+
+/**
+ * @brief Stall a USB endpoint
+ * 
+ * @param dev USB host driver device handle
+ * @param endp Endpoint to stall
+ * @param stall true to stall the endpoint, false to clear the stall
+ * 
+ * @return Operation result
+ */
+bool usbh_endp_stall(usbh_device_t *dev, usb_endp_t endp, bool stall);
 
 /**
  * @brief Read data from a USB endpoint

@@ -102,7 +102,6 @@ typedef struct uach_handle
     uint8_t cur_stream;
     uint8_t stream_count;
     uach_stream_handle_t streams[UACH_MAX_STREAM_ITF_COUNT];
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) uint8_t ctrl_buf[4];
 } uach_handle_t;
 
@@ -148,7 +147,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
         uac->cur_stream++;
         if (uac->cur_stream < uac->stream_count)
         {
-            usb_setup_t *request = &uac->ctrl_setup;
+            usb_setup_t *request = &uac->dev->ctrl_setup;
             request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
             request->bRequest = USB_REQ_SET_INTERFACE;
             request->wValue = 0;
@@ -175,7 +174,7 @@ static void uac_enum_task(uach_handle_t *uac)
         if (usbh_is_ctrl_xfering(uac->dev)) return;
         uac->cur_stream = 0;
         uac->enum_stage = ENUM_STAGE_CLOSE_INTERFACE;
-        usb_setup_t *request = &uac->ctrl_setup;
+        usb_setup_t *request = &uac->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
         request->bRequest = USB_REQ_SET_INTERFACE;
         request->wValue = 0;
@@ -315,7 +314,7 @@ static void uac_run_task(uach_handle_t *uac)
     for (size_t i = 0; i < uac->stream_count; i++)
     {
         if (usbh_is_ctrl_xfering(uac->dev)) return;
-        usb_setup_t *request = &uac->ctrl_setup;
+        usb_setup_t *request = &uac->dev->ctrl_setup;
         uach_stream_handle_t *stream = &uac->streams[i];
 
         switch (stream->req_stage)

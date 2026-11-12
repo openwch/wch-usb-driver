@@ -114,7 +114,6 @@ typedef struct hidh_handle
     uint8_t enum_stage;
     uint8_t instance_count;
     hidh_instance_t *instances[HIDH_MAX_INSTANCE_COUNT];
-    __attribute__((aligned(4))) usb_setup_t ctrl_setup;
     __attribute__((aligned(4))) uint8_t get_report_buf[HIDH_GET_REPORT_BUF_SIZE];
     __attribute__((aligned(4))) uint8_t set_report_buf[HIDH_SET_REPORT_BUF_SIZE];
 } hidh_handle_t;
@@ -430,7 +429,7 @@ static void enum_ctrl_xfer_cb(void *handle, bool rst, const usb_setup_t *setup, 
                 if (hid->hid_desc->descriptor[i].wReportLength > sizeof(hid->report_desc_buf)) break;
 
                 /* Get only the first report descriptor */
-                usb_setup_t *request = &hid->ctrl_setup;
+                usb_setup_t *request = &hid->dev->ctrl_setup;
                 request->bmRequestType = USB_SET_REQ(USB_DIR_IN, USB_REQ_TYPE_STANDARD, USB_REQ_RCPT_INTERFACE);
                 request->bRequest = USB_REQ_GET_DESCRIPTOR;
                 request->wValue = hid->hid_desc->descriptor[i].bReportType << 8;
@@ -488,7 +487,7 @@ static void hid_enum_task(hidh_handle_t *hid)
     {
         if (usbh_is_ctrl_xfering(hid->dev)) return;
         hid->enum_stage = ENUM_STAGE_SET_IDLE;
-        usb_setup_t *request = &hid->ctrl_setup;
+        usb_setup_t *request = &hid->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = HID_REQ_SET_IDLE;
         request->wValue = 0;
@@ -747,7 +746,7 @@ bool hidh_set_report(hidh_handle_t *hid, hidh_instance_t *instance)
     }
     else
     {
-        usb_setup_t *request = &hid->ctrl_setup;
+        usb_setup_t *request = &hid->dev->ctrl_setup;
         request->bmRequestType = USB_SET_REQ(USB_DIR_OUT, USB_REQ_TYPE_CLASS, USB_REQ_RCPT_INTERFACE);
         request->bRequest = HID_REQ_SET_REPORT;
         request->wValue = (HID_REPORT_TYPE_OUTPUT << 8) | instance->report_id;

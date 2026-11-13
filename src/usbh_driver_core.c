@@ -1697,8 +1697,14 @@ bool usbh_is_endp_xfering(usbh_device_t *dev, usb_endp_t endp)
 {
     usbh_endpoint_t *ep = get_device_endpoint(dev, endp);
     if (!ep) return false;
-
     return ep->xfer_ctx.is_busy;
+}
+
+bool usbh_is_endp_stalled(usbh_device_t *dev, usb_endp_t endp)
+{
+    usbh_endpoint_t *ep = get_device_endpoint(dev, endp);
+    if (!ep) return false;
+    return ep->xfer_ctx.is_stalled;
 }
 
 uint32_t usbh_drv_get_timestamp(usbh_handle_t *h)

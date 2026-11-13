@@ -515,6 +515,15 @@ bool usbh_is_ctrl_xfering(usbh_device_t *dev);
 bool usbh_is_endp_xfering(usbh_device_t *dev, usb_endp_t endp);
 
 /**
+ * @brief Check if a USB endpoint is stalled
+ * 
+ * @param dev USB host driver device handle
+ * @param endp Endpoint to check
+ * @return true if the endpoint is stalled, false otherwise
+ */
+bool usbh_is_endp_stalled(usbh_device_t *dev, usb_endp_t endp);
+
+/**
  * @brief Get the current timestamp from the USB host driver
  * 
  * @param h USB host driver handle
